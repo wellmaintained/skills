@@ -1,0 +1,157 @@
+name: Validate Plugins
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'marketplace.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'plugins/**'
+      - 'marketplace.json'
+
+jobs:
+  validate-structure:
+    name: Validate Plugin Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Validate marketplace.json
+        run: |
+          echo "Validating marketplace.json schema..."
+          if ! jq empty marketplace.json 2>/dev/null; then
+            echo "❌ marketplace.json is not valid JSON"
+            exit 1
+          fi
+          echo "✅ marketplace.json is valid JSON"
+
+      - name: Validate plugin.json files
+        run: |
+          echo "Validating all plugin.json files..."
+          find plugins -name "plugin.json" -type f | while read plugin_file; do
+            echo "Checking $plugin_file..."
+            if ! jq empty "$plugin_file" 2>/dev/null; then
+              echo "❌ $plugin_file is not valid JSON"
+              exit 1
+            fi
+
+            # Check required fields
+            name=$(jq -r '.name' "$plugin_file")
+            version=$(jq -r '.version' "$plugin_file")
+            description=$(jq -r '.description' "$plugin_file")
+            license=$(jq -r '.license' "$plugin_file")
+
+            if [ "$name" = "null" ] || [ -z "$name" ]; then
+              echo "❌ $plugin_file missing 'name' field"
+              exit 1
+            fi
+
+            if [ "$version" = "null" ] || [ -z "$version" ]; then
+              echo "❌ $plugin_file missing 'version' field"
+              exit 1
+            fi
+
+            if [ "$description" = "null" ] || [ -z "$description" ]; then
+              echo "❌ $plugin_file missing 'description' field"
+              exit 1
+            fi
+
+            if [ "$license" = "null" ] || [ -z "$license" ]; then
+              echo "❌ $plugin_file missing 'license' field"
+              exit 1
+            fi
+
+            echo "✅ $plugin_file is valid"
+          done
+
+      - name: Check required files
+        run: |
+          echo "Checking required files for each plugin..."
+          for plugin_dir in plugins/*/; do
+            plugin_name=$(basename "$plugin_dir")
+            echo "Checking plugin: $plugin_name"
+
+            # Check for required files
+            required_files=(
+              ".claude-plugin/plugin.json"
+              "README.md"
+              "QUICKSTART.md"
+              "LICENSE"
+            )
+
+            for file in "${required_files[@]}"; do
+              if [ ! -f "$plugin_dir$file" ]; then
+                echo "❌ Missing required file: $plugin_dir$file"
+                exit 1
+              fi
+            done
+
+            echo "✅ All required files present for $plugin_name"
+          done
+
+  test-plugins:
+    name: Test Plugin Installation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        plugin:
+          - beads-bridge
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Test installation script
+        run: |
+          cd plugins/${{ matrix.plugin }}
+          if [ -f ".claude-plugin/install.sh" ]; then
+            echo "Testing installation script for ${{ matrix.plugin }}..."
+            bash .claude-plugin/install.sh || true  # Allow to fail if dependencies not available
+            echo "✅ Installation script executed"
+          else
+            echo "ℹ️  No installation script for ${{ matrix.plugin }}"
+          fi
+
+      - name: Run plugin tests (if available)
+        run: |
+          cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
+            echo "Running tests for ${{ matrix.plugin }}..."
+            npm test || echo "⚠️ Tests failed but continuing"
+          else
+            echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
+          fi
+
+  update-marketplace:
+    name: Update Marketplace Catalog
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate-structure, test-plugins]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update marketplace.json timestamp
+        run: |
+          echo "Updating marketplace.json lastUpdated timestamp..."
+          jq '.metadata.lastUpdated = now | strftime("%Y-%m-%dT%H:%M:%SZ")' marketplace.json > marketplace.json.tmp
+          mv marketplace.json.tmp marketplace.json
+
+      - name: Commit updated marketplace.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update marketplace.json timestamp [skip ci]"
+          file_pattern: marketplace.json

@@ -1,0 +1,54 @@
+{
+  "name": "wellmaintained",
+  "displayName": "Well Maintained Claude Plugins",
+  "description": "Well-maintained plugins for Claude Code",
+  "version": "1.0.0",
+  "maintainers": [
+    {
+      "name": "David Laing",
+      "email": "david@davidlaing.com",
+      "url": "https://github.com/mrdavidlaing"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wellmaintained/skills"
+  },
+  "homepage": "https://github.com/wellmaintained/skills",
+  "plugins": [
+    {
+      "name": "beads-bridge",
+      "version": "2.0.0",
+      "description": "Bridge Beads issue tracking with GitHub Projects and Shortcut for unified project visibility across multiple repositories",
+      "author": "David Laing <david@davidlaing.com>",
+      "license": "MIT",
+      "homepage": "https://github.com/wellmaintained/skills/tree/main/plugins/beads-bridge",
+      "installUrl": "https://github.com/wellmaintained/skills.git",
+      "directory": "plugins/beads-bridge",
+      "keywords": [
+        "beads",
+        "github",
+        "shortcut",
+        "project-management",
+        "issue-tracking",
+        "multi-repo",
+        "progress-tracking",
+        "mermaid",
+        "visualization"
+      ],
+      "requirements": {
+        "node": ">=18.0.0",
+        "bd": ">=0.21.3"
+      },
+      "categories": [
+        "Development",
+        "Project Management",
+        "Productivity"
+      ]
+    }
+  ],
+  "metadata": {
+    "lastUpdated": "2025-11-06T11:00:00Z",
+    "pluginCount": 1
+  }
+}

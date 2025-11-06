@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "backend": "github",
+  "github": {
+    "repository": "mrdavidlaing/pensive",
+    "projectId": "PVT_test"
+  },
+  "repositories": [
+    {
+      "name": "pensive",
+      "path": "/home/mrdavidlaing/workspace/pensive",
+      "prefix": "pensive"
+    }
+  ],
+  "mappingStoragePath": "/home/mrdavidlaing/workspace/pensive/.beads-bridge",
+  "logging": {
+    "level": "debug",
+    "outputs": {
+      "console": true,
+      "file": false
+    }
+  }
+}
