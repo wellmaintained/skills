@@ -90,3 +90,13 @@ export class GitHubError extends IntegrationError {
   }
 }
 
+/**
+ * Not supported error (operation not supported by backend)
+ */
+export class NotSupportedError extends Error {
+  constructor(operation: string) {
+    super(`Operation not supported: ${operation}`);
+    this.name = 'NotSupportedError';
+  }
+}
+

@@ -74,13 +74,14 @@ export class BeadsGitHubSkill {
 
     this.mappings = new MappingStore({ storagePath: config.mappingStoragePath });
 
+    this.mermaidGenerator = new MermaidGenerator(this.beads);
+
     this.progressSynthesizer = new ProgressSynthesizer(
       this.beads,
       this.backend,
-      this.mappings
+      this.mappings,
+      this.mermaidGenerator
     );
-
-    this.mermaidGenerator = new MermaidGenerator(this.beads);
 
     // DiagramPlacer takes 3 arguments: backend, generator, mappings
     this.diagramPlacer = new DiagramPlacer(
@@ -220,7 +221,10 @@ export class BeadsGitHubSkill {
     const result = await this.progressSynthesizer.updateIssueProgress(
       repository,
       issueNumber,
-      { includeBlockers }
+      {
+        includeBlockers,
+        includeDiagram: true  // Enable diagram by default
+      }
     );
 
     return {

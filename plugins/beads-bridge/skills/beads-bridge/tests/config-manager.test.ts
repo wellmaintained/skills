@@ -141,7 +141,7 @@ describe('ConfigManager', () => {
     it('should throw error if missing required fields', async () => {
       // load() calls validate(), which requires github.repository and repositories
       await expect(ConfigManager.load()).rejects.toThrow(
-        'GitHub repository is required when using GitHub backend'
+        'GitHub repository is required in github configuration'
       );
     });
   });

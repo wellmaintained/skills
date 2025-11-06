@@ -21,6 +21,7 @@ vi.mock('../../src/utils/bd-cli.js', () => {
     BdCli: vi.fn().mockImplementation(() => ({
       exec: vi.fn(),
       execJson: vi.fn(),
+      execTree: vi.fn(),
       getCwd: vi.fn()
     }))
   };
@@ -61,6 +62,7 @@ describe('BeadsClient', () => {
     mockBdCli = {
       exec: vi.fn(),
       execJson: vi.fn(),
+      execTree: vi.fn(),
       getCwd: vi.fn()
     };
 
@@ -199,7 +201,7 @@ describe('BeadsClient', () => {
 
       const issue = await client.getIssue('test-repo', 'test-123');
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['show', 'test-123']);
+      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--id', 'test-123']);
       expect(issue).toEqual(mockIssue);
     });
 
@@ -528,18 +530,31 @@ describe('BeadsClient', () => {
     });
 
     it('should calculate epic status with subtasks', async () => {
-      const epicWithSubtasks: BeadsIssue = {
-        ...mockIssue,
-        issue_type: 'epic',
-        dependents: [
-          { id: 'sub-1', status: 'closed' } as BeadsDependency,
-          { id: 'sub-2', status: 'in_progress' } as BeadsDependency,
-          { id: 'sub-3', status: 'open' } as BeadsDependency,
-          { id: 'sub-4', status: 'blocked' } as BeadsDependency
-        ]
-      };
+      // Mock tree output
+      const treeOutput = `→ test-123: Epic Issue
+  → sub-1: Closed Subtask
+  → sub-2: In Progress Subtask
+  → sub-3: Open Subtask
+  → sub-4: Blocked Subtask`;
 
-      mockBdCli.execJson.mockResolvedValue([epicWithSubtasks]);
+      mockBdCli.execTree.mockResolvedValue(treeOutput);
+
+      // Mock getIssue calls for parsing
+      mockBdCli.execJson.mockImplementation((args: string[]) => {
+        if (args.includes('sub-1')) {
+          return Promise.resolve([{ ...mockIssue, id: 'sub-1', status: 'closed' }]);
+        }
+        if (args.includes('sub-2')) {
+          return Promise.resolve([{ ...mockIssue, id: 'sub-2', status: 'in_progress' }]);
+        }
+        if (args.includes('sub-3')) {
+          return Promise.resolve([{ ...mockIssue, id: 'sub-3', status: 'open' }]);
+        }
+        if (args.includes('sub-4')) {
+          return Promise.resolve([{ ...mockIssue, id: 'sub-4', status: 'blocked' }]);
+        }
+        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+      });
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
 
@@ -552,13 +567,10 @@ describe('BeadsClient', () => {
     });
 
     it('should identify blockers in subtasks', async () => {
-      const epicWithSubtasks: BeadsIssue = {
-        ...mockIssue,
-        issue_type: 'epic',
-        dependents: [
-          { id: 'sub-1', status: 'in_progress' } as BeadsDependency
-        ]
-      };
+      const treeOutput = `→ test-123: Epic Issue
+  → sub-1: Subtask 1`;
+
+      mockBdCli.execTree.mockResolvedValue(treeOutput);
 
       const subtaskWithBlocker: BeadsIssue = {
         id: 'sub-1',
@@ -577,9 +589,12 @@ describe('BeadsClient', () => {
         dependents: []
       };
 
-      mockBdCli.execJson
-        .mockResolvedValueOnce([epicWithSubtasks])
-        .mockResolvedValueOnce([subtaskWithBlocker]);
+      mockBdCli.execJson.mockImplementation((args: string[]) => {
+        if (args.includes('sub-1')) {
+          return Promise.resolve([subtaskWithBlocker]);
+        }
+        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+      });
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
 
@@ -588,13 +603,10 @@ describe('BeadsClient', () => {
     });
 
     it('should identify discovered issues', async () => {
-      const epicWithSubtasks: BeadsIssue = {
-        ...mockIssue,
-        issue_type: 'epic',
-        dependents: [
-          { id: 'sub-1', status: 'open' } as BeadsDependency
-        ]
-      };
+      const treeOutput = `→ test-123: Epic Issue
+  → sub-1: Discovered Issue`;
+
+      mockBdCli.execTree.mockResolvedValue(treeOutput);
 
       const discoveredSubtask: BeadsIssue = {
         id: 'sub-1',
@@ -613,9 +625,12 @@ describe('BeadsClient', () => {
         dependents: []
       };
 
-      mockBdCli.execJson
-        .mockResolvedValueOnce([epicWithSubtasks])
-        .mockResolvedValueOnce([discoveredSubtask]);
+      mockBdCli.execJson.mockImplementation((args: string[]) => {
+        if (args.includes('sub-1')) {
+          return Promise.resolve([discoveredSubtask]);
+        }
+        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+      });
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
 
@@ -719,22 +734,24 @@ describe('BeadsClient', () => {
     });
 
     it('should get epic with subtasks', async () => {
-      const epic: BeadsIssue = {
-        ...mockIssue,
-        issue_type: 'epic',
-        dependents: [
-          { id: 'sub-1' } as BeadsDependency,
-          { id: 'sub-2' } as BeadsDependency
-        ]
-      };
+      const treeOutput = `→ test-123: Epic Issue
+  → sub-1: Subtask 1
+  → sub-2: Subtask 2`;
+
+      mockBdCli.execTree.mockResolvedValue(treeOutput);
 
       const subtask1: BeadsIssue = { ...mockIssue, id: 'sub-1', title: 'Subtask 1' };
       const subtask2: BeadsIssue = { ...mockIssue, id: 'sub-2', title: 'Subtask 2' };
 
-      mockBdCli.execJson
-        .mockResolvedValueOnce([epic])
-        .mockResolvedValueOnce([subtask1])
-        .mockResolvedValueOnce([subtask2]);
+      mockBdCli.execJson.mockImplementation((args: string[]) => {
+        if (args.includes('sub-1')) {
+          return Promise.resolve([subtask1]);
+        }
+        if (args.includes('sub-2')) {
+          return Promise.resolve([subtask2]);
+        }
+        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+      });
 
       const result = await client.getEpicWithSubtasks('test-repo', 'test-123');
 
@@ -745,21 +762,23 @@ describe('BeadsClient', () => {
     });
 
     it('should handle missing subtasks gracefully', async () => {
-      const epic: BeadsIssue = {
-        ...mockIssue,
-        issue_type: 'epic',
-        dependents: [
-          { id: 'sub-1' } as BeadsDependency,
-          { id: 'missing' } as BeadsDependency
-        ]
-      };
+      const treeOutput = `→ test-123: Epic Issue
+  → sub-1: Subtask 1
+  → missing: Missing Subtask`;
+
+      mockBdCli.execTree.mockResolvedValue(treeOutput);
 
       const subtask1: BeadsIssue = { ...mockIssue, id: 'sub-1' };
 
-      mockBdCli.execJson
-        .mockResolvedValueOnce([epic])
-        .mockResolvedValueOnce([subtask1])
-        .mockRejectedValueOnce(new Error('Not found'));
+      mockBdCli.execJson.mockImplementation((args: string[]) => {
+        if (args.includes('sub-1')) {
+          return Promise.resolve([subtask1]);
+        }
+        if (args.includes('missing')) {
+          return Promise.reject(new Error('Not found'));
+        }
+        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+      });
 
       const result = await client.getEpicWithSubtasks('test-repo', 'test-123');
 

@@ -924,7 +924,6 @@ describe('ShortcutBackend', () => {
 
     it('should handle stories with labels', async () => {
       mockClient.getStory.mockResolvedValue({
-        data: {
         id: 1,
         name: 'Story with labels',
         description: 'Body',
@@ -942,7 +941,6 @@ describe('ShortcutBackend', () => {
           { id: 1, name: 'bug', color: '#ff0000', description: 'Bug label' },
           { id: 2, name: 'urgent', color: '#ff9900' }
         ]
-        }
       });
 
       const story = await backend.getIssue('1');
@@ -955,7 +953,6 @@ describe('ShortcutBackend', () => {
 
     it('should handle stories with owners', async () => {
       mockClient.getStory.mockResolvedValue({
-        data: {
         id: 1,
         name: 'Story with owners',
         description: 'Body',
@@ -973,7 +970,6 @@ describe('ShortcutBackend', () => {
           { id: 'user-2', name: 'User Two', mention_name: 'user2' }
         ],
         labels: []
-        }
       });
 
       const story = await backend.getIssue('1');
@@ -1062,7 +1058,6 @@ describe('ShortcutBackend', () => {
 
     it('should handle story with metadata', async () => {
       mockClient.getStory.mockResolvedValue({
-        data: {
         id: 1,
         name: 'Story',
         description: 'Body',
@@ -1074,7 +1069,6 @@ describe('ShortcutBackend', () => {
         app_url: 'https://app.shortcut.com/test/story/1',
         owners: [],
         labels: []
-        }
       });
 
       const story = await backend.getIssue('1');

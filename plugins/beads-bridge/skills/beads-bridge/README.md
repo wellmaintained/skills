@@ -54,11 +54,38 @@ v2.0 uses native SDK clients (Octokit, @shortcut/client). No need to install `gh
 - Node.js >= 18.0.0
 - That's it!
 
+## Backends
+
+### GitHub Backend
+
+Syncs with GitHub Projects v2 using Octokit SDK.
+
+See [Configuration Guide](./docs/CONFIGURATION.md) for setup.
+
+### Shortcut Backend
+
+Syncs with Shortcut using native @shortcut/client SDK.
+
+See [Shortcut Backend Documentation](./docs/SHORTCUT_BACKEND.md) for details.
+
+### LiveWeb Backend
+
+Real-time local web dashboard for visualizing beads dependency graphs.
+
+```bash
+beads-bridge serve pensive-8e2d
+```
+
+Opens browser to `http://localhost:3000/issue/pensive-8e2d` with live-updating graph.
+
+See [LiveWeb Backend Documentation](docs/LIVEWEB_BACKEND.md) for details.
+
 ## Documentation
 
 - [Configuration Guide](./docs/CONFIGURATION.md) - Complete config schema and options
 - [Authentication Guide](./docs/AUTHENTICATION.md) - OAuth and token setup
 - [Shortcut Backend](./docs/SHORTCUT_BACKEND.md) - Shortcut-specific features
+- [LiveWeb Backend](./docs/LIVEWEB_BACKEND.md) - Real-time web dashboard
 - [Test Coverage Report](./docs/coverage-report.md) - Test coverage analysis and metrics
 
 ## Architecture

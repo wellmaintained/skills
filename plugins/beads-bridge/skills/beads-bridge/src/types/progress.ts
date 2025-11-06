@@ -82,6 +82,12 @@ export interface ProgressCommentOptions {
 
   /** Maximum number of items to show in lists */
   maxItemsToShow?: number;
+
+  /** Include Mermaid dependency diagram in comment */
+  includeDiagram?: boolean;
+
+  /** Pre-generated Mermaid diagram code (when includeDiagram is true) */
+  diagramMermaid?: string;
 }
 
 /**

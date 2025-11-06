@@ -11,6 +11,27 @@ import { BackendError, NotFoundError } from '../types/index.js';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Execute a bd command in the current working directory
+ * Simple wrapper for CLI commands that don't need repository context
+ */
+export async function execBdCommand(args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('bd', args, {
+      timeout: 30000,
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+    });
+    return stdout;
+  } catch (error: any) {
+    throw new BackendError(
+      `bd command failed: ${error.message}`,
+      'BD_CLI_ERROR',
+      undefined,
+      error
+    );
+  }
+}
+
 export interface BdCliOptions {
   /** Working directory (repository path) */
   cwd: string;

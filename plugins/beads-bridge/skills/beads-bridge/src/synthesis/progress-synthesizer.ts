@@ -8,6 +8,7 @@
 import type { BeadsClient } from '../clients/beads-client.js';
 import type { ProjectManagementBackend } from '../types/backend.js';
 import type { MappingStore } from '../store/mapping-store.js';
+import type { MermaidGenerator } from '../diagrams/mermaid-generator.js';
 import type {
   ProgressMetrics,
   EpicProgress,
@@ -25,7 +26,8 @@ export class ProgressSynthesizer {
   constructor(
     private readonly beads: BeadsClient,
     private readonly backend: ProjectManagementBackend,
-    private readonly mappings: MappingStore
+    private readonly mappings: MappingStore,
+    private readonly mermaid?: MermaidGenerator
   ) {}
 
   /**
@@ -123,10 +125,31 @@ export class ProgressSynthesizer {
       includeRepositoryBreakdown = true,
       includeBlockers = true,
       includeInProgress = false,
-      maxItemsToShow = 5
+      maxItemsToShow = 5,
+      includeDiagram = false,
+      diagramMermaid
     } = options;
 
     const lines: string[] = [];
+
+    // Diagram section (diagram-first structure per SKILL.md)
+    if (includeDiagram && diagramMermaid) {
+      lines.push('## 📸 Dependency Diagram');
+      lines.push('');
+      lines.push('```mermaid');
+      lines.push(diagramMermaid);
+      lines.push('```');
+      lines.push('');
+      lines.push('**Legend:**');
+      lines.push('- ☑ = Completed tasks');
+      lines.push('- 🔄 = In progress tasks');
+      lines.push('- ☐ = Open tasks');
+      lines.push('- Dotted lines = discovered/blocking relationships');
+      lines.push('- Orange borders = recently discovered work');
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    }
 
     // Header with overall progress
     lines.push('## Progress Update');
@@ -226,8 +249,28 @@ export class ProgressSynthesizer {
       // Get aggregated progress
       const progress = await this.getAggregatedProgress(repository, issueNumber);
 
-      // Generate comment
-      const commentBody = this.generateProgressComment(progress, commentOptions);
+      // Generate diagram if requested and MermaidGenerator is available
+      let diagramMermaid: string | undefined;
+      if (commentOptions.includeDiagram && this.mermaid && progress.epics.length > 0) {
+        try {
+          // Generate diagram for the first epic (primary epic)
+          const primaryEpic = progress.epics[0];
+          diagramMermaid = await this.mermaid.generate(
+            primaryEpic.repository,
+            primaryEpic.epicId,
+            { maxNodes: 50, includeLegend: false }
+          );
+        } catch (error) {
+          // Log error but continue without diagram
+          console.error('Failed to generate diagram:', error);
+        }
+      }
+
+      // Generate comment with diagram
+      const commentBody = this.generateProgressComment(progress, {
+        ...commentOptions,
+        diagramMermaid
+      });
 
       // Post comment to backend (GitHub or Shortcut)
       const issueId = this.backend.name === 'shortcut'

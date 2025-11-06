@@ -8,7 +8,8 @@
     "beads-bridge": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-frontend",
+    "copy-frontend": "rm -rf dist/frontend && mkdir -p dist/frontend && rsync -a src/frontend/ dist/frontend/",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -38,7 +39,9 @@
   },
   "dependencies": {
     "@shortcut/client": "^1.1.0",
+    "@types/express": "^4.17.21",
     "commander": "^14.0.2",
+    "express": "^4.18.2",
     "octokit": "^3.2.2",
     "zod": "^3.22.0"
   },

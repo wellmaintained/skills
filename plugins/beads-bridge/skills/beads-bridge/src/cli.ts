@@ -12,6 +12,7 @@ import type { SkillCapability, SkillContext } from './types/skill.js';
 import { CredentialStore } from './auth/credential-store.js';
 import { GitHubOAuth } from './auth/github-oauth.js';
 import { withAuth, getBackendFromConfig } from './cli/auth-wrapper.js';
+import { createServeCommand } from './cli/commands/serve.js';
 
 const program = new Command();
 
@@ -635,6 +636,12 @@ program
       await executeCapability('generate_diagrams', context, program.opts(), 'shortcut');
     });
   });
+
+// ============================================================================
+// Serve Command - Live Web Dashboard
+// ============================================================================
+
+program.addCommand(createServeCommand());
 
 // ============================================================================
 // Parse and Execute

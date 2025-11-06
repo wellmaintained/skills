@@ -191,15 +191,37 @@ Input: {
 }
 
 Output:
-Posts a comment with diagram-first structure:
+Posts a single comment with diagram-first structure:
 ```
 
 **Progress Comment Format:**
 
+The comment includes both diagram and progress sections in a single post:
+
 ```markdown
 ## 📸 Dependency Diagram
 
-[Mermaid flowchart showing current state with completion checkboxes]
+```mermaid
+graph TD
+  epic["pensive-8e2d: Meeting Transcriber"]:::epic
+  task1["pensive-8e2d.1: Design transcription API"]:::completed
+  task2["pensive-8e2d.2: Implement real-time capture"]:::in_progress
+  task3["pensive-8e2d.3: Add Slack integration"]:::open
+  task4["pensive-8e2d.4: Deploy to production"]:::open
+
+  epic --> task1
+  epic --> task2
+  epic --> task3
+  epic --> task4
+  task2 -.blocks.-> task3
+
+  classDef epic fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
+  classDef completed fill:#d4edda,stroke:#28a745,stroke-width:2px
+  classDef in_progress fill:#fff3cd,stroke:#ffc107,stroke-width:2px
+  classDef open fill:#f8f9fa,stroke:#6c757d,stroke-width:2px
+```
+
+**Legend:**
 - ☑ = Completed tasks
 - 🔄 = In progress tasks
 - ☐ = Open tasks
@@ -210,37 +232,42 @@ Posts a comment with diagram-first structure:
 
 ## Progress Update
 
-[Visual progress bar]
+███████████░░░░░░░░░ 55%
 
-**Overall:** X/Y tasks completed (Z%)
+**Overall:** 16/29 tasks completed (55%)
 
 ### Summary
-- ✅ Completed: X
-- 🔄 In Progress: Y
-- 🚧 Blocked: Z
-- 📝 Open: W
+- ✅ Completed: 16
+- 🔄 In Progress: 2
+- 🚧 Blocked: 1
+- 📝 Open: 10
 
 ### Recently Completed
-- ✅ task-1: Description
-- ✅ task-2: Description
+- ✅ pensive-8e2d.1: Design transcription API
+- ✅ pensive-8e2d.5: Create database schema
 
 ### In Progress
-- 🔄 task-3: Description
+- 🔄 pensive-8e2d.2: Implement real-time capture
 
-### Metrics (when available)
-- **Velocity:** X.Y tasks/day
-- **Estimated completion:** Date
-- **Risk level:** Low/Medium/High
+### Blockers
+- 🚧 pensive-8e2d.8: Deploy to production
+  - Blocked by: pensive-8e2d.7 (in_progress)
 
 ---
-*Last updated: Timestamp*
+*Last updated: 2025-11-06T14:32:15Z*
 ```
 
 **Why Diagram First:**
 - Visual context before numerical details
 - Enables quick scanning without scrolling
 - Shows relationships and dependencies immediately
-- PM sees "what" before "how much"
+- Stakeholders see "what" before "how much"
+
+**Implementation Details:**
+- Diagram generated using `bd dep tree --format mermaid --reverse`
+- Progress metrics aggregated from all linked Beads epics
+- Posted as single comment to GitHub/Shortcut
+- Both sections included by default (no separate diagram command needed)
 
 **Diagram Features:**
 - Uses `bd dep tree --format mermaid --reverse` for consistency
@@ -655,6 +682,18 @@ Check:
 1. GitHub token has write access to repository
 2. `gh` CLI is authenticated: `gh auth status`
 3. Issue exists and is accessible
+
+### Progress updates missing diagrams
+
+If diagrams don't appear in progress comments:
+
+1. **Check MermaidGenerator is wired:** Verify `ProgressSynthesizer` receives `MermaidGenerator` in constructor (see `skill.ts`)
+2. **Verify bd command works:** Run `bd dep tree --format mermaid --reverse <epic-id>` manually to ensure it generates valid Mermaid
+3. **Check for generation errors:** Look for console errors about diagram generation (failures are gracefully handled but logged)
+4. **Ensure epic has tasks:** Empty epics or epics without dependency trees produce no diagram
+5. **Verify includeDiagram flag:** Confirm `syncProgress` passes `includeDiagram: true` to `updateIssueProgress()`
+
+**Graceful degradation:** If diagram generation fails, the progress update will still post with metrics only (no diagram section). This is by design to prevent progress updates from failing entirely.
 
 ### Velocity metrics seem wrong
 
