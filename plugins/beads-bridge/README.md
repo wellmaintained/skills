@@ -36,6 +36,7 @@ Bridge [Beads](https://github.com/steveyegge/beads) issue tracking with GitHub P
 
 - **GitHub Projects v2** - Issues, Projects, dependency tracking
 - **Shortcut** - Stories, epics, workflows
+- **LiveWeb** - Real-time dashboard with interactive dependency graphs
 - **Jira** (planned) - Coming soon
 
 ---
@@ -207,6 +208,19 @@ beads-bridge discoveries --repository owner/repo --issue 123
 beads-bridge decompose --repository owner/repo --issue 456
 ```
 
+### Live Dashboard
+
+```bash
+# Start interactive dashboard with real-time updates
+beads-bridge serve --repository owner/repo --issue 123
+
+# Dashboard opens at http://localhost:3000 with:
+# - Interactive dependency graph with zoom/pan
+# - Real-time progress updates
+# - Task status visualization
+# - Blocker highlighting
+```
+
 ---
 
 ## Requirements
@@ -276,6 +290,7 @@ go install ./cmd/bd
 - **[Skill Documentation](./skills/beads-bridge/SKILL.md)** - Complete skill reference
 - **[Configuration Guide](./skills/beads-bridge/docs/CONFIGURATION.md)** - Config schema
 - **[Authentication Guide](./skills/beads-bridge/docs/AUTHENTICATION.md)** - OAuth setup
+- **[LiveWeb Backend](./skills/beads-bridge/docs/LIVEWEB_BACKEND.md)** - Dashboard setup
 - **[Test Coverage](./skills/beads-bridge/docs/coverage-report.md)** - Test metrics
 
 ---

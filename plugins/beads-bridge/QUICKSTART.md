@@ -174,6 +174,19 @@ beads-bridge diagram -r owner/repo -i 123
 beads-bridge diagram -r owner/repo -i 123 --placement description
 ```
 
+### Live Dashboard
+
+```bash
+# Start interactive dashboard with real-time updates
+beads-bridge serve -r owner/repo -i 123
+
+# Opens browser at http://localhost:3000 with:
+# - Interactive dependency graph (zoom/pan)
+# - Real-time progress updates
+# - Visual task status
+# - Blocker highlighting
+```
+
 ### Mappings
 
 ```bash
@@ -294,6 +307,7 @@ go install ./cmd/bd
 - **[Full Documentation](./README.md)** - Complete feature reference
 - **[Skill Guide](./skills/beads-bridge/SKILL.md)** - How Claude uses this skill
 - **[Configuration](./skills/beads-bridge/docs/CONFIGURATION.md)** - Advanced config options
+- **[LiveWeb Dashboard](./skills/beads-bridge/docs/LIVEWEB_BACKEND.md)** - Dashboard setup guide
 - **[GitHub Discussions](https://github.com/wellmaintained/skills/discussions)** - Ask questions
 
 ---
