@@ -2,7 +2,7 @@
   "name": "wellmaintained",
   "displayName": "Well Maintained Claude Plugins",
   "description": "Well-maintained plugins for Claude Code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "maintainers": [
     {
       "name": "David Laing",
