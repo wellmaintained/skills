@@ -14,6 +14,7 @@ import { ProgressSynthesizer } from './synthesis/progress-synthesizer.js';
 import { MermaidGenerator } from './diagrams/mermaid-generator.js';
 import { DiagramPlacer } from './diagrams/diagram-placer.js';
 import { EpicDecomposer } from './decomposition/epic-decomposer.js';
+import { ShortcutSyncOrchestrator } from './orchestration/shortcut-sync-orchestrator.js';
 import { ConfigManager } from './config/config-manager.js';
 import { Logger } from './monitoring/logger.js';
 import { CredentialStore, type Credentials } from './auth/credential-store.js';
@@ -35,6 +36,7 @@ export class BeadsSkill {
   private mermaidGenerator: MermaidGenerator;
   private diagramPlacer: DiagramPlacer;
   private epicDecomposer?: EpicDecomposer;
+  private shortcutSyncOrchestrator?: ShortcutSyncOrchestrator;
   private logger: Logger;
 
   constructor(configManager: ConfigManager, credentials?: Credentials) {
@@ -96,6 +98,16 @@ export class BeadsSkill {
         this.config,
         this.backend as GitHubBackend,
         this.beads,
+        this.mappings
+      );
+    }
+
+    // ShortcutSyncOrchestrator is only available for Shortcut backend
+    if (config.backend === 'shortcut') {
+      this.shortcutSyncOrchestrator = new ShortcutSyncOrchestrator(
+        this.beads,
+        this.backend as ShortcutBackend,
+        this.mermaidGenerator,
         this.mappings
       );
     }
@@ -206,7 +218,7 @@ export class BeadsSkill {
    * Sync progress capability
    */
   private async syncProgress(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, includeBlockers = true } = context;
+    const { repository, issueNumber, includeBlockers = true, userNarrative } = context;
 
     if (!repository || !issueNumber) {
       return {
@@ -218,6 +230,27 @@ export class BeadsSkill {
       };
     }
 
+    // Route to ShortcutSyncOrchestrator for Shortcut backend
+    if (this.backend.name === 'shortcut' && this.shortcutSyncOrchestrator) {
+      const syncResult = await this.shortcutSyncOrchestrator.syncStory(
+        issueNumber,
+        { userNarrative }
+      );
+
+      return {
+        success: syncResult.success,
+        data: syncResult.success ? {
+          commentUrl: syncResult.commentUrl,
+          fieldsUpdated: syncResult.fieldsUpdated
+        } : undefined,
+        error: syncResult.error ? {
+          code: 'SYNC_ERROR',
+          message: syncResult.error
+        } : undefined
+      };
+    }
+
+    // Fall back to ProgressSynthesizer for GitHub backend
     const result = await this.progressSynthesizer.updateIssueProgress(
       repository,
       issueNumber,

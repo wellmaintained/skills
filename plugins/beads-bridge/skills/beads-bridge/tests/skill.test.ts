@@ -20,6 +20,7 @@ vi.mock('../src/diagrams/mermaid-generator.js');
 vi.mock('../src/diagrams/diagram-placer.js');
 vi.mock('../src/discovery/scope-discovery-detector.js');
 vi.mock('../src/decomposition/epic-decomposer.js');
+vi.mock('../src/orchestration/shortcut-sync-orchestrator.js');
 vi.mock('../src/monitoring/logger.js');
 vi.mock('../src/auth/credential-store.js');
 
@@ -65,6 +66,41 @@ describe('BeadsSkill', () => {
     it('should initialize with config and credentials', () => {
       expect(skill).toBeDefined();
       expect(mockConfig.getConfig).toHaveBeenCalled();
+    });
+
+    it('should instantiate ShortcutSyncOrchestrator when backend is shortcut', () => {
+      // Create mock config with shortcut backend
+      const shortcutConfig = {
+        getConfig: vi.fn().mockReturnValue({
+          version: '2.0',
+          backend: 'shortcut',
+          repositories: [
+            {
+              name: 'test-beads',
+              path: '/path/to/beads',
+              prefix: 'TEST'
+            }
+          ],
+          mappingStoragePath: '/path/to/mappings',
+          logging: {
+            level: 'info'
+          }
+        })
+      } as any;
+
+      const credentials = {
+        shortcut: { token: 'test_token' }
+      };
+
+      const shortcutSkill = new BeadsSkill(shortcutConfig, credentials);
+
+      // Access private property for testing
+      expect((shortcutSkill as any).shortcutSyncOrchestrator).toBeDefined();
+    });
+
+    it('should not instantiate ShortcutSyncOrchestrator when backend is github', () => {
+      // Access private property for testing
+      expect((skill as any).shortcutSyncOrchestrator).toBeUndefined();
     });
   });
 
@@ -114,6 +150,149 @@ describe('BeadsSkill', () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should route to ShortcutSyncOrchestrator when backend is shortcut', async () => {
+      // Create mock config with shortcut backend
+      const shortcutConfig = {
+        getConfig: vi.fn().mockReturnValue({
+          version: '2.0',
+          backend: 'shortcut',
+          repositories: [
+            {
+              name: 'test-beads',
+              path: '/path/to/beads',
+              prefix: 'TEST'
+            }
+          ],
+          mappingStoragePath: '/path/to/mappings',
+          logging: {
+            level: 'info'
+          }
+        })
+      } as any;
+
+      const credentials = {
+        shortcut: { token: 'test_token' }
+      };
+
+      const shortcutSkill = new BeadsSkill(shortcutConfig, credentials);
+
+      // Mock the orchestrator's syncStory method
+      const mockSyncStory = vi.fn().mockResolvedValue({
+        success: true,
+        storyId: 123,
+        storyUrl: 'https://shortcut.com/story/123',
+        commentUrl: 'https://shortcut.com/story/123#comment-456',
+        syncedAt: '2025-11-10T12:00:00Z'
+      });
+      (shortcutSkill as any).shortcutSyncOrchestrator = {
+        syncStory: mockSyncStory
+      };
+
+      // Mock backend name property
+      (shortcutSkill as any).backend = { name: 'shortcut' };
+
+      const context: SkillContext = {
+        repository: 'shortcut',
+        issueNumber: 123,
+        userNarrative: 'Test narrative'
+      };
+
+      const result = await shortcutSkill.execute('sync_progress', context);
+
+      expect(mockSyncStory).toHaveBeenCalledWith(123, {
+        userNarrative: 'Test narrative'
+      });
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
+        commentUrl: 'https://shortcut.com/story/123#comment-456',
+        fieldsUpdated: undefined
+      });
+    });
+
+    it('should use ProgressSynthesizer for GitHub backend', async () => {
+      const context: SkillContext = {
+        repository: 'test/test',
+        issueNumber: 123
+      };
+
+      // Mock the progressSynthesizer's updateIssueProgress method
+      const mockUpdateIssueProgress = vi.fn().mockResolvedValue({
+        success: true,
+        commentUrl: 'https://github.com/test/test/issues/123#issuecomment-456'
+      });
+      (skill as any).progressSynthesizer = {
+        updateIssueProgress: mockUpdateIssueProgress
+      };
+
+      // Mock backend name property
+      (skill as any).backend = { name: 'github' };
+
+      const result = await skill.execute('sync_progress', context);
+
+      expect(mockUpdateIssueProgress).toHaveBeenCalledWith(
+        'test/test',
+        123,
+        {
+          includeBlockers: true,
+          includeDiagram: true
+        }
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should pass userNarrative to orchestrator', async () => {
+      // Create mock config with shortcut backend
+      const shortcutConfig = {
+        getConfig: vi.fn().mockReturnValue({
+          version: '2.0',
+          backend: 'shortcut',
+          repositories: [
+            {
+              name: 'test-beads',
+              path: '/path/to/beads',
+              prefix: 'TEST'
+            }
+          ],
+          mappingStoragePath: '/path/to/mappings',
+          logging: {
+            level: 'info'
+          }
+        })
+      } as any;
+
+      const credentials = {
+        shortcut: { token: 'test_token' }
+      };
+
+      const shortcutSkill = new BeadsSkill(shortcutConfig, credentials);
+
+      // Mock the orchestrator's syncStory method
+      const mockSyncStory = vi.fn().mockResolvedValue({
+        success: true,
+        storyId: 123,
+        storyUrl: 'https://shortcut.com/story/123',
+        syncedAt: '2025-11-10T12:00:00Z'
+      });
+      (shortcutSkill as any).shortcutSyncOrchestrator = {
+        syncStory: mockSyncStory
+      };
+
+      // Mock backend name property
+      (shortcutSkill as any).backend = { name: 'shortcut' };
+
+      const context: SkillContext = {
+        repository: 'shortcut',
+        issueNumber: 123,
+        userNarrative: 'My custom narrative for this update'
+      };
+
+      await shortcutSkill.execute('sync_progress', context);
+
+      expect(mockSyncStory).toHaveBeenCalledWith(123, {
+        userNarrative: 'My custom narrative for this update'
+      });
     });
   });
 
