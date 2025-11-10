@@ -237,6 +237,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Pull latest changes
+        run: git pull origin main
+
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
