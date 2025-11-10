@@ -1,6 +1,6 @@
 ---
-name: "Beads Bridge"
-description: "Bridge multi-repository Beads issue tracking with project management tools (GitHub Projects, Shortcut, etc.) for unified project visibility"
+name: "beads-bridge"
+description: "Use when tracking Beads epic status, syncing progress to GitHub/Shortcut, generating dependency diagrams, or monitoring multi-repo work. Bridges Beads issue tracking with project management tools."
 version: "2.0.0"
 author: "David Laing"
 category: ["Development", "Project Management"]

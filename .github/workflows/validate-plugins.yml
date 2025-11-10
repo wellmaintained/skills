@@ -101,6 +101,11 @@ jobs:
             echo "✅ All required files present for $plugin_name"
           done
 
+      - name: Check version consistency
+        run: |
+          echo "Checking version consistency across plugins..."
+          bash scripts/check-version-consistency.sh
+
   test-plugins:
     name: Test Plugin Installation
     runs-on: ubuntu-latest
@@ -128,13 +133,23 @@ jobs:
             echo "ℹ️  No installation script for ${{ matrix.plugin }}"
           fi
 
+      - name: Install dependencies and build
+        run: |
+          cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          if [ -f "package.json" ]; then
+            echo "Installing dependencies for ${{ matrix.plugin }}..."
+            npm install
+            echo "Building ${{ matrix.plugin }}..."
+            npm run build
+          fi
+
       - name: Run plugin tests (if available)
         run: |
           cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
           if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
             echo "Running tests for ${{ matrix.plugin }}..."
-            npm test || true  # Allow tests to fail in CI for now
-            echo "✅ Test execution completed"
+            npm test
+            echo "✅ Tests passed"
           else
             echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
           fi

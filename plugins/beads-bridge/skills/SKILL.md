@@ -1,5 +1,5 @@
 ---
-name: "Beads Bridge"
+name: "beads-bridge"
 description: "Bridge multi-repository Beads issue tracking with project management tools (GitHub Projects, Shortcut, etc.) for unified project visibility"
 version: "2.0.0"
 author: "David Laing"
