@@ -11,11 +11,23 @@ import type { MermaidOptions } from '../types/diagram.js';
 /**
  * Live dashboard colors - matches the colors used in src/frontend/dashboard.js
  * These provide consistent visual styling across all Mermaid diagrams
+ *
+ * Using Mermaid init directive format to ensure colors are applied before graph definition
  */
-const LIVE_DASHBOARD_COLORS = `  classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724;
-  classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085;
-  classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24;
-  classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41;`;
+const MERMAID_INIT_DIRECTIVE = `%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#d4edda',
+    'primaryTextColor': '#155724',
+    'primaryBorderColor': '#c3e6cb',
+    'secondaryColor': '#cce5ff',
+    'secondaryTextColor': '#004085',
+    'secondaryBorderColor': '#b8daff',
+    'tertiaryColor': '#f8d7da',
+    'tertiaryTextColor': '#721c24',
+    'tertiaryBorderColor': '#f5c6cb'
+  }
+}}%%`;
 
 /**
  * Default options for Mermaid diagram generation
@@ -65,9 +77,9 @@ export class MermaidGenerator {
     // Execute bd command to get Mermaid diagram
     const { stdout } = await bdCli.exec(args);
 
-    // Inject live dashboard colors into the diagram
+    // Prepend Mermaid init directive BEFORE diagram for colors to be applied
     const diagram = stdout.trim();
-    return `${diagram}\n\n${LIVE_DASHBOARD_COLORS}`;
+    return `${MERMAID_INIT_DIRECTIVE}\n${diagram}`;
   }
 
   /**

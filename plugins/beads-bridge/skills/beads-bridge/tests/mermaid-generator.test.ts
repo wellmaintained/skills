@@ -48,7 +48,7 @@ describe('MermaidGenerator', () => {
       expect(result).toContain(mockMermaidOutput);
     });
 
-    it('should include live dashboard colors in diagram output', async () => {
+    it('should include live dashboard colors via init directive', async () => {
       const mockMermaidOutput = `flowchart TD
   epic-1["☐ epic-1: Test Epic"]
   task-1["☑ task-1: Task 1"]
@@ -58,11 +58,32 @@ describe('MermaidGenerator', () => {
 
       const result = await generator.generate('test-repo', 'epic-1');
 
-      // Verify all four color definitions are present
-      expect(result).toContain('classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724');
-      expect(result).toContain('classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085');
-      expect(result).toContain('classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24');
-      expect(result).toContain('classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41');
+      // Verify init directive with theme variables is present
+      expect(result).toContain("%%{init: {");
+      expect(result).toContain("'theme': 'base'");
+      expect(result).toContain("'primaryColor': '#d4edda'");
+      expect(result).toContain("'secondaryColor': '#cce5ff'");
+      expect(result).toContain("'tertiaryColor': '#f8d7da'");
+    });
+
+    it('should position init directive BEFORE graph definition', async () => {
+      const mockMermaidOutput = `flowchart TD
+  epic-1["☐ epic-1: Test Epic"]
+  task-1["☑ task-1: Task 1"]
+  epic-1 --> task-1`;
+
+      mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
+
+      const result = await generator.generate('test-repo', 'epic-1');
+
+      // Find positions of init directive and flowchart
+      const initPos = result.indexOf('%%{init:');
+      const flowchartPos = result.indexOf('flowchart TD');
+
+      // Init directive must appear before flowchart
+      expect(initPos).toBeGreaterThanOrEqual(0);
+      expect(flowchartPos).toBeGreaterThan(0);
+      expect(initPos).toBeLessThan(flowchartPos);
     });
 
     it('should apply max depth when maxNodes is specified', async () => {
@@ -110,7 +131,7 @@ describe('MermaidGenerator', () => {
       expect(result.nodeCount).toBe(3); // epic-1, task-1, task-2
     });
 
-    it('should include live dashboard colors in generateFromTree output', async () => {
+    it('should include live dashboard colors via init directive in generateFromTree', async () => {
       const mockMermaidOutput = `flowchart TD
   epic-1["☐ epic-1: Test Epic"]
   task-1["☑ task-1: Task 1"]
@@ -120,11 +141,10 @@ describe('MermaidGenerator', () => {
 
       const result = await generator.generateFromTree('test-repo', 'epic-1');
 
-      // Verify all four color definitions are present
-      expect(result.mermaid).toContain('classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724');
-      expect(result.mermaid).toContain('classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085');
-      expect(result.mermaid).toContain('classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24');
-      expect(result.mermaid).toContain('classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41');
+      // Verify init directive with theme variables is present
+      expect(result.mermaid).toContain("%%{init: {");
+      expect(result.mermaid).toContain("'theme': 'base'");
+      expect(result.mermaid).toContain("'primaryColor': '#d4edda'");
     });
 
     it('should count nodes correctly with complex diagram', async () => {
