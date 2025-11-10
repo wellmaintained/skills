@@ -1,13 +1,13 @@
 // tests/skill.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { BeadsGitHubSkill, createSkill } from '../src/skill.js';
+import { BeadsSkill, createSkill } from '../src/skill.js';
 import { ConfigManager } from '../src/config/config-manager.js';
 import type { SkillContext } from '../src/types/skill.js';
 
 /**
  * Unit tests for skill orchestration
  *
- * Tests the BeadsGitHubSkill class and createSkill factory function
+ * Tests the BeadsSkill class and createSkill factory function
  */
 
 // Mock all dependencies
@@ -23,8 +23,8 @@ vi.mock('../src/decomposition/epic-decomposer.js');
 vi.mock('../src/monitoring/logger.js');
 vi.mock('../src/auth/credential-store.js');
 
-describe('BeadsGitHubSkill', () => {
-  let skill: BeadsGitHubSkill;
+describe('BeadsSkill', () => {
+  let skill: BeadsSkill;
   let mockConfig: ConfigManager;
 
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe('BeadsGitHubSkill', () => {
       github: { token: 'test_token', scopes: ['repo'] }
     };
 
-    skill = new BeadsGitHubSkill(mockConfig, credentials);
+    skill = new BeadsSkill(mockConfig, credentials);
   });
 
   afterEach(() => {
@@ -238,6 +238,6 @@ describe('createSkill()', () => {
     const skill = await createSkill();
 
     expect(skill).toBeDefined();
-    expect(skill).toBeInstanceOf(BeadsGitHubSkill);
+    expect(skill).toBeInstanceOf(BeadsSkill);
   });
 });

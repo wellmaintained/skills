@@ -1,8 +1,8 @@
 /**
  * Claude Skill Entrypoint
  *
- * Exposes Beads-GitHub integration functionality as a Claude Skill
- * with natural language interface.
+ * Exposes Beads integration functionality as a Claude Skill
+ * with natural language interface. Supports GitHub and Shortcut backends.
  */
 
 import { BeadsClient } from './clients/beads-client.js';
@@ -24,9 +24,9 @@ import type {
 } from './types/skill.js';
 
 /**
- * Claude Skill for Beads-GitHub Integration
+ * Claude Skill for Beads Integration (supports GitHub and Shortcut backends)
  */
-export class BeadsGitHubSkill {
+export class BeadsSkill {
   private config: ConfigManager;
   private beads: BeadsClient;
   private backend: ProjectManagementBackend;
@@ -520,7 +520,7 @@ export class BeadsGitHubSkill {
 export async function createSkill(
   configPath?: string,
   backendOverride?: 'github' | 'shortcut'
-): Promise<BeadsGitHubSkill> {
+): Promise<BeadsSkill> {
   const manager = await ConfigManager.load(configPath);
 
   // Load credentials from credential store
@@ -533,12 +533,12 @@ export async function createSkill(
     // Create a new ConfigManager with overridden backend
     const overriddenConfig = { ...config, backend: backendOverride };
     const overriddenManager = new ConfigManager(overriddenConfig);
-    const skill = new BeadsGitHubSkill(overriddenManager, credentials);
+    const skill = new BeadsSkill(overriddenManager, credentials);
     await skill['backend'].authenticate();
     return skill;
   }
 
-  const skill = new BeadsGitHubSkill(manager, credentials);
+  const skill = new BeadsSkill(manager, credentials);
 
   // Authenticate with backend
   await skill['backend'].authenticate();
