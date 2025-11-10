@@ -1,16 +1,19 @@
 name: Validate Plugins
 
 on:
+  workflow_dispatch:  # Allow manual triggering
   pull_request:
     paths:
       - 'plugins/**'
       - '.claude-plugin/marketplace.json'
+      - '.github/workflows/**'  # Also trigger on workflow changes
   push:
     branches:
       - main
     paths:
       - 'plugins/**'
       - '.claude-plugin/marketplace.json'
+      - '.github/workflows/**'  # Also trigger on workflow changes
 
 jobs:
   validate-structure:
