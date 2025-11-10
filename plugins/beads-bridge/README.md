@@ -2,7 +2,7 @@
 
 [![Test Coverage](https://img.shields.io/badge/coverage-81.75%25-yellow.svg)](./skills/beads-bridge/docs/coverage-report.md)
 [![Tests](https://img.shields.io/badge/tests-463%20passing-brightgreen.svg)](./skills/beads-bridge/docs/coverage-report.md)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 Bridge [Beads](https://github.com/steveyegge/beads) issue tracking with GitHub Projects and Shortcut for unified project visibility across multiple repositories.
 
