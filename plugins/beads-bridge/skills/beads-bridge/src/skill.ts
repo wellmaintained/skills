@@ -240,8 +240,9 @@ export class BeadsSkill {
       return {
         success: syncResult.success,
         data: syncResult.success ? {
+          storyUrl: syncResult.storyUrl,
           commentUrl: syncResult.commentUrl,
-          fieldsUpdated: syncResult.fieldsUpdated
+          syncedAt: syncResult.syncedAt
         } : undefined,
         error: syncResult.error ? {
           code: 'SYNC_ERROR',

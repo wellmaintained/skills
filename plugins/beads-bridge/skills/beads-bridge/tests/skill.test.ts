@@ -206,8 +206,9 @@ describe('BeadsSkill', () => {
       });
       expect(result.success).toBe(true);
       expect(result.data).toEqual({
+        storyUrl: 'https://shortcut.com/story/123',
         commentUrl: 'https://shortcut.com/story/123#comment-456',
-        fieldsUpdated: undefined
+        syncedAt: '2025-11-10T12:00:00Z'
       });
     });
 

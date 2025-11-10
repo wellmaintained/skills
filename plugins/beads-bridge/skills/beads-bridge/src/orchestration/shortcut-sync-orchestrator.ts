@@ -190,7 +190,7 @@ ${diagram}
 
     // Analyze all epics in the mapping
     for (const epicInfo of mapping.beadsEpics) {
-      const { epic, subtasks } = await this.beads.getEpicWithSubtasks(
+      const { subtasks } = await this.beads.getEpicWithSubtasks(
         epicInfo.repository,
         epicInfo.epicId
       );
