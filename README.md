@@ -88,10 +88,13 @@ This repository uses automated releases powered by [semantic-release](https://se
 - Releases happen automatically when you push to `main`
 - See [RELEASE.md](RELEASE.md) for detailed release process
 
-**Version bumps:**
-- `fix:` = patch release (1.0.0 → 1.0.1)
-- `feat:` = minor release (1.0.0 → 1.1.0)
-- `feat!:` or `BREAKING CHANGE:` = major release (1.0.0 → 2.0.0)
+**Version bump rules:**
+
+| Commit Type | Version Bump | Example |
+|-------------|--------------|---------|
+| `fix:` | Patch (1.0.0 → 1.0.1) | Bug fixes and corrections |
+| `feat:` | Minor (1.0.0 → 1.1.0) | New features and enhancements |
+| `feat!:` or `BREAKING CHANGE:` | Major (1.0.0 → 2.0.0) | Breaking changes |
 
 ---
 
