@@ -77,9 +77,57 @@ export class MermaidGenerator {
     // Execute bd command to get Mermaid diagram
     const { stdout } = await bdCli.exec(args);
 
+    // Post-process diagram to add status-based styling
+    const diagram = this.addStatusStyling(stdout.trim());
+
     // Prepend Mermaid init directive BEFORE diagram for colors to be applied
-    const diagram = stdout.trim();
     return `${MERMAID_INIT_DIRECTIVE}\n${diagram}`;
+  }
+
+  /**
+   * Add status-based styling to Mermaid nodes
+   * Parses status symbols and adds appropriate style directives
+   */
+  private addStatusStyling(diagram: string): string {
+    const lines = diagram.split('\n');
+    const nodeStyles: string[] = [];
+
+    // Parse node definitions to extract status and ID
+    for (const line of lines) {
+      const match = line.match(/^\s+(\w+-\w+)\["([☑◧☐⊗])/);
+      if (match) {
+        const [, nodeId, statusSymbol] = match;
+        const style = this.getStyleForStatus(statusSymbol);
+        if (style) {
+          nodeStyles.push(`  style ${nodeId} ${style}`);
+        }
+      }
+    }
+
+    // Add style directives at the end of the diagram
+    if (nodeStyles.length > 0) {
+      return diagram + '\n\n' + nodeStyles.join('\n');
+    }
+
+    return diagram;
+  }
+
+  /**
+   * Get Mermaid style string for a given status symbol
+   */
+  private getStyleForStatus(statusSymbol: string): string | null {
+    switch (statusSymbol) {
+      case '☑': // closed/completed
+        return 'fill:#d4edda,stroke:#c3e6cb,color:#155724';
+      case '◧': // in_progress
+        return 'fill:#cce5ff,stroke:#b8daff,color:#004085';
+      case '☐': // open/pending
+        return 'fill:#f8f9fa,stroke:#dee2e6,color:#495057';
+      case '⊗': // blocked
+        return 'fill:#f8d7da,stroke:#f5c6cb,color:#721c24';
+      default:
+        return null;
+    }
   }
 
   /**
