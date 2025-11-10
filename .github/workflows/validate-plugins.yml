@@ -4,13 +4,13 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
-      - 'marketplace.json'
+      - '.claude-plugin/marketplace.json'
   push:
     branches:
       - main
     paths:
       - 'plugins/**'
-      - 'marketplace.json'
+      - '.claude-plugin/marketplace.json'
 
 jobs:
   validate-structure:
@@ -28,11 +28,11 @@ jobs:
       - name: Validate marketplace.json
         run: |
           echo "Validating marketplace.json schema..."
-          if ! jq empty marketplace.json 2>/dev/null; then
-            echo "❌ marketplace.json is not valid JSON"
+          if ! jq empty .claude-plugin/marketplace.json 2>/dev/null; then
+            echo "❌ .claude-plugin/marketplace.json is not valid JSON"
             exit 1
           fi
-          echo "✅ marketplace.json is valid JSON"
+          echo "✅ .claude-plugin/marketplace.json is valid JSON"
 
       - name: Validate plugin.json files
         run: |
@@ -148,11 +148,11 @@ jobs:
       - name: Update marketplace.json timestamp
         run: |
           echo "Updating marketplace.json lastUpdated timestamp..."
-          jq '.metadata.lastUpdated = (now | todate)' marketplace.json > marketplace.json.tmp
-          mv marketplace.json.tmp marketplace.json
+          jq '.metadata.lastUpdated = (now | todate)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp
+          mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
 
       - name: Commit updated marketplace.json
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update marketplace.json timestamp [skip ci]"
-          file_pattern: marketplace.json
+          file_pattern: .claude-plugin/marketplace.json
