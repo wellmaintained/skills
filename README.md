@@ -4,6 +4,19 @@ Skills for Claude Code.
 
 ---
 
+## Available Skills
+
+See **[SKILLS.md](./SKILLS.md)** for a complete guide to all skills available in this marketplace, including:
+- When Claude automatically uses each skill
+- Example queries and use cases
+- Installation and setup instructions
+- Prerequisites and configuration requirements
+
+Quick preview of available skills:
+- **beads-bridge** - Track multi-repo work with GitHub/Shortcut integration
+
+---
+
 ## Available Plugins
 
 ### beads-bridge
