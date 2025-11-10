@@ -70,8 +70,9 @@ export class ShortcutSyncOrchestrator {
         body: updatedDescription
       });
 
-      // 6. Post narrative comment (stub for Task 6)
-      await this.backend.addComment(storyId.toString(), 'Progress update placeholder');
+      // 6. Generate and post narrative comment
+      const narrative = await this.generateNarrativeComment(mapping, options?.userNarrative);
+      await this.backend.addComment(storyId.toString(), narrative);
 
       return {
         success: true,
@@ -135,5 +136,111 @@ ${diagram}
 
 *Last updated: ${timestamp}*
 `;
+  }
+
+  /**
+   * Generate narrative comment from epic state
+   *
+   * @param mapping - The mapping containing epic information
+   * @param userNarrative - Optional user-provided narrative
+   * @returns Formatted comment with progress narrative
+   */
+  private async generateNarrativeComment(
+    mapping: any,
+    userNarrative?: string
+  ): Promise<string> {
+    // Generate narrative sections from epic state
+    const sections = await this.generateNarrativeSections(mapping);
+
+    // Build comment parts
+    const parts: string[] = ['## Progress Update', '', sections.summary];
+
+    // Add blockers section if any exist
+    if (sections.blockers.length > 0) {
+      parts.push('', '**Current Blockers:**');
+      parts.push(...sections.blockers.map(b => `- ${b}`));
+    }
+
+    // Add what's next section
+    if (sections.whatsNext.length > 0) {
+      parts.push('', "**What's Next:**");
+      parts.push(...sections.whatsNext.map(n => `- ${n}`));
+    }
+
+    // Append user narrative if provided
+    if (userNarrative) {
+      parts.push('', userNarrative);
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Generate narrative sections by analyzing epic state
+   *
+   * @param mapping - The mapping containing epic information
+   * @returns Narrative sections with summary, blockers, and next steps
+   */
+  private async generateNarrativeSections(mapping: any): Promise<NarrativeSections> {
+    let totalCompleted = 0;
+    let totalInProgress = 0;
+    let totalBlocked = 0;
+    let totalOpen = 0;
+    const allBlockers: Array<{ id: string; title: string; deps: string[] }> = [];
+
+    // Analyze all epics in the mapping
+    for (const epicInfo of mapping.beadsEpics) {
+      const { epic, subtasks } = await this.beads.getEpicWithSubtasks(
+        epicInfo.repository,
+        epicInfo.epicId
+      );
+
+      // Count by status
+      for (const task of subtasks) {
+        if (task.status === 'closed') {
+          totalCompleted++;
+        } else if (task.status === 'in_progress') {
+          totalInProgress++;
+        } else if (task.status === 'open') {
+          // Check if task has blocking dependencies
+          if (task.dependencies && task.dependencies.length > 0) {
+            totalBlocked++;
+            allBlockers.push({
+              id: task.id,
+              title: task.title,
+              deps: task.dependencies.map((d: any) => d.id)
+            });
+          } else {
+            totalOpen++;
+          }
+        }
+      }
+    }
+
+    // Generate summary
+    const taskWord = totalCompleted === 1 ? 'task' : 'tasks';
+    const summary = `Completed ${totalCompleted} ${taskWord}, ${totalInProgress} in progress, ${totalBlocked} blocked, ${totalOpen} open.`;
+
+    // Generate blockers list
+    const blockers = allBlockers.map(b =>
+      `${b.id}: ${b.title} (blocked by: ${b.deps.join(', ')})`
+    );
+
+    // Generate what's next list
+    const whatsNext: string[] = [];
+    if (totalInProgress > 0) {
+      const taskWord = totalInProgress === 1 ? 'task' : 'tasks';
+      whatsNext.push(`Continue ${totalInProgress} in-progress ${taskWord}`);
+    }
+    if (totalOpen > 0) {
+      const taskWord = totalOpen === 1 ? 'task' : 'tasks';
+      whatsNext.push(`Start ${totalOpen} open ${taskWord}`);
+    }
+
+    return {
+      summary,
+      blockers,
+      whatsNext
+    };
   }
 }
