@@ -1,6 +1,6 @@
 {
   "name": "beads-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude skill that bridges Beads issue tracking with project management tools (GitHub Projects, Shortcut, etc.)",
   "main": "dist/index.js",
   "type": "module",
