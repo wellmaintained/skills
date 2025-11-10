@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/wellmaintained/skills/compare/v1.0.1...v1.1.0) (2025-11-10)
+
+
+### Features
+
+* add CI workflow monitoring guide to release documentation ([a2fd332](https://github.com/wellmaintained/skills/commit/a2fd33268896d203eedaa6db796b83a374de5b3a))
+
 ## [1.0.1](https://github.com/wellmaintained/skills/compare/v1.0.0...v1.0.1) (2025-11-10)
 
 
