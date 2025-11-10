@@ -1,0 +1,21 @@
+{
+  "name": "wellmaintained-skills",
+  "version": "1.0.1",
+  "description": "Well-maintained plugins for Claude Code",
+  "private": true,
+  "scripts": {
+    "validate": "bash scripts/validate-schemas.sh",
+    "validate:marketplace": "ajv validate -s schemas/marketplace.schema.json -d .claude-plugin/marketplace.json --spec=draft7 --strict=false -c ajv-formats",
+    "validate:plugins": "find plugins -name 'plugin.json' -type f -exec ajv validate -s schemas/plugin.schema.json -d {} --spec=draft7 --strict=false -c ajv-formats \\;"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wellmaintained/skills.git"
+  },
+  "author": "David Laing <david@davidlaing.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "ajv-cli": "^5.0.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

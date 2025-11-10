@@ -34,6 +34,38 @@ Bridge Beads issue tracking with GitHub Projects and Shortcut for unified projec
 
 ---
 
+## Contributing
+
+### Schema Validation
+
+This repository uses JSON schemas to validate plugin configurations. Before submitting changes to `marketplace.json` or `plugin.json` files, validate them locally:
+
+```bash
+# Validate all schemas (recommended)
+npm run validate
+
+# Or validate individually
+npm run validate:marketplace
+npm run validate:plugins
+```
+
+See [schemas/README.md](./schemas/README.md) for detailed documentation on schema validation.
+
+### Pre-commit Hook (Optional)
+
+Set up automatic validation before commits:
+
+```bash
+cat > .git/hooks/pre-commit <<'EOF'
+#!/bin/bash
+exec bash scripts/validate-schemas.sh
+EOF
+
+chmod +x .git/hooks/pre-commit
+```
+
+---
+
 ## License
 
 Individual plugins are licensed under their respective licenses (see each plugin's LICENSE file).

@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/wellmaintained/skills/schemas/plugin.schema.json",
+  "title": "Claude Code Plugin Schema",
+  "description": "Schema for Claude Code plugin.json manifest files",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique plugin identifier (kebab-case, no spaces)",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief explanation of plugin purpose",
+      "minLength": 1
+    },
+    "author": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Author name or name with email (format: 'Name <email@example.com>')"
+        },
+        {
+          "type": "object",
+          "description": "Author information object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Author name",
+              "minLength": 1
+            },
+            "email": {
+              "type": "string",
+              "description": "Author email address",
+              "format": "email"
+            },
+            "url": {
+              "type": "string",
+              "description": "Author website or profile URL",
+              "format": "uri"
+            }
+          }
+        }
+      ]
+    },
+    "homepage": {
+      "type": "string",
+      "description": "Documentation URL",
+      "format": "uri"
+    },
+    "repository": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Source code URL",
+          "format": "uri"
+        },
+        {
+          "type": "object",
+          "description": "Repository information object",
+          "required": ["url"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Repository type",
+              "enum": ["git", "svn", "hg"]
+            },
+            "url": {
+              "type": "string",
+              "description": "Repository URL",
+              "format": "uri"
+            },
+            "directory": {
+              "type": "string",
+              "description": "Directory within repository where plugin resides"
+            }
+          }
+        }
+      ]
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX license identifier (e.g., MIT, Apache-2.0)",
+      "minLength": 1
+    },
+    "keywords": {
+      "type": "array",
+      "description": "Discovery tags",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "commands": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Additional command file or directory path (relative path)",
+          "pattern": "^(\\./|[^/])"
+        },
+        {
+          "type": "array",
+          "description": "Additional command file or directory paths (relative paths)",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\./|[^/])"
+          }
+        }
+      ]
+    },
+    "agents": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Additional agent file path (relative path)",
+          "pattern": "^(\\./|[^/])"
+        },
+        {
+          "type": "array",
+          "description": "Additional agent file paths (relative paths)",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\./|[^/])"
+          }
+        }
+      ]
+    },
+    "skills": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Custom path to skills directory (relative path)",
+          "pattern": "^(\\./|[^/])"
+        },
+        {
+          "type": "array",
+          "description": "Custom paths to skills directories (relative paths)",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\./|[^/])"
+          }
+        }
+      ]
+    },
+    "hooks": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Hook config path (relative, must start with ./)",
+          "pattern": "^\\."
+        },
+        {
+          "type": "object",
+          "description": "Inline hook configuration",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^(PreToolUse|PostToolUse|UserPromptSubmit|Notification|Stop|SubagentStop|SessionStart|SessionEnd|PreCompact)$": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "matcher": {
+                    "type": "string",
+                    "description": "Tool name regex pattern to match"
+                  },
+                  "hooks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["command", "validation", "notification"]
+                        },
+                        "command": {
+                          "type": "string",
+                          "description": "Command to execute (can use ${CLAUDE_PLUGIN_ROOT})"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Message to display"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "mcpServers": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "MCP config path (relative, must start with ./)",
+          "pattern": "^\\."
+        },
+        {
+          "type": "object",
+          "description": "Inline MCP server configurations",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["command"],
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Command to start MCP server (can use ${CLAUDE_PLUGIN_ROOT})"
+              },
+              "args": {
+                "type": "array",
+                "description": "Command arguments",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory (can use ${CLAUDE_PLUGIN_ROOT})"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "requirements": {
+      "type": "object",
+      "description": "Plugin requirements (versions, dependencies, etc.)",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "installation": {
+      "type": "object",
+      "description": "Installation configuration",
+      "additionalProperties": false,
+      "properties": {
+        "postInstall": {
+          "type": "string",
+          "description": "Post-installation script to run"
+        },
+        "preUninstall": {
+          "type": "string",
+          "description": "Pre-uninstall script to run"
+        }
+      }
+    }
+  }
+}

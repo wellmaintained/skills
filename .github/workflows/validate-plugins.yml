@@ -6,6 +6,7 @@ on:
     paths:
       - 'plugins/**'
       - '.claude-plugin/marketplace.json'
+      - 'schemas/**'  # Trigger on schema changes
       - '.github/workflows/**'  # Also trigger on workflow changes
   push:
     branches:
@@ -13,6 +14,7 @@ on:
     paths:
       - 'plugins/**'
       - '.claude-plugin/marketplace.json'
+      - 'schemas/**'  # Trigger on schema changes
       - '.github/workflows/**'  # Also trigger on workflow changes
 
 jobs:
@@ -28,52 +30,49 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Validate marketplace.json
+      - name: Install ajv-cli for schema validation
+        run: npm install -g ajv-cli ajv-formats
+
+      - name: Validate marketplace.json syntax
         run: |
-          echo "Validating marketplace.json schema..."
+          echo "Validating marketplace.json JSON syntax..."
           if ! jq empty .claude-plugin/marketplace.json 2>/dev/null; then
             echo "❌ .claude-plugin/marketplace.json is not valid JSON"
             exit 1
           fi
-          echo "✅ .claude-plugin/marketplace.json is valid JSON"
+          echo "✅ .claude-plugin/marketplace.json has valid JSON syntax"
 
-      - name: Validate plugin.json files
+      - name: Validate marketplace.json schema
         run: |
-          echo "Validating all plugin.json files..."
+          echo "Validating marketplace.json against schema..."
+          if ! ajv validate -s schemas/marketplace.schema.json -d .claude-plugin/marketplace.json --spec=draft7 --strict=false -c ajv-formats; then
+            echo "❌ .claude-plugin/marketplace.json does not conform to schema"
+            exit 1
+          fi
+          echo "✅ .claude-plugin/marketplace.json conforms to schema"
+
+      - name: Validate plugin.json files syntax
+        run: |
+          echo "Validating JSON syntax for all plugin.json files..."
           find plugins -name "plugin.json" -type f | while read plugin_file; do
-            echo "Checking $plugin_file..."
+            echo "Checking syntax: $plugin_file..."
             if ! jq empty "$plugin_file" 2>/dev/null; then
               echo "❌ $plugin_file is not valid JSON"
               exit 1
             fi
+            echo "✅ $plugin_file has valid JSON syntax"
+          done
 
-            # Check required fields
-            name=$(jq -r '.name' "$plugin_file")
-            version=$(jq -r '.version' "$plugin_file")
-            description=$(jq -r '.description' "$plugin_file")
-            license=$(jq -r '.license' "$plugin_file")
-
-            if [ "$name" = "null" ] || [ -z "$name" ]; then
-              echo "❌ $plugin_file missing 'name' field"
+      - name: Validate plugin.json files schema
+        run: |
+          echo "Validating all plugin.json files against schema..."
+          find plugins -name "plugin.json" -type f | while read plugin_file; do
+            echo "Validating schema: $plugin_file..."
+            if ! ajv validate -s schemas/plugin.schema.json -d "$plugin_file" --spec=draft7 --strict=false -c ajv-formats; then
+              echo "❌ $plugin_file does not conform to schema"
               exit 1
             fi
-
-            if [ "$version" = "null" ] || [ -z "$version" ]; then
-              echo "❌ $plugin_file missing 'version' field"
-              exit 1
-            fi
-
-            if [ "$description" = "null" ] || [ -z "$description" ]; then
-              echo "❌ $plugin_file missing 'description' field"
-              exit 1
-            fi
-
-            if [ "$license" = "null" ] || [ -z "$license" ]; then
-              echo "❌ $plugin_file missing 'license' field"
-              exit 1
-            fi
-
-            echo "✅ $plugin_file is valid"
+            echo "✅ $plugin_file conforms to schema"
           done
 
       - name: Check required files
