@@ -79,6 +79,22 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
+## Releases
+
+This repository uses automated releases powered by [semantic-release](https://semantic-release.gitbook.io/).
+
+**For contributors:**
+- Use [conventional commit messages](https://www.conventionalcommits.org/)
+- Releases happen automatically when you push to `main`
+- See [RELEASE.md](RELEASE.md) for detailed release process
+
+**Version bumps:**
+- `fix:` = patch release (1.0.0 → 1.0.1)
+- `feat:` = minor release (1.0.0 → 1.1.0)
+- `feat!:` or `BREAKING CHANGE:` = major release (1.0.0 → 2.0.0)
+
+---
+
 ## License
 
 Individual plugins are licensed under their respective licenses (see each plugin's LICENSE file).
