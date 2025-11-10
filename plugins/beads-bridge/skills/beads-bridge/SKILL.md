@@ -179,85 +179,26 @@ Output:
 }
 ```
 
-### 2. Sync Progress Updates (Shortcut)
+### 2. Sync Progress Updates
 
-When syncing progress to Shortcut stories:
+When syncing progress to GitHub/Shortcut:
 
 ```
-User: "Update progress for Shortcut story 89216"
+User: "Update progress for issue #123"
 
 Claude uses: sync_progress
 Input: {
-  repository: "shortcut",
-  issueNumber: 89216,
+  repository: "owner/repo",
+  issueNumber: 123,
   userNarrative: "Waiting for design review" // optional
 }
 ```
 
-**Output: Updates story description + posts narrative comment**
+**Shortcut Stories**: Updates story description with "Yak Map" section + posts narrative comment
 
-#### Yak Map Section (in story description)
+**GitHub Issues**: Posts progress comment with metrics and diagrams
 
-The diagram is placed in a "Yak Map" section using HTML comment markers:
-
-```markdown
-<!-- YAK_MAP_START -->
----
-## Yak Map
-
-```mermaid
-graph TD
-  epic["pensive-8e2d: Feature Name"]:::epic
-  task1["pensive-8e2d.1: Task A"]:::completed
-  task2["pensive-8e2d.2: Task B"]:::in_progress
-  task3["pensive-8e2d.3: Task C"]:::blocked
-
-  epic --> task1
-  epic --> task2
-  epic --> task3
-  task2 -.blocks.-> task3
-
-  classDef epic fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
-  classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724
-  classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085
-  classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24
-  classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41
-```
-
-*Last updated: 2025-11-10T14:32:15Z*
-<!-- YAK_MAP_END -->
-```
-
-#### Progress Comment
-
-Brief narrative-focused comment:
-
-```markdown
-## Progress Update
-
-Completed 3 tasks, 2 in progress, 1 blocked, 2 open.
-
-**Current Blockers:**
-- pensive-8e2d.3: Task C (blocked by: pensive-8e2d.2)
-
-**What's Next:**
-- Continue 2 in-progress tasks
-- Start 2 open tasks
-
-Waiting for design review before proceeding.
-```
-
-#### Key Features
-
-- **Diagram location**: Persistent "Yak Map" section in story description (updated in place)
-- **Diagram colors**: Match live dashboard for visual consistency
-- **Comments**: Narrative-only, no metrics/charts
-- **User context**: Optional user narrative can be appended
-- **Shortcut-specific**: Tailored for Shortcut's story format
-
-#### GitHub Issues
-
-GitHub issues continue to use the existing `ProgressSynthesizer` approach with metrics and diagrams in comments.
+See [CLI Reference](docs/CLI_REFERENCE.md) for complete command syntax.
 
 ### 3. Generate Standalone Diagram
 
@@ -298,14 +239,12 @@ Output:
       impact: {
         timelineImpact: 5,  // days
         criticalPath: true,
-        crossRepo: true  // Also affects backend
+        crossRepo: true
       }
     }
   ],
   totalCount: 4,
-  highPriority: 1,
-  mediumPriority: 2,
-  lowPriority: 1
+  highPriority: 1
 }
 ```
 
@@ -332,7 +271,7 @@ Output:
 }
 ```
 
-### 6. Decompose GitHub Issue into Beads Tasks
+### 6. Decompose Issue into Beads Tasks
 
 ```
 User: "Decompose GitHub issue #789 into Beads epics and tasks"
@@ -412,216 +351,25 @@ Output:
 }
 ```
 
-### 8. Shortcut Story Status Query
+## Command Reference
 
-```
-User: "What's the status of Shortcut story 89216?"
+For complete CLI command syntax and all available options, see:
+- **[CLI Reference](docs/CLI_REFERENCE.md)** - All commands, options, and output formats
 
-Claude runs: node dist/cli.js shortcut-status -s 89216
+Quick reference:
 
-Output:
-{
-  "success": true,
-  "data": {
-    "totalTasks": 12,
-    "completed": 5,
-    "inProgress": 3,
-    "blocked": 1,
-    "open": 3,
-    "percentComplete": 42,
-    "repositories": [
-      {
-        "name": "pensive",
-        "epicId": "pensive-8e2d",
-        "completed": 5,
-        "total": 12
-      }
-    ],
-    "blockers": [
-      {
-        "id": "pensive-6ac4.9",
-        "title": "Need API credentials from customer"
-      }
-    ]
-  }
-}
-```
-
-### 9. Create Shortcut Mapping
-
-```
-User: "Link Shortcut story 89216 to Beads epic pensive-8e2d"
-
-Claude runs:
-node dist/cli.js shortcut-mapping create \
-  -s 89216 \
-  -e '[{"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/absolute/path/to/pensive"}]'
-
-Output:
-{
-  "success": true,
-  "data": {
-    "mappingId": "1bd2b0b3-c938-4ff4-834e-500d0575689a",
-    "epicsLinked": 1
-  }
-}
-```
-
-## Implementation Architecture
-
-### Command Line Interface
-
-The skill provides the `beads-bridge` CLI for executing capabilities with both GitHub and Shortcut:
-
-#### GitHub Commands
-
+**GitHub:**
 ```bash
-# Query status
 beads-bridge status --repository owner/repo --issue 123
-
-# Query status with blockers
-beads-bridge status --repository owner/repo --issue 123 --blockers
-
-# Sync progress
 beads-bridge sync --repository owner/repo --issue 123
-
-# Generate diagram (in comment)
 beads-bridge diagram --repository owner/repo --issue 123
-
-# Generate diagram (in description)
-beads-bridge diagram --repository owner/repo --issue 123 --placement description
-
-# Detect discoveries
-beads-bridge discoveries --repository owner/repo --issue 123
-
-# Get existing mapping
-beads-bridge mapping get --repository owner/repo --issue 456
-
-# Create mapping
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 456 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e99","repositoryPath":"../frontend"},
-    {"repository":"backend","epicId":"backend-e42","repositoryPath":"../backend"}
-  ]'
-
-# Force sync all operations
-beads-bridge force-sync --repository owner/repo --issue 123
-
-# Force sync specific operations
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram
-
-# Decompose GitHub issue into Beads epics and tasks
-beads-bridge decompose --repository owner/repo --issue 789
-
-# Decompose without posting confirmation comment
-beads-bridge decompose --repository owner/repo --issue 789 --no-comment
-
-# Decompose with custom priority for created beads
-beads-bridge decompose --repository owner/repo --issue 789 --priority 1
-
-# Decompose and skip already completed tasks
-beads-bridge decompose --repository owner/repo --issue 789 --skip-completed
+beads-bridge mapping create -r owner/repo -i 123 -e '[...]'
 ```
 
-#### Shortcut Commands
-
+**Shortcut:**
 ```bash
-# Query status for Shortcut story
 beads-bridge shortcut-status --story 89216
-
-# Query status with blockers
-beads-bridge shortcut-status --story 89216 --blockers
-
-# Get existing mapping
-beads-bridge shortcut-mapping get --story 89216
-
-# Create mapping between Shortcut story and Beads epics
-beads-bridge shortcut-mapping create \
-  --story 89216 \
-  --epics '[
-    {"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/Users/you/workspace/pensive"}
-  ]'
-
-# Decompose Shortcut story into Beads epics and tasks
-beads-bridge shortcut-decompose --story 89216
-
-# Decompose without posting confirmation comment
-beads-bridge shortcut-decompose --story 89216 --no-comment
-
-# Decompose with custom priority for created beads
-beads-bridge shortcut-decompose --story 89216 --priority 1
-```
-
-**Global Options:**
-- `-c, --config <path>` - Path to config file (default: `config.yaml`)
-- `-h, --help` - Show help for any command
-- `-V, --version` - Show CLI version
-
-**Output Format:**
-
-All commands return JSON:
-
-**Success:**
-```json
-{
-  "success": true,
-  "data": { /* capability-specific data */ }
-}
-```
-
-**Error:**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable error message"
-  }
-}
-```
-
-Exit codes: `0` for success, `1` for failure.
-
-### Components
-
-1. **BeadsClient** - Reads issues/epics from git repositories using `bd` CLI
-2. **GitHubBackend** - Manages GitHub Issues and Projects v2 via `gh` CLI
-3. **MappingStore** - Persists GitHub↔Beads relationships in git-tracked JSON
-4. **ProgressSynthesizer** - Aggregates metrics across repositories
-5. **MermaidGenerator** - Creates dependency tree visualizations
-6. **DiagramPlacer** - Updates GitHub issue descriptions or comments
-7. **ScopeDiscoveryDetector** - Finds newly discovered work
-
-### Data Flow
-
-```
-query_status request
-  → Lookup mapping (GitHub #123 → Beads epics)
-  → For each epic:
-      → Get dependency tree from Beads
-      → Calculate metrics (completed/blocked/in-progress)
-  → Aggregate across all epics
-  → Return unified status
-```
-
-### Scheduling (Optional)
-
-The skill can be configured to run automatically:
-
-```yaml
-sync:
-  schedule:
-    enabled: true
-    cronExpression: "0 */2 * * *"  # Every 2 hours
-    workHours:
-      enabled: true
-      timezone: "America/Los_Angeles"
-      startHour: 9
-      endHour: 18
-      workHourInterval: 30      # 30 min during work hours
-      offHoursInterval: 240     # 4 hours off-hours
+beads-bridge shortcut-mapping create -s 89216 -e '[...]'
 ```
 
 ## Best Practices
@@ -645,131 +393,65 @@ sync:
 
 ## Troubleshooting
 
-### "No mapping found for repository#issue"
+For detailed troubleshooting, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 
-Create a mapping first:
-```
-manage_mappings with action: "create"
-```
+### Quick Fixes
 
-### "Permission denied when accessing repository"
+**"No mapping found"**: Create a mapping with `mapping create` command
 
-Ensure:
-1. Repository paths in config are correct
-2. You have read access to all Beads repositories
-3. `bd` CLI is installed and working
+**"Permission denied"**: Verify repository paths in config and ensure Beads is initialized
 
-### Diagrams not updating
+**Diagrams not updating**: Check GitHub token permissions with `gh auth status`
 
-Check:
-1. GitHub token has write access to repository
-2. `gh` CLI is authenticated: `gh auth status`
-3. Issue exists and is accessible
+**Discovery detection failing**: Ensure Beads CLI >= v0.21.3
 
-### Progress updates missing diagrams
+For more issues and solutions, see the [complete troubleshooting guide](docs/TROUBLESHOOTING.md).
 
-If diagrams don't appear in progress comments:
+## Installation & Requirements
 
-1. **Check MermaidGenerator is wired:** Verify `ProgressSynthesizer` receives `MermaidGenerator` in constructor (see `skill.ts`)
-2. **Verify bd command works:** Run `bd dep tree --format mermaid --reverse <epic-id>` manually to ensure it generates valid Mermaid
-3. **Check for generation errors:** Look for console errors about diagram generation (failures are gracefully handled but logged)
-4. **Ensure epic has tasks:** Empty epics or epics without dependency trees produce no diagram
-5. **Verify includeDiagram flag:** Confirm `syncProgress` passes `includeDiagram: true` to `updateIssueProgress()`
-
-**Graceful degradation:** If diagram generation fails, the progress update will still post with metrics only (no diagram section). This is by design to prevent progress updates from failing entirely.
-
-### Velocity metrics seem wrong
-
-Verify:
-1. Mapping includes all relevant Beads epics
-2. Epic dependency trees are complete
-3. Issue statuses are up to date in Beads
-
-## Installation
-
-### Prerequisites
-
-- Node.js >= 18.0.0
-- npm or pnpm
-- **No CLI tools required** (gh and short are no longer needed)
-
-### Installation
-
+**Quick Start:**
 ```bash
+# Global installation
 npm install -g beads-bridge
-```
 
-### Authentication
-
-**GitHub:**
-
-```bash
+# Authenticate
 beads-bridge auth github
-```
-
-Follow the prompts to authenticate via OAuth device flow.
-
-**Shortcut:**
-
-```bash
 beads-bridge auth shortcut
+
+# Initialize config
+beads-bridge init --repository owner/repo
 ```
 
-Enter your Shortcut API token when prompted.
+**Requirements:**
+- Node.js >= 18.0.0
+- Beads CLI (`bd`) >= v0.21.3
+- Git repositories with Beads initialized
 
-**Verify:**
-
-```bash
-beads-bridge auth status
-```
-
-### Configuration
-
-See [Configuration Guide](docs/CONFIGURATION.md) for config file setup.
+For complete installation instructions, authentication setup, and configuration details, see:
+- **[Installation Guide](docs/INSTALLATION.md)** - Full setup and configuration
 
 **For Claude (Automated Setup):**
 
-When Claude first uses this skill, it should automatically install and build the CLI:
+When Claude first uses this skill, it should automatically install and build:
 
 ```bash
-# Navigate to skill directory
 cd .claude/skills/beads-bridge
 
-# Check if already installed
 if [ ! -d "node_modules" ]; then
   echo "Installing beads-bridge skill dependencies..."
   pnpm install
   pnpm run build
 fi
 
-# Verify CLI is available
 pnpm exec beads-bridge --version
 ```
 
-## Requirements
+## Additional Documentation
 
-- **Node.js** >= 18.0.0
-- **Beads CLI** (`bd`) >= v0.21.3 installed and in PATH
-  - **Important**: v0.21.3+ required for scope discovery detection feature
-  - This version includes the `dependency_type` field in `bd show --json` output
-  - Earlier versions will cause discovery detection to fail
-- Git repositories with Beads tracking initialized (`.beads/` directory)
-- **For GitHub**: GitHub Projects v2 board (classic projects not supported)
-- **For Shortcut**: Shortcut workspace with configured workflow states
-
-**Authentication**: No CLI tools required. Use built-in OAuth:
-```bash
-beads-bridge auth github    # OAuth device flow
-beads-bridge auth shortcut  # API token
-```
-
-## Error Codes
-
-- `VALIDATION_ERROR` - Invalid input parameters
-- `NOT_FOUND` - Mapping or resource doesn't exist
-- `EXECUTION_ERROR` - Operation failed during execution
-- `AUTHENTICATION_ERROR` - Not authenticated with backend (run `beads-bridge auth`)
-- `RATE_LIMIT_ERROR` - API rate limit exceeded
+- **[Architecture](docs/ARCHITECTURE.md)** - Implementation details, components, and data flow
+- **[CLI Reference](docs/CLI_REFERENCE.md)** - Complete command syntax and options
+- **[Installation Guide](docs/INSTALLATION.md)** - Setup, authentication, and configuration
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## Performance
 
@@ -785,7 +467,7 @@ beads-bridge auth shortcut  # API token
 - OAuth tokens refreshable via `beads-bridge auth` commands
 - Location: `~/.config/beads-bridge/credentials.json` (encrypted)
 - Mapping data stored in git-tracked files (not secrets)
-- No external services or network calls except GitHub API
+- No external services or network calls except GitHub/Shortcut API
 
 ## Contributing
 
