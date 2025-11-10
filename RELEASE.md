@@ -119,6 +119,40 @@ Check that CI passed on main:
 3. Check the Releases page for new release
 4. Verify version updated in package.json files
 
+### Monitoring CI Workflow Progress
+
+The CI workflow runs three jobs sequentially. Here's what to watch for:
+
+**Job 1: validate-structure** (1-2 minutes)
+- Validates marketplace.json schema and structure
+- Checks plugin.json files for all plugins
+- Verifies version consistency across files
+- Validates naming conventions
+
+**Job 2: test-plugins** (2-3 minutes)
+- Runs test suite for each plugin
+- Must pass before release can proceed
+- Check for any test failures or errors
+
+**Job 3: release** (1-2 minutes, only on main)
+- Runs semantic-release to analyze commits
+- Calculates version bump based on commit types
+- Updates package.json and marketplace.json files
+- Generates/updates CHANGELOG.md
+- Creates git tag and GitHub release
+- Commits changes back to main
+
+**What to check in release job logs:**
+- "Analysis of X commits complete" - shows commits analyzed
+- "The next release version is X.Y.Z" - confirms version bump
+- "Published GitHub release vX.Y.Z" - release created successfully
+- Or "No release published" - no version-bumping commits found
+
+**Common workflow states:**
+- All green checkmarks ✅ - Everything worked, release created
+- Release job skipped - Normal on PRs or non-main branches
+- "No release published" - Normal when only docs/chore commits present
+
 ## Troubleshooting
 
 ### semantic-release Failed
