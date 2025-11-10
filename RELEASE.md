@@ -31,17 +31,23 @@ semantic-release determines version bumps from conventional commit messages:
 | `feat!:` or `BREAKING CHANGE:` | Major (1.0.0 → 2.0.0) | `feat!: restructure plugin directory layout` |
 | `docs:`, `chore:`, `refactor:`, `test:` | No release | Documentation and maintenance |
 
-### Development vs Production Versions
+### Release Versions
 
-**Development versions** (prerelease):
-- Created on every commit to main after tests pass
-- Format: `v2.1.0-dev.1`, `v2.1.0-dev.2`, etc.
-- Incremental counter for dev builds
+**Current behavior:**
+- Every qualifying commit to main creates a production release
+- Format: `v2.1.0` (clean semantic versions)
+- "Qualifying" means commits with types: `fix:`, `feat:`, or `BREAKING CHANGE:`
+- Non-qualifying commits (`docs:`, `chore:`, `refactor:`, `test:`) don't trigger releases
 
-**Production versions** (clean):
-- semantic-release promotes to production automatically when appropriate
-- Format: `v2.1.0` (no dev suffix)
-- Based on accumulated changes and commit types
+**Version determination:**
+- semantic-release analyzes all commits since the last release
+- Calculates the highest version bump needed:
+  - If any commit has `BREAKING CHANGE:` → major release (2.0.0 → 3.0.0)
+  - Else if any commit has `feat:` → minor release (2.0.0 → 2.1.0)
+  - Else if any commit has `fix:` → patch release (2.0.0 → 2.0.1)
+  - Else → no release
+
+**Note:** The current configuration creates only production releases. Development/prerelease versions (e.g., `v2.1.0-dev.1`) would require additional branch configuration in `.releaserc.json`.
 
 ## Conventional Commit Format
 
