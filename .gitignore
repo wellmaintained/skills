@@ -48,3 +48,4 @@ plugins/*/skills/*/coverage/
 # Credentials (should never be committed)
 **/credentials.json
 **/.beads-bridge/credentials.json
+# Test comment for verification
