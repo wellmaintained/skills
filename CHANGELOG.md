@@ -1,3 +1,11 @@
+## [1.0.1](https://github.com/wellmaintained/skills/compare/v1.0.0...v1.0.1) (2025-11-10)
+
+
+### Bug Fixes
+
+* improve badge clarity in plugin documentation ([bf0a5f7](https://github.com/wellmaintained/skills/commit/bf0a5f758f894ab8b56b1dd8bd17a28929d2be52))
+* improve clarity in release documentation ([8a7e2a8](https://github.com/wellmaintained/skills/commit/8a7e2a8ec18c2c0cc6f63f022f7b93d23940042e))
+
 # 1.0.0 (2025-11-10)
 
 
