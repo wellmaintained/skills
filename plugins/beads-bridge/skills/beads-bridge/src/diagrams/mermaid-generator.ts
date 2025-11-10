@@ -9,6 +9,15 @@ import type { BeadsClient } from '../clients/beads-client.js';
 import type { MermaidOptions } from '../types/diagram.js';
 
 /**
+ * Live dashboard colors - matches the colors used in src/frontend/dashboard.js
+ * These provide consistent visual styling across all Mermaid diagrams
+ */
+const LIVE_DASHBOARD_COLORS = `  classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724;
+  classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085;
+  classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24;
+  classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41;`;
+
+/**
  * Default options for Mermaid diagram generation
  */
 const DEFAULT_OPTIONS: Required<MermaidOptions> = {
@@ -56,7 +65,9 @@ export class MermaidGenerator {
     // Execute bd command to get Mermaid diagram
     const { stdout } = await bdCli.exec(args);
 
-    return stdout.trim();
+    // Inject live dashboard colors into the diagram
+    const diagram = stdout.trim();
+    return `${diagram}\n\n${LIVE_DASHBOARD_COLORS}`;
   }
 
   /**

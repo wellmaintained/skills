@@ -45,7 +45,24 @@ describe('MermaidGenerator', () => {
         'mermaid',
         '--reverse'
       ]);
-      expect(result).toBe(mockMermaidOutput);
+      expect(result).toContain(mockMermaidOutput);
+    });
+
+    it('should include live dashboard colors in diagram output', async () => {
+      const mockMermaidOutput = `flowchart TD
+  epic-1["☐ epic-1: Test Epic"]
+  task-1["☑ task-1: Task 1"]
+  epic-1 --> task-1`;
+
+      mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
+
+      const result = await generator.generate('test-repo', 'epic-1');
+
+      // Verify all four color definitions are present
+      expect(result).toContain('classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724');
+      expect(result).toContain('classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085');
+      expect(result).toContain('classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24');
+      expect(result).toContain('classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41');
     });
 
     it('should apply max depth when maxNodes is specified', async () => {
@@ -89,8 +106,25 @@ describe('MermaidGenerator', () => {
 
       const result = await generator.generateFromTree('test-repo', 'epic-1');
 
-      expect(result.mermaid).toBe(mockMermaidOutput);
+      expect(result.mermaid).toContain(mockMermaidOutput);
       expect(result.nodeCount).toBe(3); // epic-1, task-1, task-2
+    });
+
+    it('should include live dashboard colors in generateFromTree output', async () => {
+      const mockMermaidOutput = `flowchart TD
+  epic-1["☐ epic-1: Test Epic"]
+  task-1["☑ task-1: Task 1"]
+  epic-1 --> task-1`;
+
+      mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
+
+      const result = await generator.generateFromTree('test-repo', 'epic-1');
+
+      // Verify all four color definitions are present
+      expect(result.mermaid).toContain('classDef completed fill:#d4edda,stroke:#c3e6cb,color:#155724');
+      expect(result.mermaid).toContain('classDef in_progress fill:#cce5ff,stroke:#b8daff,color:#004085');
+      expect(result.mermaid).toContain('classDef blocked fill:#f8d7da,stroke:#f5c6cb,color:#721c24');
+      expect(result.mermaid).toContain('classDef default fill:#f8f9fa,stroke:#dee2e6,color:#383d41');
     });
 
     it('should count nodes correctly with complex diagram', async () => {
