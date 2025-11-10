@@ -11,7 +11,7 @@
     "build": "tsc && npm run copy-frontend",
     "copy-frontend": "rm -rf dist/frontend && mkdir -p dist/frontend && rsync -a src/frontend/ dist/frontend/",
     "dev": "tsc --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src tests --ext .ts",
