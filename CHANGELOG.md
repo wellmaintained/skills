@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/wellmaintained/skills/compare/v1.1.0...v1.1.1) (2025-11-12)
+
+
+### Bug Fixes
+
+* improve error reporting for invalid repository paths ([ca9a97e](https://github.com/wellmaintained/skills/commit/ca9a97e128a6a73b75fbefa2720b306434a0e564))
+
 # [1.1.0](https://github.com/wellmaintained/skills/compare/v1.0.1...v1.1.0) (2025-11-10)
 
 
