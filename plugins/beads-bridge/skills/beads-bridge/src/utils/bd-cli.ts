@@ -7,6 +7,7 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { existsSync } from 'node:fs';
 import { BackendError, NotFoundError } from '../types/index.js';
 
 const execFileAsync = promisify(execFile);
@@ -66,6 +67,14 @@ export class BdCli {
    * @throws {BackendError} for other errors
    */
   async exec(args: string[]): Promise<BdExecResult> {
+    // Validate that the working directory exists before attempting to execute
+    if (!existsSync(this.cwd)) {
+      throw new BackendError(
+        `Repository path does not exist: ${this.cwd}. Check your .beads-bridge/config.json`,
+        'INVALID_REPO_PATH'
+      );
+    }
+
     try {
       const { stdout, stderr } = await execFileAsync('bd', args, {
         timeout: this.timeout,
@@ -155,10 +164,26 @@ export class BdCli {
       );
     }
 
-    // bd not installed
+    // bd not installed or invalid working directory
     if (error.code === 'ENOENT' || message.includes('ENOENT')) {
+      // Check if the error is about the working directory not existing
+      if (error.path && error.syscall === 'spawn bd') {
+        return new BackendError(
+          `bd CLI not found. Please install Beads: https://github.com/steveyegge/beads`,
+          'BD_NOT_FOUND',
+          undefined,
+          error
+        );
+      } else if (error.syscall === 'chdir') {
+        return new BackendError(
+          `Invalid repository path: ${this.cwd}. Check your .beads-bridge/config.json`,
+          'INVALID_REPO_PATH',
+          undefined,
+          error
+        );
+      }
       return new BackendError(
-        'bd CLI not found. Please install Beads: https://github.com/steveyegge/beads',
+        `bd CLI not found or invalid path: ${this.cwd}. Check installation and config.`,
         'BD_NOT_FOUND',
         undefined,
         error
