@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/wellmaintained/skills/compare/v1.1.1...v1.1.2) (2025-11-13)
+
+
+### Bug Fixes
+
+* use relative path for monorepo plugin source ([6ee1b13](https://github.com/wellmaintained/skills/commit/6ee1b135f4b2a6b49a833061397f9f7bc33ac1a6))
+
 ## [1.1.1](https://github.com/wellmaintained/skills/compare/v1.1.0...v1.1.1) (2025-11-12)
 
 
