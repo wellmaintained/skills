@@ -2,22 +2,14 @@
   "name": "beads-bridge",
   "version": "2.0.0",
   "description": "Bridge Beads issue tracking with GitHub Projects and Shortcut for unified project visibility across multiple repositories",
-  "author": "David Laing <david@davidlaing.com>",
+  "author": {
+    "name": "David Laing",
+    "email": "david@davidlaing.com"
+  },
   "license": "MIT",
   "homepage": "https://github.com/wellmaintained/skills/tree/main/plugins/beads-bridge",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/wellmaintained/skills.git",
-    "directory": "plugins/beads-bridge"
-  },
-  "skills": ["skills/beads-bridge"],
-  "requirements": {
-    "node": ">=18.0.0",
-    "bd": ">=0.21.3"
-  },
-  "installation": {
-    "postInstall": "bash .claude-plugin/install.sh"
-  },
+  "repository": "https://github.com/wellmaintained/skills.git",
+  "skills": ["./skills/beads-bridge"],
   "keywords": [
     "beads",
     "github",
