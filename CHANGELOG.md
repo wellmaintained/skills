@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/wellmaintained/skills/compare/v1.1.2...v1.1.3) (2025-11-14)
+
+
+### Bug Fixes
+
+* **beads-bridge:** fix plugin.json validation errors ([e446653](https://github.com/wellmaintained/skills/commit/e446653eebc51eab62baef1c60b8c3a9599d23e1))
+
 ## [1.1.2](https://github.com/wellmaintained/skills/compare/v1.1.1...v1.1.2) (2025-11-13)
 
 
