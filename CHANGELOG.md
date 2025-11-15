@@ -1,3 +1,11 @@
+## [1.1.4](https://github.com/wellmaintained/skills/compare/v1.1.3...v1.1.4) (2025-11-15)
+
+
+### Bug Fixes
+
+* **beads-bridge:** update js-yaml to fix prototype pollution vulnerability ([149549a](https://github.com/wellmaintained/skills/commit/149549a5bbb9a78dfd96babb344ce2820c91232d))
+* **beads-bridge:** upgrade vitest to 4.x and fix esbuild vulnerabilities ([d41a4c6](https://github.com/wellmaintained/skills/commit/d41a4c6bf3a1a9842de4998a9c9b827fc331c579))
+
 ## [1.1.3](https://github.com/wellmaintained/skills/compare/v1.1.2...v1.1.3) (2025-11-14)
 
 
