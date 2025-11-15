@@ -25,9 +25,11 @@ describe('auth-wrapper', () => {
   describe('withAuth', () => {
     it('should execute operation when credentials exist', async () => {
       const mockHasCredentials = vi.fn().mockResolvedValue(true);
-      vi.mocked(CredentialStore).mockImplementation(() => ({
-        hasCredentials: mockHasCredentials,
-      } as any));
+      vi.mocked(CredentialStore).mockImplementation(function() {
+        return {
+          hasCredentials: mockHasCredentials,
+        } as any;
+      });
 
       const operation = vi.fn().mockResolvedValue(undefined);
 
@@ -40,9 +42,11 @@ describe('auth-wrapper', () => {
 
     it('should exit with error when credentials do not exist', async () => {
       const mockHasCredentials = vi.fn().mockResolvedValue(false);
-      vi.mocked(CredentialStore).mockImplementation(() => ({
-        hasCredentials: mockHasCredentials,
-      } as any));
+      vi.mocked(CredentialStore).mockImplementation(function() {
+        return {
+          hasCredentials: mockHasCredentials,
+        } as any;
+      });
 
       const operation = vi.fn();
 
@@ -57,9 +61,11 @@ describe('auth-wrapper', () => {
 
     it('should handle non-credential errors during operation', async () => {
       const mockHasCredentials = vi.fn().mockResolvedValue(true);
-      vi.mocked(CredentialStore).mockImplementation(() => ({
-        hasCredentials: mockHasCredentials,
-      } as any));
+      vi.mocked(CredentialStore).mockImplementation(function() {
+        return {
+          hasCredentials: mockHasCredentials,
+        } as any;
+      });
 
       const nonCredError = new Error('Network timeout');
       const operation = vi.fn().mockRejectedValue(nonCredError);
@@ -70,9 +76,11 @@ describe('auth-wrapper', () => {
 
     it('should provide helpful error for credential-related errors', async () => {
       const mockHasCredentials = vi.fn().mockResolvedValue(true);
-      vi.mocked(CredentialStore).mockImplementation(() => ({
-        hasCredentials: mockHasCredentials,
-      } as any));
+      vi.mocked(CredentialStore).mockImplementation(function() {
+        return {
+          hasCredentials: mockHasCredentials,
+        } as any;
+      });
 
       const credError = new Error('Failed to load credentials from store');
       const operation = vi.fn().mockRejectedValue(credError);
@@ -86,9 +94,11 @@ describe('auth-wrapper', () => {
 
     it('should work with different backend types', async () => {
       const mockHasCredentials = vi.fn().mockResolvedValue(true);
-      vi.mocked(CredentialStore).mockImplementation(() => ({
-        hasCredentials: mockHasCredentials,
-      } as any));
+      vi.mocked(CredentialStore).mockImplementation(function() {
+        return {
+          hasCredentials: mockHasCredentials,
+        } as any;
+      });
 
       const operation = vi.fn().mockResolvedValue(undefined);
 

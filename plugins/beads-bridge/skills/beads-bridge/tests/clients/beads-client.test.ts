@@ -18,12 +18,14 @@ import { NotFoundError, BackendError } from '../../src/types/index.js';
 // Mock the BdCli module
 vi.mock('../../src/utils/bd-cli.js', () => {
   return {
-    BdCli: vi.fn().mockImplementation(() => ({
-      exec: vi.fn(),
-      execJson: vi.fn(),
-      execTree: vi.fn(),
-      getCwd: vi.fn()
-    }))
+    BdCli: vi.fn().mockImplementation(function() {
+      return {
+        exec: vi.fn(),
+        execJson: vi.fn(),
+        execTree: vi.fn(),
+        getCwd: vi.fn()
+      };
+    })
   };
 });
 
@@ -66,7 +68,9 @@ describe('BeadsClient', () => {
       getCwd: vi.fn()
     };
 
-    (BdCli as any).mockImplementation(() => mockBdCli);
+    (BdCli as any).mockImplementation(function() {
+      return mockBdCli;
+    });
 
     client = new BeadsClient(mockConfig);
   });

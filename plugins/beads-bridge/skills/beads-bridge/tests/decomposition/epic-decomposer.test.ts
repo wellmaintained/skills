@@ -111,7 +111,9 @@ describe('EpicDecomposer', () => {
       getRepository: vi.fn(),
     };
 
-    (IssueParser as any).mockImplementation(() => mockParser);
+    (IssueParser as any).mockImplementation(function() {
+      return mockParser;
+    });
 
     decomposer = new EpicDecomposer(
       mockConfig,

@@ -26,7 +26,9 @@ describe('ShortcutBackend with ShortcutClient', () => {
     mockClient = {
       getCurrentMemberInfo: vi.fn()
     };
-    (ShortcutClient as any).mockImplementation(() => mockClient);
+    (ShortcutClient as any).mockImplementation(function() {
+      return mockClient;
+    });
   });
 
   it('should initialize with credentials', () => {
@@ -335,7 +337,9 @@ describe('ShortcutBackend', () => {
         listWorkflows: vi.fn(),
         createStoryComment: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token' }
@@ -468,7 +472,9 @@ describe('ShortcutBackend', () => {
         createStoryComment: vi.fn(),
         getStory: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token' }
@@ -575,7 +581,9 @@ describe('ShortcutBackend', () => {
         updateStory: vi.fn(),
         listStories: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token' }
@@ -684,7 +692,9 @@ describe('ShortcutBackend', () => {
         updateStory: vi.fn(),
         listStories: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token' }
@@ -756,7 +766,9 @@ describe('ShortcutBackend', () => {
         searchStories: vi.fn(),
         createStoryComment: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token_123' }
@@ -1094,7 +1106,9 @@ describe('ShortcutBackend', () => {
         getStory: vi.fn(),
         updateStory: vi.fn()
       };
-      (ShortcutClient as any).mockImplementation(() => mockClient);
+      (ShortcutClient as any).mockImplementation(function() {
+        return mockClient;
+      });
 
       const credentials = {
         shortcut: { token: 'test_token_123' }

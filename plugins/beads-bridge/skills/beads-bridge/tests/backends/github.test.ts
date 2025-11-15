@@ -26,7 +26,9 @@ describe('GitHubBackend with Octokit', () => {
       },
       graphql: vi.fn()
     };
-    (Octokit as any).mockImplementation(() => mockOctokit);
+    (Octokit as any).mockImplementation(function() {
+      return mockOctokit;
+    });
   });
 
   it('should initialize with credentials', async () => {
