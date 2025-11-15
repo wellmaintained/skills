@@ -2,7 +2,31 @@
 
 ## For Agents Working in a Fresh Worktree
 
-This repo has its own beads issue tracker. **No environment variables needed!**
+This repo has its own beads issue tracker, but **worktrees must share the database** to coordinate properly.
+
+### IMPORTANT: Set Up Shared Database First
+
+**ALWAYS run this first** in any worktree:
+
+```bash
+export BEADS_DB="/home/mrdavidlaing/baljeet-workspace/pensive/workspace/wellmaintained-skills/.beads/beads.db"
+export BD_ACTOR="agent-$(whoami)-$$"  # Unique ID for tracking
+```
+
+**Why?** Git worktrees don't share the `.beads/` folder. Without these env vars:
+- ❌ You'll initialize a separate database (bad!)
+- ❌ You won't see other agents' work
+- ❌ You might claim the same task as another agent
+
+**With env vars:**
+- ✅ All agents share one database
+- ✅ You see task status in real-time
+- ✅ No duplicate work
+
+**Verify it worked:**
+```bash
+bd info  # Should show the shared database path
+```
 
 ### Step 1: See What's Available
 
@@ -28,12 +52,25 @@ Risk levels:
 - **Medium risk**: octokit, @shortcut/client - Good starting points
 - **HIGH risk**: express - Requires extra care
 
-### Step 3: Claim It
+### Step 3: Claim It (IMPORTANT: Race Condition Prevention!)
+
+**Before claiming, verify it's still available:**
 
 ```bash
+# Double-check the task is still open
+bd show <bead-id> --json | grep '"status"'
+
+# If it shows "open", claim it IMMEDIATELY:
 bd update <bead-id> --status in_progress
-bd comment <bead-id> "Starting work. Will post updates as I progress."
+bd comment <bead-id> "Agent ${BD_ACTOR} starting work. Will post updates as I progress."
 ```
+
+**Why this matters:** Multiple agents might be running `bd ready` at the same time. Always:
+1. Check status right before claiming
+2. Claim immediately (don't wait)
+3. Identify yourself in the first comment (use $BD_ACTOR)
+
+If another agent claimed it first, you'll see `status: in_progress` - pick a different task!
 
 ### Step 4: Read Task Details
 

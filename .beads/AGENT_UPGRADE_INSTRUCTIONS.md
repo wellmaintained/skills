@@ -7,13 +7,23 @@
 **Risk**: Medium - Runtime dependency for GitHub integration
 **Impact**: GitHub backend functionality
 
-## Environment Setup
+## Environment Setup - CRITICAL
 
-You're working in the wellmaintained-skills repo which has its **own local beads database**. No environment variables needed!
+**ALWAYS set these first** when working in a worktree:
+
+```bash
+export BEADS_DB="/home/mrdavidlaing/baljeet-workspace/pensive/workspace/wellmaintained-skills/.beads/beads.db"
+export BD_ACTOR="agent-$(whoami)-$$"
+```
+
+**Why?** Git worktrees don't share the `.beads/` folder. Without these:
+- ❌ You'll create a duplicate database
+- ❌ Other agents won't see your work
+- ❌ You might claim tasks already taken
 
 Verify the connection works:
 ```bash
-bd info
+bd info  # Should show: /home/.../wellmaintained-skills/.beads/beads.db
 bd show wms-8ux
 ```
 

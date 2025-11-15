@@ -83,9 +83,22 @@ Beads includes:
 
 These are configured automatically during `bd init`.
 
-## No Environment Variables Needed!
+## Environment Variables Required for Worktrees
 
-Because this repo has its own local beads database, agents working here don't need to set `BEADS_DB` or `BD_ACTOR` environment variables. Just clone/checkout and start using `bd` commands.
+**IMPORTANT:** Git worktrees don't share the `.beads/` folder. To coordinate properly, all agents must point to the shared database:
+
+```bash
+export BEADS_DB="/home/mrdavidlaing/baljeet-workspace/pensive/workspace/wellmaintained-skills/.beads/beads.db"
+export BD_ACTOR="agent-$(whoami)-$$"
+```
+
+**Why this is needed:**
+- Worktrees have separate working directories
+- Without shared DB, agents initialize separate databases
+- Multiple agents would claim the same tasks (race condition)
+- Changes wouldn't be visible across agents
+
+**If working in the main repo directory** (not a worktree), these env vars are optional but recommended for consistency.
 
 ## Learn More
 

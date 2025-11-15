@@ -12,13 +12,20 @@ bd list --label dependencies --status open
 # - wms-1xb: Upgrade express from 4.21.2 to 5.1.0 (HIGH risk)
 ```
 
-## Environment Setup
+## Environment Setup - REQUIRED
 
-**Good news!** This repo has its own local beads database at `.beads/beads.db`. **No environment variables needed!**
+**ALWAYS set these environment variables first:**
+
+```bash
+export BEADS_DB="/home/mrdavidlaing/baljeet-workspace/pensive/workspace/wellmaintained-skills/.beads/beads.db"
+export BD_ACTOR="agent-$(whoami)-$$"
+```
+
+**Why required?** Git worktrees don't share the `.beads/` folder. These env vars ensure all agents coordinate through the same shared database.
 
 Verify connection:
 ```bash
-bd info
+bd info  # Should show the shared database path above
 bd show <bead-id>  # e.g., wms-8ux
 ```
 
