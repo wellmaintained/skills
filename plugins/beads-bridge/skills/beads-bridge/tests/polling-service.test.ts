@@ -11,7 +11,7 @@ describe('PollingService', () => {
   });
 
   it('should call onUpdate when hash changes', async () => {
-    let diagrams = ['diagram1', 'diagram1', 'diagram2'];
+    const diagrams = ['diagram1', 'diagram1', 'diagram2'];
     let callCount = 0;
 
     const fetchDiagram = vi.fn(async () => diagrams[callCount++]);

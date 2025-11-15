@@ -427,7 +427,7 @@ program
       }
 
       // Prompt for repository if not provided
-      let repository = options.repository;
+      const repository = options.repository;
       if (!repository) {
         console.log('\nNo repository specified. Please provide:');
         console.log('  beads-bridge init -r owner/repo');

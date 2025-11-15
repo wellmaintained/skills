@@ -24,7 +24,7 @@ export function migrateConfig(v1Config: any): Config {
 
   // Remove CLI-specific options from GitHub config
   if (v2Config.github?.cliPath) {
-    const { cliPath, ...githubConfigWithoutCli } = v2Config.github;
+    const { cliPath: _cliPath, ...githubConfigWithoutCli } = v2Config.github;
     v2Config.github = githubConfigWithoutCli;
   }
 
