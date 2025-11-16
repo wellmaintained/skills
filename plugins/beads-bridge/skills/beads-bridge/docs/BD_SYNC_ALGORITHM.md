@@ -1,184 +1,263 @@
-# Understanding `bd sync` and Change Detection
+# BD Sync Algorithm - Correct Approach for POC A
 
-## 1. How `bd sync` Works
+## Problem with Original Algorithm
 
-`bd sync` synchronizes beads issue state between your local SQLite database and the git-backed JSONL files on a sync branch (in our case, `beads-metadata`).
-
-### The Sync Process
+The initial algorithm documentation suggested using:
 
 ```bash
-bd sync
-```
-
-**What happens:**
-
-1. **Export**: Flush any pending database changes to `.beads/issues.jsonl` (local working directory)
-2. **Commit**: Commit the JSONL changes to the `beads-metadata` branch (via worktree at `.git/beads-worktrees/beads-metadata/`)
-3. **Pull**: Pull latest changes from `origin/beads-metadata`
-4. **Import**: Import any remote changes back into the local database
-5. **Push**: Push the merged state back to `origin/beads-metadata`
-
-**Key insight:** After `bd sync` completes, the `beads-metadata` branch contains the authoritative state of all beads issues in JSONL format.
-
-### Sync Branch Worktree
-
-When you configure `bd config set sync.branch beads-metadata`, beads creates a git worktree at:
-
-```
-.git/beads-worktrees/beads-metadata/
-```
-
-This worktree is always checked out to the `beads-metadata` branch. When bd sync commits, it commits to this worktree, keeping `.beads/` changes out of your feature branches.
-
-## 2. Detecting Which Beads Changed
-
-After running `bd sync`, we can detect changed beads by comparing the current `beads-metadata` state with what it was before the sync.
-
-### Using Git Diff
-
-```bash
-# Compare local beads-metadata with remote origin/beads-metadata
 git diff origin/beads-metadata beads-metadata -- .beads/issues.jsonl
 ```
 
-**What this shows:**
+**Issue:** After `bd sync` completes, it pushes changes to `origin/beads-metadata`, so local and remote are already in sync. The diff would show nothing!
 
-- **Added lines** (+): New issues created, or existing issues updated
-- **Removed lines** (-): Old versions of updated issues (beads JSONL is append-only, so updates add new records)
+## The Correct Approach
 
-### Parsing the Diff
+We already have the infrastructure to do this correctly:
 
-Each line in `.beads/issues.jsonl` is a complete JSON object representing one issue state:
+1. **Use `bd dep tree --format mermaid`** - Beads has built-in Mermaid generation
+2. **Use existing MermaidGenerator** - `src/diagrams/mermaid-generator.ts`
+3. **Use existing DiagramPlacer** - `src/diagrams/diagram-placer.ts`
+4. **Run BEFORE bd sync pushes** - Capture changes before they're synced
 
-```json
-{"id":"wms-zyj","content_hash":"d8c4...","title":"Feature: POC A","status":"closed",...}
-```
+## How It Should Work
 
-**Algorithm to find changed issues:**
-
-```bash
-# Get all changed issue IDs
-git diff origin/beads-metadata beads-metadata -- .beads/issues.jsonl \
-  | grep '^+{' \
-  | sed 's/^+//' \
-  | jq -r '.id'
-```
-
-**Output:**
-```
-wms-zyj
-wms-abc
-wms-xyz
-```
-
-These are the issue IDs that changed since the last sync.
-
-### Why This Works
-
-- Git diff shows what's different between local and remote
-- The `+` lines are the new/updated records
-- Each line is a complete JSON object with an `id` field
-- We extract the IDs to know which issues need external sync
-
-## 3. Walking Up the Dependency Tree
-
-Once we know which issues changed, we need to find their parent epic with a `github:` or `shortcut:` external_ref.
-
-### Beads Dependency Structure
-
-```
-wms-bbg (Epic: GH #5)              <- Has external_ref: "github:wellmaintained/skills#5"
-  └─ wms-zyj (Feature: POC A)      <- Changed issue (no external_ref)
-       └─ wms-task1 (Task)         <- Child task (no external_ref)
-```
-
-### The Walk-Up Algorithm
-
-For each changed issue:
-
-1. **Check if issue has external_ref**: If yes, use it directly
-2. **If no external_ref**: Get the issue's dependencies (parents)
-3. **Check each parent for external_ref**: If found, use it
-4. **If parent has no external_ref**: Recursively walk up to parent's parents
-5. **Stop when**: You find an external_ref OR reach root (no more parents)
-
-### Implementation
+### 1. Detect Changed Issues BEFORE Push
 
 ```typescript
-async function findExternalRef(issueId: string, bdCli: BdCli): Promise<string | null> {
-  // Get issue details
-  const issue = await bdCli.execJson(['show', issueId, '--no-daemon']);
+async function detectChangedIssues(bdCli: BdCli): Promise<string[]> {
+  // Compare local beads-metadata with remote BEFORE sync pushes
+  const { stdout } = await execGit([
+    'diff',
+    'origin/beads-metadata',  // Remote state (before sync)
+    'beads-metadata',          // Local state (after export, before push)
+    '--',
+    '.beads/issues.jsonl'
+  ], { cwd: bdCli.getCwd() });
 
-  // Does this issue have an external_ref?
+  // Parse diff to extract changed issue IDs
+  const changedIds = new Set<string>();
+
+  for (const line of stdout.split('\n')) {
+    if (line.startsWith('+{')) {
+      // This is an added/updated line
+      const json = JSON.parse(line.substring(1));
+      changedIds.add(json.id);
+    }
+  }
+
+  return Array.from(changedIds);
+}
+```
+
+### 2. Walk Up to Find external_ref
+
+```typescript
+async function findExternalRef(
+  issueId: string,
+  bdCli: BdCli,
+  visited = new Set<string>()
+): Promise<string | null> {
+  // Prevent infinite loops
+  if (visited.has(issueId)) {
+    return null;
+  }
+  visited.add(issueId);
+
+  // Get issue with dependencies
+  const issues = await bdCli.execJson<any[]>([
+    'show',
+    issueId,
+    '--no-daemon'
+  ]);
+
+  const issue = issues[0];
+  if (!issue) {
+    return null;
+  }
+
+  // Check if this issue has external_ref
   if (issue.external_ref) {
     return issue.external_ref;
   }
 
-  // Get dependencies (parents) - note: beads returns parent-child relationships
-  if (!issue.dependencies || issue.dependencies.length === 0) {
-    return null; // No parent, no external_ref
-  }
-
   // Walk up to parents
-  for (const dep of issue.dependencies) {
-    if (dep.dependency_type === 'parent-child') {
-      // This dep.id is the parent issue ID
-      const parentRef = await findExternalRef(dep.id, bdCli);
-      if (parentRef) {
-        return parentRef; // Found it in parent hierarchy
+  if (issue.dependencies && issue.dependencies.length > 0) {
+    for (const dep of issue.dependencies) {
+      if (dep.dependency_type === 'parent-child') {
+        // dep.id is the parent
+        const parentRef = await findExternalRef(dep.id, bdCli, visited);
+        if (parentRef) {
+          return parentRef;
+        }
       }
     }
   }
 
-  return null; // No external_ref found in entire tree
+  return null;
 }
 ```
 
-### Example Walkthrough
+### 3. Use Existing Infrastructure for Diagram Generation
 
-**Changed issue:** `wms-task1`
-
-```bash
-# Step 1: Check wms-task1
-bd show wms-task1 --no-daemon --json
-# -> No external_ref
-# -> dependencies: [{ id: "wms-zyj", dependency_type: "parent-child" }]
-
-# Step 2: Check parent wms-zyj
-bd show wms-zyj --no-daemon --json
-# -> No external_ref
-# -> dependencies: [{ id: "wms-bbg", dependency_type: "parent-child" }]
-
-# Step 3: Check parent wms-bbg
-bd show wms-bbg --no-daemon --json
-# -> external_ref: "github:wellmaintained/skills#5"  ✓ Found it!
-```
-
-**Result:** `wms-task1` maps to `github:wellmaintained/skills#5`
-
-## 4. Updating the Yak Map for the External Ref
-
-Once we know which external_ref (GitHub issue or Shortcut story) needs updating, we regenerate and update the Yak Map.
-
-### Parse External Ref
+We already have `MermaidGenerator` that does this:
 
 ```typescript
-function parseExternalRef(externalRef: string): { backend: 'github' | 'shortcut', id: string } {
-  // Format: "github:owner/repo#123" or "shortcut:12345"
+// From src/diagrams/mermaid-generator.ts
+async generate(
+  repository: string,
+  rootIssueId: string,
+  options: MermaidOptions = {}
+): Promise<string> {
+  const bdCli = this.beads['getBdCli'](repository);
 
-  if (externalRef.startsWith('github:')) {
-    // Extract: "github:wellmaintained/skills#5" -> { backend: 'github', id: 'wellmaintained/skills#5' }
+  // Uses bd's built-in Mermaid generation
+  const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--reverse'];
+  const { stdout } = await bdCli.exec(args);
+
+  // Add status-based styling
+  return this.addStatusStyling(stdout.trim());
+}
+```
+
+**Key insight:** We don't need to manually build the Mermaid graph - `bd` does it for us!
+
+### 4. Use Existing DiagramPlacer for Updates
+
+We already have `DiagramPlacer` that updates GitHub issues:
+
+```typescript
+// From src/diagrams/diagram-placer.ts
+async updateDiagram(
+  githubRepository: string,
+  githubIssueNumber: number,
+  options: PlacementOptions
+): Promise<PlacementResult> {
+  // 1. Get GitHub issue
+  // 2. Find mapping to get Beads epics
+  // 3. Generate diagram using MermaidGenerator
+  // 4. Update issue description with new diagram
+  // 5. Optionally create snapshot comment
+}
+```
+
+## Complete Workflow for POC A
+
+```typescript
+async function syncWithDiagramUpdate() {
+  const bdCli = new BdCli({ cwd: '/path/to/repo' });
+
+  // STEP 1: Detect changes BEFORE bd sync pushes
+  // Run partial sync to export and commit, but not push yet
+  await bdCli.exec(['sync', '--no-push', '--no-daemon']);
+
+  // STEP 2: Now detect what changed (local vs remote)
+  const changedIssueIds = await detectChangedIssues(bdCli);
+
+  if (changedIssueIds.length === 0) {
+    // No changes, just complete the sync
+    await bdCli.exec(['sync', '--no-daemon']);
+    return;
+  }
+
+  // STEP 3: Find unique external_refs affected
+  const externalRefs = new Set<string>();
+  const epicsByRef = new Map<string, string>(); // external_ref -> epic issue ID
+
+  for (const issueId of changedIssueIds) {
+    const externalRef = await findExternalRef(issueId, bdCli);
+    if (externalRef) {
+      externalRefs.add(externalRef);
+
+      // Find which issue has this external_ref (the epic)
+      const epicIssue = await findIssueByExternalRef(externalRef, bdCli);
+      if (epicIssue) {
+        epicsByRef.set(externalRef, epicIssue.id);
+      }
+    }
+  }
+
+  // STEP 4: Update diagrams for each affected external_ref
+  for (const externalRef of externalRefs) {
+    const epicId = epicsByRef.get(externalRef);
+    if (!epicId) continue;
+
+    // Parse external_ref format: "github:owner/repo#123" or "shortcut:12345"
+    const { backend, owner, repo, issueNumber } = parseExternalRef(externalRef);
+
+    if (backend === 'github') {
+      // Generate fresh diagram using bd dep tree
+      const generator = new MermaidGenerator(beadsClient);
+      const diagram = await generator.generate(
+        bdCli.getCwd(),
+        epicId,
+        { /* options */ }
+      );
+
+      // Update GitHub issue using DiagramPlacer
+      const placer = new DiagramPlacer(githubBackend, generator, mappingStore);
+      await placer.updateDiagram(
+        `${owner}/${repo}`,
+        issueNumber,
+        {
+          updateDescription: true,
+          createSnapshot: false, // Don't create comment for every sync
+          trigger: 'auto-sync'
+        }
+      );
+    } else if (backend === 'shortcut') {
+      // Similar for Shortcut
+      // ... update Shortcut story with diagram
+    }
+  }
+
+  // STEP 5: Complete the sync (push)
+  await bdCli.exec(['sync', '--no-daemon']);
+}
+```
+
+## Key Differences from Initial Approach
+
+### Wrong Approach (from first doc)
+- ❌ Looked at git commit messages for URLs
+- ❌ Tried to diff AFTER sync completed (too late!)
+- ❌ Manually built Mermaid graphs
+- ❌ Didn't use existing infrastructure
+
+### Correct Approach (this doc)
+- ✅ Use `bd sync --no-push` to export/commit without pushing
+- ✅ Detect changes while local and remote still differ
+- ✅ Use `bd dep tree --format mermaid` (built-in)
+- ✅ Leverage existing `MermaidGenerator` and `DiagramPlacer`
+- ✅ Walk dependency tree to find `external_ref`
+- ✅ Complete sync with push after diagram updates
+
+## Parsing external_ref
+
+```typescript
+function parseExternalRef(externalRef: string): {
+  backend: 'github' | 'shortcut';
+  owner?: string;
+  repo?: string;
+  issueNumber?: number;
+  storyId?: number;
+} {
+  // GitHub format: "github:owner/repo#123"
+  const githubMatch = externalRef.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
+  if (githubMatch) {
     return {
       backend: 'github',
-      id: externalRef.replace('github:', '')
+      owner: githubMatch[1],
+      repo: githubMatch[2],
+      issueNumber: parseInt(githubMatch[3], 10)
     };
   }
 
-  if (externalRef.startsWith('shortcut:')) {
-    // Extract: "shortcut:90143" -> { backend: 'shortcut', id: '90143' }
+  // Shortcut format: "shortcut:12345"
+  const shortcutMatch = externalRef.match(/^shortcut:(\d+)$/);
+  if (shortcutMatch) {
     return {
       backend: 'shortcut',
-      id: externalRef.replace('shortcut:', '')
+      storyId: parseInt(shortcutMatch[1], 10)
     };
   }
 
@@ -186,121 +265,46 @@ function parseExternalRef(externalRef: string): { backend: 'github' | 'shortcut'
 }
 ```
 
-### Generate Yak Map
-
-For the epic issue (the one with external_ref), generate a Mermaid diagram showing the dependency tree:
-
-```bash
-bd dep tree wms-bbg --reverse --json
-```
-
-This returns the epic and all its descendants (children, grandchildren, etc.).
-
-Convert to Mermaid format:
-
-```mermaid
-graph TD
-    epic[Epic: Simplify sync workflow<br/>GH #5 / wms-bbg]
-    poc_a[POC A: Auto-sync + git-based change detection<br/>PR #6 / wms-zyj]
-    task1[Task: Implement syncState()<br/>wms-task1]
-
-    epic --> poc_a
-    poc_a --> task1
-
-    classDef done fill:#90EE90,stroke:#006400,stroke-width:2px
-    classDef inProgress fill:#FFD700,stroke:#FF8C00,stroke-width:2px
-    classDef pending fill:#D3D3D3,stroke:#696969,stroke-width:2px
-
-    class task1,poc_a done
-    class epic inProgress
-```
-
-### Update GitHub Issue / Shortcut Story
-
-**For GitHub:**
+## Finding Issue by external_ref
 
 ```typescript
-// 1. Get current issue body
-const issueBody = await octokit.rest.issues.get({
-  owner: 'wellmaintained',
-  repo: 'skills',
-  issue_number: 5
-});
+async function findIssueByExternalRef(
+  externalRef: string,
+  bdCli: BdCli
+): Promise<{ id: string } | null> {
+  // Get all issues
+  const issues = await bdCli.execJson<any[]>(['list', '--no-daemon']);
 
-// 2. Find existing Yak Map section (between "## Work Progress" and next "##")
-// 3. Replace it with new Yak Map
-// 4. Update issue
+  // Find issue with matching external_ref
+  // Note: external_ref might not be in output due to beads bug
+  // Workaround: use --no-db mode
+  const issuesNoDb = await bdCli.execJson<any[]>(['list', '--no-daemon', '--no-db']);
 
-await octokit.rest.issues.update({
-  owner: 'wellmaintained',
-  repo: 'skills',
-  issue_number: 5,
-  body: updatedBody
-});
-```
-
-**For Shortcut:**
-
-Similar process - get story, update description with new Yak Map.
-
-## Complete Workflow Example
-
-```typescript
-async function syncChangedIssues() {
-  // 1. Run bd sync to synchronize state
-  await execBd(['sync', '--no-daemon']);
-
-  // 2. Detect changed issues via git diff
-  const changedIssues = await detectChangedIssues();
-  // -> ['wms-task1', 'wms-zyj']
-
-  // 3. For each changed issue, find external_ref
-  const externalRefsToUpdate = new Set<string>();
-
-  for (const issueId of changedIssues) {
-    const externalRef = await findExternalRef(issueId, bdCli);
-    if (externalRef) {
-      externalRefsToUpdate.add(externalRef);
+  for (const issue of issuesNoDb) {
+    if (issue.external_ref === externalRef) {
+      return { id: issue.id };
     }
   }
-  // -> Set(['github:wellmaintained/skills#5'])
 
-  // 4. For each unique external_ref, update Yak Map
-  for (const externalRef of externalRefsToUpdate) {
-    const { backend, id } = parseExternalRef(externalRef);
-
-    // Find the epic issue ID (the one with this external_ref)
-    const epicIssue = await findIssueByExternalRef(externalRef);
-
-    // Generate Yak Map from dependency tree
-    const yakMap = await generateYakMap(epicIssue.id);
-
-    // Update external system
-    if (backend === 'github') {
-      await updateGitHubIssueWithYakMap(id, yakMap);
-    } else {
-      await updateShortcutStoryWithYakMap(id, yakMap);
-    }
-  }
+  return null;
 }
 ```
 
-## Key Differences from POC A
+## Summary
 
-**POC A approach (incorrect):**
-- Looks at git commit messages for GitHub URLs
-- Only works if developer manually includes issue URL in commit
-- Doesn't use beads dependency tree
-- Doesn't use `external_ref` field
+**The algorithm is:**
 
-**Correct approach:**
-- Use `git diff` on beads-metadata branch to detect changed beads
-- Use `bd show` with `dependencies` field to walk up tree
-- Use `external_ref` field to find GitHub/Shortcut mapping
-- Generate Yak Map from `bd dep tree` output
+1. `bd sync --no-push` (export + commit, don't push yet)
+2. `git diff origin/beads-metadata beads-metadata` (detect changes)
+3. For each changed issue, walk up tree to find `external_ref`
+4. Group by unique `external_ref`
+5. For each `external_ref`:
+   - Parse to get backend/owner/repo/issue
+   - Use `MermaidGenerator.generate()` with `bd dep tree --format mermaid`
+   - Use `DiagramPlacer.updateDiagram()` to update GitHub/Shortcut
+6. `bd sync` (complete the push)
 
-## References
-
-- **Beads sync documentation**: https://github.com/steveyegge/beads
-- **Implementation plan**: `/plugins/beads-bridge/skills/beads-bridge/docs/plans/2025-11-16-simplified-sync-workflow.md`
-- **Beads external_ref**: Added in bd-142, not displayed in output (requires `--no-daemon` workaround)
+**Existing code we reuse:**
+- `MermaidGenerator` - already calls `bd dep tree --format mermaid`
+- `DiagramPlacer` - already updates GitHub issue descriptions
+- Just need to add the detection and orchestration logic!
