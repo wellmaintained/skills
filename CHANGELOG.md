@@ -1,3 +1,15 @@
+# [1.2.0](https://github.com/wellmaintained/skills/compare/v1.1.4...v1.2.0) (2025-11-16)
+
+
+### Bug Fixes
+
+* **beads:** require shared BEADS_DB env var to prevent race conditions ([321ba1f](https://github.com/wellmaintained/skills/commit/321ba1fac41fe7fc8d809846641f7e7482b9174d))
+
+
+### Features
+
+* initialize beads issue tracking with dependency upgrade tasks ([ce8b6c7](https://github.com/wellmaintained/skills/commit/ce8b6c7879251665d497cc18443d9c1d89a0cc49))
+
 ## [1.1.4](https://github.com/wellmaintained/skills/compare/v1.1.3...v1.1.4) (2025-11-15)
 
 
