@@ -93,23 +93,14 @@ export interface BdExecResult {
 }
 
 /**
- * Result from syncState operation
+ * Result from detectChangedIssues operation
  */
-export interface SyncStateResult {
-  /** List of Beads issue IDs that should be synced */
-  affectedIssues: string[];
+export interface ChangedIssuesResult {
+  /** List of Beads issue IDs that changed */
+  changedIssueIds: string[];
 
-  /** External references (GitHub URLs) found in commits */
-  externalRefs: string[];
-
-  /** Git diff stat summary */
-  diffStat: string;
-
-  /** Starting git ref */
-  since: string;
-
-  /** Ending git ref */
-  head: string;
+  /** Map of external_ref to epic issue ID */
+  affectedEpics: Map<string, string>;
 }
 
 /**
@@ -199,88 +190,145 @@ export class BdCli {
 
 
   /**
-   * Sync repository state by detecting recent git changes and updating related issues
+   * Detect changed beads issues by comparing local and remote beads-metadata branches
    *
-   * POC A: Auto-sync implementation that:
-   * 1. Detects git diff changes since last sync
-   * 2. Parses commit messages for external_ref links (GitHub issues/PRs)
-   * 3. Returns list of affected issues that need sync
+   * POC A: Correct implementation that:
+   * 1. Compares local beads-metadata with origin/beads-metadata
+   * 2. Parses git diff to find changed issue IDs
+   * 3. Walks up dependency tree to find external_ref for each changed issue
+   * 4. Returns map of external_ref to epic issue ID
    *
-   * @param since - Git ref to compare from (default: 'HEAD~1' for last commit)
-   * @returns List of issue IDs that should be synced
+   * @returns Changed issue IDs and affected epics with external_ref
    */
-  async syncState(since: string = 'HEAD~1'): Promise<SyncStateResult> {
-    const affectedIssues = new Set<string>();
-    const externalRefs = new Set<string>();
-
+  async detectChangedIssues(): Promise<ChangedIssuesResult> {
     try {
-      // Get git log with commit messages since the specified ref
-      // Use %x00 as delimiter to avoid issues with pipes in commit messages
-      const { stdout: gitLog } = await execFileAsync('git',
-        ['log', `${since}..HEAD`, '--pretty=format:%H%x00%s%x00%b%x00'],
+      // Compare local beads-metadata with remote to detect changes
+      const { stdout: gitDiff } = await execFileAsync('git',
+        ['diff', 'origin/beads-metadata', 'beads-metadata', '--', '.beads/issues.jsonl'],
         { cwd: this.cwd, timeout: this.timeout }
       );
 
-      // Parse commit messages for GitHub issue/PR references
-      // Split by null byte delimiter
-      const commits = gitLog.split('\0\0').filter(commit => commit.trim());
-      for (const commit of commits) {
-        const parts = commit.split('\0');
-        if (parts.length >= 3) {
-          const subject = parts[1] || '';
-          const body = parts[2] || '';
-          const fullMessage = `${subject}\n${body}`;
+      // Parse diff to extract changed issue IDs
+      const changedIssueIds = new Set<string>();
 
-          // Extract GitHub issue/PR URLs
-          // Matches: https://github.com/owner/repo/issues/123
-          //          https://github.com/owner/repo/pull/456
-          const githubUrlPattern = /https:\/\/github\.com\/[\w-]+\/[\w-]+\/(issues|pull)\/\d+/g;
-          const matches = fullMessage.match(githubUrlPattern);
-
-          if (matches) {
-            matches.forEach(url => externalRefs.add(url));
+      for (const line of gitDiff.split('\n')) {
+        if (line.startsWith('+{')) {
+          try {
+            // Remove the leading '+' and parse JSON
+            const json = JSON.parse(line.substring(1));
+            if (json.id) {
+              changedIssueIds.add(json.id);
+            }
+          } catch (e) {
+            // Skip lines that aren't valid JSON
+            continue;
           }
         }
       }
 
-      // Get changed files for context
-      const { stdout: diffStat } = await execFileAsync('git',
-        ['diff', '--stat', `${since}..HEAD`],
-        { cwd: this.cwd, timeout: this.timeout }
-      );
+      // Find unique external_refs affected
+      const affectedEpics = new Map<string, string>(); // external_ref -> epic issue ID
 
-      // Query beads for issues with matching external_refs
-      if (externalRefs.size > 0) {
-        const { stdout: listOutput } = await this.exec(['list', '--json']);
-        const issues = JSON.parse(listOutput) as Array<{ id: string; external_ref?: string }>;
-
-        for (const issue of issues) {
-          if (issue.external_ref && externalRefs.has(issue.external_ref)) {
-            affectedIssues.add(issue.id);
+      for (const issueId of changedIssueIds) {
+        const externalRef = await this.findExternalRef(issueId);
+        if (externalRef) {
+          // Find which issue has this external_ref (the epic)
+          const epicIssue = await this.findIssueByExternalRef(externalRef);
+          if (epicIssue) {
+            affectedEpics.set(externalRef, epicIssue.id);
           }
         }
       }
 
       return {
-        affectedIssues: Array.from(affectedIssues),
-        externalRefs: Array.from(externalRefs),
-        diffStat: diffStat.trimEnd(), // Only trim trailing whitespace, preserve leading spaces
-        since,
-        head: 'HEAD'
+        changedIssueIds: Array.from(changedIssueIds),
+        affectedEpics
       };
 
     } catch (error: any) {
-      // If git command fails (e.g., no commits yet, invalid ref), return empty result
+      // If git command fails (e.g., branch doesn't exist), return empty result
       if (error.code === 128 || error.message?.includes('unknown revision')) {
         return {
-          affectedIssues: [],
-          externalRefs: [],
-          diffStat: '',
-          since,
-          head: 'HEAD'
+          changedIssueIds: [],
+          affectedEpics: new Map()
         };
       }
-      throw this.handleExecError(error, ['syncState']);
+      throw this.handleExecError(error, ['detectChangedIssues']);
+    }
+  }
+
+  /**
+   * Walk up dependency tree to find external_ref
+   *
+   * @param issueId - Issue ID to start from
+   * @param visited - Set of visited issue IDs to prevent infinite loops
+   * @returns external_ref if found, null otherwise
+   */
+  async findExternalRef(
+    issueId: string,
+    visited = new Set<string>()
+  ): Promise<string | null> {
+    // Prevent infinite loops
+    if (visited.has(issueId)) {
+      return null;
+    }
+    visited.add(issueId);
+
+    try {
+      // Get issue with dependencies
+      const issues = await this.execJson<any[]>(['show', issueId, '--no-daemon']);
+      const issue = issues[0];
+
+      if (!issue) {
+        return null;
+      }
+
+      // Check if this issue has external_ref
+      if (issue.external_ref) {
+        return issue.external_ref;
+      }
+
+      // Walk up to parents
+      if (issue.dependencies && issue.dependencies.length > 0) {
+        for (const dep of issue.dependencies) {
+          if (dep.dependency_type === 'parent-child') {
+            // dep.id is the parent
+            const parentRef = await this.findExternalRef(dep.id, visited);
+            if (parentRef) {
+              return parentRef;
+            }
+          }
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      // Issue not found or other error
+      return null;
+    }
+  }
+
+  /**
+   * Find issue by external_ref
+   *
+   * @param externalRef - External reference to search for
+   * @returns Issue if found, null otherwise
+   */
+  async findIssueByExternalRef(externalRef: string): Promise<{ id: string } | null> {
+    try {
+      // Get all issues (use --no-db to ensure external_ref is included)
+      const issues = await this.execJson<any[]>(['list', '--no-daemon', '--no-db']);
+
+      // Find issue with matching external_ref
+      for (const issue of issues) {
+        if (issue.external_ref === externalRef) {
+          return { id: issue.id };
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      return null;
     }
   }
 

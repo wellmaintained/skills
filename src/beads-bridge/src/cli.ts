@@ -638,16 +638,17 @@ program
   });
 
 // ============================================================================
-// Auto-Sync Command (POC A)
+// Auto-Sync Command (POC A - Revised)
 // ============================================================================
 
 program
   .command('auto-sync')
-  .description('Auto-detect repository changes and sync affected issues')
-  .option('-s, --since <ref>', 'git ref to compare from', 'HEAD~1')
+  .description('Auto-detect beads state changes and update diagrams')
   .option('--dry-run', 'show what would be synced without syncing', false)
+  .option('--no-push', 'don\'t push beads metadata after sync', false)
   .action(async (options) => {
     const { BdCli } = await import('./utils/bd-cli.js');
+    const { parseExternalRef } = await import('./utils/external-ref-parser.js');
     const { readFileSync } = await import('fs');
     const { resolve } = await import('path');
 
@@ -669,55 +670,91 @@ program
       }
 
       const results = [];
+      const backend = await import('./cli/auth-wrapper.js')
+        .then(m => m.getBackendFromConfig(configPath));
 
       // Check each configured repository for changes
       for (const repo of config.repositories) {
         const bdCli = new BdCli({ cwd: resolve(repo.path) });
 
         try {
-          const syncResult = await bdCli.syncState(options.since);
+          // STEP 1: Run bd sync --no-push to export and commit locally
+          await bdCli.exec(['sync', '--no-push', '--no-daemon']);
 
-          if (syncResult.affectedIssues.length > 0 || options.dryRun) {
+          // STEP 2: Detect what changed
+          const changeResult = await bdCli.detectChangedIssues();
+
+          if (changeResult.changedIssueIds.length === 0) {
             results.push({
               repository: repo.name,
               path: repo.path,
-              ...syncResult
+              changedIssues: [],
+              affectedEpics: 0,
+              message: 'No changes detected'
             });
 
-            // If not dry-run, trigger sync for each affected issue
-            if (!options.dryRun) {
-              for (const issueId of syncResult.affectedIssues) {
-                console.error(`Syncing ${issueId} in ${repo.name}...`);
-
-                // Parse external_ref to determine sync target
-                const { stdout: showOutput } = await bdCli.exec(['show', issueId, '--json']);
-                const issue = JSON.parse(showOutput);
-
-                if (issue.external_ref) {
-                  // Extract repo and issue number from GitHub URL
-                  const match = issue.external_ref.match(
-                    /https:\/\/github\.com\/([\w-]+\/[\w-]+)\/(issues|pull)\/(\d+)/
-                  );
-
-                  if (match) {
-                    const [, repository, , number] = match;
-                    const backend = await import('./cli/auth-wrapper.js')
-                      .then(m => m.getBackendFromConfig(configPath));
-
-                    await import('./cli/auth-wrapper.js')
-                      .then(m => m.withAuth(backend, async () => {
-                        const context = {
-                          repository,
-                          issueNumber: parseInt(number),
-                          includeBlockers: false
-                        };
-                        await executeCapability('sync_progress', context, program.opts());
-                      }));
-                  }
-                }
-              }
+            // Complete the sync (push)
+            if (!options.noPush && !options.dryRun) {
+              await bdCli.exec(['sync', '--no-daemon']);
             }
+            continue;
           }
+
+          // Log what we found
+          const affectedEpicsArray = Array.from(changeResult.affectedEpics.entries());
+          results.push({
+            repository: repo.name,
+            path: repo.path,
+            changedIssues: changeResult.changedIssueIds,
+            affectedEpics: affectedEpicsArray.map(([ref, id]) => ({ externalRef: ref, epicId: id }))
+          });
+
+          // STEP 3: Update diagrams for each affected external_ref
+          if (!options.dryRun) {
+            await import('./cli/auth-wrapper.js')
+              .then(async (authModule) => {
+                await authModule.withAuth(backend, async () => {
+                  // Update each affected epic's diagram
+                  for (const [externalRef] of changeResult.affectedEpics) {
+                    try {
+                      const parsed = parseExternalRef(externalRef);
+
+                      if (parsed.backend === 'github' && parsed.owner && parsed.repo && parsed.issueNumber) {
+                        console.error(`Updating diagram for ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}...`);
+
+                        // Use existing capability to update diagram
+                        const context = {
+                          repository: `${parsed.owner}/${parsed.repo}`,
+                          issueNumber: parsed.issueNumber,
+                          placement: 'description' as const
+                        };
+
+                        await executeCapability('generate_diagrams', context, program.opts());
+                      } else if (parsed.backend === 'shortcut' && parsed.storyId) {
+                        console.error(`Updating diagram for Shortcut story ${parsed.storyId}...`);
+
+                        // Use Shortcut backend
+                        const context = {
+                          repository: 'shortcut',
+                          issueNumber: parsed.storyId,
+                          placement: 'description' as const
+                        };
+
+                        await executeCapability('generate_diagrams', context, program.opts(), 'shortcut');
+                      }
+                    } catch (error: any) {
+                      console.error(`Failed to update diagram for ${externalRef}: ${error.message}`);
+                    }
+                  }
+                });
+              });
+          }
+
+          // STEP 4: Complete the sync (push)
+          if (!options.noPush && !options.dryRun) {
+            await bdCli.exec(['sync', '--no-daemon']);
+          }
+
         } catch (error: any) {
           results.push({
             repository: repo.name,
@@ -730,7 +767,6 @@ program
       console.log(JSON.stringify({
         success: true,
         dryRun: options.dryRun,
-        since: options.since,
         results
       }, null, 2));
 
