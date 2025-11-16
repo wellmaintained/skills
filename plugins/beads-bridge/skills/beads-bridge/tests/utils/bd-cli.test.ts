@@ -1,11 +1,11 @@
 /**
  * Unit tests for BdCli
  *
- * Tests for the BdCli wrapper with focus on syncState functionality.
+ * Tests for the BdCli wrapper with focus on detectChangedIssues functionality.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { BdCli, type SyncStateResult } from '../../src/utils/bd-cli.js';
+import { BdCli, type ChangedIssuesResult } from '../../src/utils/bd-cli.js';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
@@ -35,349 +35,386 @@ describe('BdCli', () => {
   });
 
   // ============================================================================
-  // syncState - Basic functionality
+  // detectChangedIssues - Core functionality
   // ============================================================================
 
-  describe('syncState', () => {
-    it('should return empty result when no commits exist', async () => {
-      // Mock git log to return empty output
+  describe('detectChangedIssues', () => {
+    it('should return empty result when no changes detected', async () => {
+      // Mock git diff to return empty output
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        if (args && args[0] === 'log') {
-          callback(null, { stdout: '', stderr: '' });
-        } else if (args && args[0] === 'diff') {
+        if (file === 'git' && args?.[0] === 'diff') {
           callback(null, { stdout: '', stderr: '' });
         } else {
-          callback(new Error('Unexpected git command'));
+          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~1');
+      const result = await bdCli.detectChangedIssues();
 
       expect(result).toEqual({
-        affectedIssues: [],
-        externalRefs: [],
-        diffStat: '',
-        since: 'HEAD~1',
-        head: 'HEAD'
+        changedIssueIds: [],
+        affectedEpics: new Map()
       });
     });
 
-    it('should detect GitHub issue URLs in commit messages', async () => {
-      const gitLogOutput = 'abc123\0feat: add feature\0Related to https://github.com/owner/repo/issues/123\0\0';
-      const gitDiffOutput = ' src/file.ts | 10 +++++++';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-1',
-          external_ref: 'https://github.com/owner/repo/issues/123'
-        },
-        {
-          id: 'test-2',
-          external_ref: 'https://github.com/owner/repo/issues/456'
-        }
-      ]);
+    it('should detect changed issue from git diff', async () => {
+      const gitDiffOutput = [
+        '-{"id":"old-issue","title":"Old"}',
+        '+{"id":"new-issue","title":"New","status":"open"}'
+      ].join('\n');
+
+      const bdShowOutput = JSON.stringify([{
+        id: 'new-issue',
+        external_ref: 'github:owner/repo#123',
+        dependencies: []
+      }]);
+
+      const bdListOutput = JSON.stringify([{
+        id: 'epic-1',
+        external_ref: 'github:owner/repo#123'
+      }]);
 
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
+        const command = file === 'git' ? args?.[0] : args?.[0];
 
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
+        if (file === 'git' && command === 'diff') {
           callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        } else if (file === 'bd' && command === 'show') {
+          callback(null, { stdout: bdShowOutput, stderr: '' });
+        } else if (file === 'bd' && command === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~1');
+      const result = await bdCli.detectChangedIssues();
 
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/issues/123');
-      expect(result.affectedIssues).toContain('test-1');
-      expect(result.affectedIssues).not.toContain('test-2');
-      expect(result.diffStat).toBe(gitDiffOutput);
+      expect(result.changedIssueIds).toContain('new-issue');
+      expect(result.affectedEpics.size).toBe(1);
+      expect(result.affectedEpics.get('github:owner/repo#123')).toBe('epic-1');
     });
 
-    it('should detect GitHub PR URLs in commit messages', async () => {
-      const gitLogOutput = 'def456\0fix: resolve bug\0Closes https://github.com/owner/repo/pull/789\0\0';
-      const gitDiffOutput = ' src/bugfix.ts | 5 +++--';
+    it('should handle multiple changed issues', async () => {
+      const gitDiffOutput = [
+        '+{"id":"issue-1","title":"First"}',
+        '+{"id":"issue-2","title":"Second"}',
+        '+{"id":"issue-3","title":"Third"}'
+      ].join('\n');
+
+      // All issues have same external_ref
+      const bdShowIssue1 = JSON.stringify([{
+        id: 'issue-1',
+        external_ref: 'github:owner/repo#100',
+        dependencies: []
+      }]);
+
+      const bdShowIssue2 = JSON.stringify([{
+        id: 'issue-2',
+        external_ref: 'github:owner/repo#100',
+        dependencies: []
+      }]);
+
+      const bdShowIssue3 = JSON.stringify([{
+        id: 'issue-3',
+        external_ref: 'github:owner/repo#200',
+        dependencies: []
+      }]);
+
       const bdListOutput = JSON.stringify([
-        {
-          id: 'test-pr-1',
-          external_ref: 'https://github.com/owner/repo/pull/789'
-        }
+        { id: 'epic-100', external_ref: 'github:owner/repo#100' },
+        { id: 'epic-200', external_ref: 'github:owner/repo#200' }
       ]);
 
+      let showCallCount = 0;
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
+        const command = file === 'git' ? args?.[0] : args?.[0];
 
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
+        if (file === 'git' && command === 'diff') {
           callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        } else if (file === 'bd' && command === 'show') {
+          showCallCount++;
+          const output = showCallCount === 1 ? bdShowIssue1 :
+                        showCallCount === 2 ? bdShowIssue2 :
+                        bdShowIssue3;
+          callback(null, { stdout: output, stderr: '' });
+        } else if (file === 'bd' && command === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~1');
+      const result = await bdCli.detectChangedIssues();
 
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/pull/789');
-      expect(result.affectedIssues).toContain('test-pr-1');
+      expect(result.changedIssueIds).toHaveLength(3);
+      expect(result.affectedEpics.size).toBe(2);
+      expect(result.affectedEpics.get('github:owner/repo#100')).toBe('epic-100');
+      expect(result.affectedEpics.get('github:owner/repo#200')).toBe('epic-200');
     });
 
-    it('should handle multiple commits with different issue references', async () => {
-      const gitLogOutput = [
-        'abc123\0feat: feature 1\0Related to https://github.com/owner/repo/issues/111\0\0',
-        'def456\0feat: feature 2\0Fixes https://github.com/owner/repo/issues/222\0\0',
-        'ghi789\0chore: update\0No issue reference\0\0'
-      ].join('');
+    it('should walk up dependency tree to find external_ref', async () => {
+      const gitDiffOutput = '+{"id":"child-task","title":"Child Task"}';
 
-      const gitDiffOutput = ' src/file1.ts | 10 +++++++\n src/file2.ts | 5 +++--';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-111',
-          external_ref: 'https://github.com/owner/repo/issues/111'
-        },
-        {
-          id: 'test-222',
-          external_ref: 'https://github.com/owner/repo/issues/222'
-        }
-      ]);
+      // child-task depends on parent-epic which has external_ref
+      const bdShowChild = JSON.stringify([{
+        id: 'child-task',
+        dependencies: [{
+          id: 'parent-epic',
+          dependency_type: 'parent-child'
+        }]
+      }]);
 
+      const bdShowParent = JSON.stringify([{
+        id: 'parent-epic',
+        external_ref: 'github:owner/repo#456',
+        dependencies: []
+      }]);
+
+      const bdListOutput = JSON.stringify([{
+        id: 'parent-epic',
+        external_ref: 'github:owner/repo#456'
+      }]);
+
+      let showCallCount = 0;
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
+        const command = file === 'git' ? args?.[0] : args?.[0];
 
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
+        if (file === 'git' && command === 'diff') {
           callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        } else if (file === 'bd' && command === 'show') {
+          showCallCount++;
+          const output = showCallCount === 1 ? bdShowChild : bdShowParent;
+          callback(null, { stdout: output, stderr: '' });
+        } else if (file === 'bd' && command === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~3');
+      const result = await bdCli.detectChangedIssues();
 
-      expect(result.externalRefs).toHaveLength(2);
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/issues/111');
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/issues/222');
-      expect(result.affectedIssues).toHaveLength(2);
-      expect(result.affectedIssues).toContain('test-111');
-      expect(result.affectedIssues).toContain('test-222');
+      expect(result.changedIssueIds).toContain('child-task');
+      expect(result.affectedEpics.get('github:owner/repo#456')).toBe('parent-epic');
     });
 
-    it('should deduplicate same issue referenced in multiple commits', async () => {
-      const gitLogOutput = [
-        'abc123\0feat: part 1\0Related to https://github.com/owner/repo/issues/100\0\0',
-        'def456\0feat: part 2\0Related to https://github.com/owner/repo/issues/100\0\0',
-        'ghi789\0feat: part 3\0Closes https://github.com/owner/repo/issues/100\0\0'
-      ].join('');
+    it('should handle issues without external_ref', async () => {
+      const gitDiffOutput = '+{"id":"orphan-issue","title":"Orphan"}';
 
-      const gitDiffOutput = ' src/file.ts | 30 +++++++';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-100',
-          external_ref: 'https://github.com/owner/repo/issues/100'
-        }
-      ]);
+      const bdShowOutput = JSON.stringify([{
+        id: 'orphan-issue',
+        dependencies: []
+        // No external_ref
+      }]);
 
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
+        const command = file === 'git' ? args?.[0] : args?.[0];
 
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
+        if (file === 'git' && command === 'diff') {
           callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        } else if (file === 'bd' && command === 'show') {
+          callback(null, { stdout: bdShowOutput, stderr: '' });
+        } else {
+          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
+        }
+      });
+
+      const result = await bdCli.detectChangedIssues();
+
+      expect(result.changedIssueIds).toContain('orphan-issue');
+      expect(result.affectedEpics.size).toBe(0); // No external_ref found
+    });
+
+    it('should skip invalid JSON lines in diff', async () => {
+      const gitDiffOutput = [
+        '+{"id":"valid-issue","title":"Valid"}',
+        '+not valid json at all',
+        '+{"incomplete json',
+        '+{"id":"another-valid","title":"Another"}'
+      ].join('\n');
+
+      const bdShowValid = JSON.stringify([{
+        id: 'valid-issue',
+        external_ref: 'github:owner/repo#1',
+        dependencies: []
+      }]);
+
+      const bdShowAnother = JSON.stringify([{
+        id: 'another-valid',
+        external_ref: 'github:owner/repo#1',
+        dependencies: []
+      }]);
+
+      const bdListOutput = JSON.stringify([{
+        id: 'epic-1',
+        external_ref: 'github:owner/repo#1'
+      }]);
+
+      let showCallCount = 0;
+      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
+        const command = file === 'git' ? args?.[0] : args?.[0];
+
+        if (file === 'git' && command === 'diff') {
+          callback(null, { stdout: gitDiffOutput, stderr: '' });
+        } else if (file === 'bd' && command === 'show') {
+          showCallCount++;
+          const output = showCallCount === 1 ? bdShowValid : bdShowAnother;
+          callback(null, { stdout: output, stderr: '' });
+        } else if (file === 'bd' && command === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~3');
+      const result = await bdCli.detectChangedIssues();
 
-      // Should only have one entry for the issue despite 3 commits
-      expect(result.externalRefs).toHaveLength(1);
-      expect(result.affectedIssues).toHaveLength(1);
-      expect(result.affectedIssues[0]).toBe('test-100');
+      // Should only parse valid JSON lines
+      expect(result.changedIssueIds).toHaveLength(2);
+      expect(result.changedIssueIds).toContain('valid-issue');
+      expect(result.changedIssueIds).toContain('another-valid');
     });
 
-    it('should not match beads issues without matching external_ref', async () => {
-      const gitLogOutput = 'abc123\0feat: add feature\0Related to https://github.com/owner/repo/issues/123\0\0';
-      const gitDiffOutput = ' src/file.ts | 10 +++++++';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-1',
-          external_ref: 'https://github.com/owner/repo/issues/456' // Different issue
-        },
-        {
-          id: 'test-2'
-          // No external_ref
-        }
-      ]);
-
+    it('should handle git error gracefully', async () => {
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
-
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
-          callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
-          callback(null, { stdout: bdListOutput, stderr: '' });
-        } else {
-          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
-        }
-      });
-
-      const result = await bdCli.syncState('HEAD~1');
-
-      expect(result.externalRefs).toHaveLength(1);
-      expect(result.externalRefs[0]).toBe('https://github.com/owner/repo/issues/123');
-      expect(result.affectedIssues).toHaveLength(0); // No matching beads
-    });
-
-    it('should handle commits without GitHub references', async () => {
-      const gitLogOutput = [
-        'abc123\0feat: add feature\0Just a regular commit\0\0',
-        'def456\0fix: bug\0No external references here\0\0',
-        'ghi789\0chore: update deps\0Updated dependencies\0\0'
-      ].join('');
-
-      const gitDiffOutput = ' package.json | 2 +-';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-1',
-          external_ref: 'https://github.com/owner/repo/issues/123'
-        }
-      ]);
-
-      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
-
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
-          callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
-          callback(null, { stdout: bdListOutput, stderr: '' });
-        } else {
-          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
-        }
-      });
-
-      const result = await bdCli.syncState('HEAD~3');
-
-      expect(result.externalRefs).toHaveLength(0);
-      expect(result.affectedIssues).toHaveLength(0);
-      expect(result.diffStat).toBe(gitDiffOutput);
-    });
-
-    it('should handle invalid git ref gracefully', async () => {
-      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const error: any = new Error('fatal: bad revision \'invalid-ref\'');
+        const error: any = new Error('fatal: bad revision');
         error.code = 128;
         callback(error, { stdout: '', stderr: 'fatal: bad revision' });
       });
 
-      const result = await bdCli.syncState('invalid-ref');
+      const result = await bdCli.detectChangedIssues();
 
-      // Should return empty result instead of throwing
       expect(result).toEqual({
-        affectedIssues: [],
-        externalRefs: [],
-        diffStat: '',
-        since: 'invalid-ref',
-        head: 'HEAD'
+        changedIssueIds: [],
+        affectedEpics: new Map()
       });
     });
 
-    it('should extract URLs from commit body as well as subject', async () => {
-      const gitLogOutput = 'abc123\0feat: add feature\0Long commit body with details.\n\nThis fixes https://github.com/owner/repo/issues/999\n\nAlso relates to https://github.com/owner/repo/pull/888\0\0';
-      const gitDiffOutput = ' src/file.ts | 10 +++++++';
-      const bdListOutput = JSON.stringify([
-        {
-          id: 'test-999',
-          external_ref: 'https://github.com/owner/repo/issues/999'
-        },
-        {
-          id: 'test-888',
-          external_ref: 'https://github.com/owner/repo/pull/888'
+    it('should prevent infinite loops in dependency walking', async () => {
+      const gitDiffOutput = '+{"id":"circular-1","title":"Circular"}';
+
+      // Create circular dependency: circular-1 -> circular-2 -> circular-1
+      const bdShowCircular1 = JSON.stringify([{
+        id: 'circular-1',
+        dependencies: [{
+          id: 'circular-2',
+          dependency_type: 'parent-child'
+        }]
+      }]);
+
+      const bdShowCircular2 = JSON.stringify([{
+        id: 'circular-2',
+        dependencies: [{
+          id: 'circular-1',
+          dependency_type: 'parent-child'
+        }]
+      }]);
+
+      let showCallCount = 0;
+      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
+        const command = file === 'git' ? args?.[0] : args?.[0];
+
+        if (file === 'git' && command === 'diff') {
+          callback(null, { stdout: gitDiffOutput, stderr: '' });
+        } else if (file === 'bd' && command === 'show') {
+          showCallCount++;
+          // Alternate between the two issues
+          const output = showCallCount % 2 === 1 ? bdShowCircular1 : bdShowCircular2;
+          callback(null, { stdout: output, stderr: '' });
+        } else {
+          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
+      });
+
+      const result = await bdCli.detectChangedIssues();
+
+      // Should not hang, should return empty affectedEpics
+      expect(result.changedIssueIds).toContain('circular-1');
+      expect(result.affectedEpics.size).toBe(0);
+      // Should have called show max 3 times (initial + 2 for circular check)
+      expect(showCallCount).toBeLessThan(5);
+    });
+  });
+
+  // ============================================================================
+  // findExternalRef - Dependency tree walking
+  // ============================================================================
+
+  describe('findExternalRef', () => {
+    it('should return external_ref when issue has one', async () => {
+      const bdShowOutput = JSON.stringify([{
+        id: 'test-issue',
+        external_ref: 'github:owner/repo#789',
+        dependencies: []
+      }]);
+
+      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
+        if (file === 'bd' && args?.[0] === 'show') {
+          callback(null, { stdout: bdShowOutput, stderr: '' });
+        } else {
+          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
+        }
+      });
+
+      const externalRef = await bdCli.findExternalRef('test-issue');
+
+      expect(externalRef).toBe('github:owner/repo#789');
+    });
+
+    it('should return null when issue not found', async () => {
+      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
+        const error: any = new Error('Issue not found');
+        callback(error, { stdout: '', stderr: '' });
+      });
+
+      const externalRef = await bdCli.findExternalRef('nonexistent');
+
+      expect(externalRef).toBeNull();
+    });
+  });
+
+  // ============================================================================
+  // findIssueByExternalRef - Reverse lookup
+  // ============================================================================
+
+  describe('findIssueByExternalRef', () => {
+    it('should find issue with matching external_ref', async () => {
+      const bdListOutput = JSON.stringify([
+        { id: 'epic-1', external_ref: 'github:owner/repo#100' },
+        { id: 'epic-2', external_ref: 'github:owner/repo#200' },
+        { id: 'epic-3', external_ref: 'shortcut:300' }
       ]);
 
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
-
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
-          callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        if (file === 'bd' && args?.[0] === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~1');
+      const issue = await bdCli.findIssueByExternalRef('github:owner/repo#200');
 
-      expect(result.externalRefs).toHaveLength(2);
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/issues/999');
-      expect(result.externalRefs).toContain('https://github.com/owner/repo/pull/888');
-      expect(result.affectedIssues).toHaveLength(2);
+      expect(issue).toEqual({ id: 'epic-2' });
     });
 
-    it('should handle empty beads list', async () => {
-      const gitLogOutput = 'abc123\0feat: add feature\0Related to https://github.com/owner/repo/issues/123\0\0';
-      const gitDiffOutput = ' src/file.ts | 10 +++++++';
-      const bdListOutput = JSON.stringify([]); // Empty beads list
+    it('should return null when no matching external_ref found', async () => {
+      const bdListOutput = JSON.stringify([
+        { id: 'epic-1', external_ref: 'github:owner/repo#100' }
+      ]);
 
       vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
-
-        if (command === 'log') {
-          callback(null, { stdout: gitLogOutput, stderr: '' });
-        } else if (command === 'diff') {
-          callback(null, { stdout: gitDiffOutput, stderr: '' });
-        } else if (file === 'bd' && args?.[0] === 'list') {
+        if (file === 'bd' && args?.[0] === 'list') {
           callback(null, { stdout: bdListOutput, stderr: '' });
         } else {
           callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
         }
       });
 
-      const result = await bdCli.syncState('HEAD~1');
+      const issue = await bdCli.findIssueByExternalRef('github:owner/repo#999');
 
-      expect(result.externalRefs).toHaveLength(1);
-      expect(result.affectedIssues).toHaveLength(0); // No beads to match
-    });
-
-    it('should use correct git ref range', async () => {
-      let capturedGitLogArgs: string[] = [];
-
-      vi.mocked(execFile).mockImplementation((file, args, options, callback: any) => {
-        const command = args?.[0];
-
-        if (command === 'log') {
-          capturedGitLogArgs = args || [];
-          callback(null, { stdout: '', stderr: '' });
-        } else if (command === 'diff') {
-          callback(null, { stdout: '', stderr: '' });
-        } else {
-          callback(new Error(`Unexpected command: ${file} ${args?.join(' ')}`));
-        }
-      });
-
-      await bdCli.syncState('HEAD~5');
-
-      expect(capturedGitLogArgs).toContain('HEAD~5..HEAD');
+      expect(issue).toBeNull();
     });
   });
 });
