@@ -215,25 +215,31 @@ export class BdCli {
 
     try {
       // Get git log with commit messages since the specified ref
+      // Use %x00 as delimiter to avoid issues with pipes in commit messages
       const { stdout: gitLog } = await execFileAsync('git',
-        ['log', `${since}..HEAD`, '--pretty=format:%H|%s|%b'],
+        ['log', `${since}..HEAD`, '--pretty=format:%H%x00%s%x00%b%x00'],
         { cwd: this.cwd, timeout: this.timeout }
       );
 
       // Parse commit messages for GitHub issue/PR references
-      const commitLines = gitLog.split('\n').filter(line => line.trim());
-      for (const line of commitLines) {
-        const [, subject, body] = line.split('|');
-        const fullMessage = `${subject}\n${body || ''}`;
+      // Split by null byte delimiter
+      const commits = gitLog.split('\0\0').filter(commit => commit.trim());
+      for (const commit of commits) {
+        const parts = commit.split('\0');
+        if (parts.length >= 3) {
+          const subject = parts[1] || '';
+          const body = parts[2] || '';
+          const fullMessage = `${subject}\n${body}`;
 
-        // Extract GitHub issue/PR URLs
-        // Matches: https://github.com/owner/repo/issues/123
-        //          https://github.com/owner/repo/pull/456
-        const githubUrlPattern = /https:\/\/github\.com\/[\w-]+\/[\w-]+\/(issues|pull)\/\d+/g;
-        const matches = fullMessage.match(githubUrlPattern);
+          // Extract GitHub issue/PR URLs
+          // Matches: https://github.com/owner/repo/issues/123
+          //          https://github.com/owner/repo/pull/456
+          const githubUrlPattern = /https:\/\/github\.com\/[\w-]+\/[\w-]+\/(issues|pull)\/\d+/g;
+          const matches = fullMessage.match(githubUrlPattern);
 
-        if (matches) {
-          matches.forEach(url => externalRefs.add(url));
+          if (matches) {
+            matches.forEach(url => externalRefs.add(url));
+          }
         }
       }
 
@@ -258,7 +264,7 @@ export class BdCli {
       return {
         affectedIssues: Array.from(affectedIssues),
         externalRefs: Array.from(externalRefs),
-        diffStat: diffStat.trim(),
+        diffStat: diffStat.trimEnd(), // Only trim trailing whitespace, preserve leading spaces
         since,
         head: 'HEAD'
       };
