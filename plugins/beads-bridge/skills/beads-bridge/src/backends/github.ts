@@ -343,7 +343,7 @@ export class GitHubBackend implements ProjectManagementBackend {
         issue_number: issueNumber
       });
 
-      return data.map(c => this.parseOctokitComment(c));
+      return data.map((c: any) => this.parseOctokitComment(c));
     } catch (error: any) {
       if (error.status === 404) {
         throw new NotFoundError(`Issue ${issueId} not found`);
@@ -497,9 +497,9 @@ export class GitHubBackend implements ProjectManagementBackend {
       });
 
       // Filter out pull requests (we only want issues)
-      const issues = data.items.filter(item => !item.pull_request);
+      const issues = data.items.filter((item: any) => !item.pull_request);
 
-      return issues.map(item => {
+      return issues.map((item: any) => {
         // Extract owner/repo from repository_url
         const repoMatch = item.repository_url?.match(/repos\/([^\/]+\/[^\/]+)$/);
         const repository = repoMatch ? repoMatch[1] : query.repository || '';
