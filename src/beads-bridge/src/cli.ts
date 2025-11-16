@@ -638,6 +638,117 @@ program
   });
 
 // ============================================================================
+// Auto-Sync Command (POC A)
+// ============================================================================
+
+program
+  .command('auto-sync')
+  .description('Auto-detect repository changes and sync affected issues')
+  .option('-s, --since <ref>', 'git ref to compare from', 'HEAD~1')
+  .option('--dry-run', 'show what would be synced without syncing', false)
+  .action(async (options) => {
+    const { BdCli } = await import('./utils/bd-cli.js');
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+
+    try {
+      // Load config to get repository paths
+      const configPath = program.opts().config;
+      const configContent = readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(configContent);
+
+      if (!config.repositories || config.repositories.length === 0) {
+        console.error(JSON.stringify({
+          success: false,
+          error: {
+            code: 'CONFIG_ERROR',
+            message: 'No repositories configured in .beads-bridge/config.json'
+          }
+        }, null, 2));
+        process.exit(1);
+      }
+
+      const results = [];
+
+      // Check each configured repository for changes
+      for (const repo of config.repositories) {
+        const bdCli = new BdCli({ cwd: resolve(repo.path) });
+
+        try {
+          const syncResult = await bdCli.syncState(options.since);
+
+          if (syncResult.affectedIssues.length > 0 || options.dryRun) {
+            results.push({
+              repository: repo.name,
+              path: repo.path,
+              ...syncResult
+            });
+
+            // If not dry-run, trigger sync for each affected issue
+            if (!options.dryRun) {
+              for (const issueId of syncResult.affectedIssues) {
+                console.error(`Syncing ${issueId} in ${repo.name}...`);
+
+                // Parse external_ref to determine sync target
+                const { stdout: showOutput } = await bdCli.exec(['show', issueId, '--json']);
+                const issue = JSON.parse(showOutput);
+
+                if (issue.external_ref) {
+                  // Extract repo and issue number from GitHub URL
+                  const match = issue.external_ref.match(
+                    /https:\/\/github\.com\/([\w-]+\/[\w-]+)\/(issues|pull)\/(\d+)/
+                  );
+
+                  if (match) {
+                    const [, repository, , number] = match;
+                    const backend = await import('./cli/auth-wrapper.js')
+                      .then(m => m.getBackendFromConfig(configPath));
+
+                    await import('./cli/auth-wrapper.js')
+                      .then(m => m.withAuth(backend, async () => {
+                        const context = {
+                          repository,
+                          issueNumber: parseInt(number),
+                          includeBlockers: false
+                        };
+                        await executeCapability('sync_progress', context, program.opts());
+                      }));
+                  }
+                }
+              }
+            }
+          }
+        } catch (error: any) {
+          results.push({
+            repository: repo.name,
+            path: repo.path,
+            error: error.message
+          });
+        }
+      }
+
+      console.log(JSON.stringify({
+        success: true,
+        dryRun: options.dryRun,
+        since: options.since,
+        results
+      }, null, 2));
+
+      process.exit(0);
+    } catch (error: any) {
+      console.error(JSON.stringify({
+        success: false,
+        error: {
+          code: 'AUTO_SYNC_ERROR',
+          message: error.message,
+          stack: error.stack
+        }
+      }, null, 2));
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // Serve Command - Live Web Dashboard
 // ============================================================================
 
