@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/wellmaintained/skills/compare/v1.2.0...v1.2.1) (2025-11-18)
+
+
+### Bug Fixes
+
+* **beads-bridge:** support hierarchical bead IDs in status coloring ([3d889ae](https://github.com/wellmaintained/skills/commit/3d889ae547366de4efd82298c532f34dcef5b098))
+
 # [1.2.0](https://github.com/wellmaintained/skills/compare/v1.1.4...v1.2.0) (2025-11-16)
 
 
