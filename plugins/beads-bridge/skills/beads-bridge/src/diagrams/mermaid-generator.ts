@@ -94,7 +94,7 @@ export class MermaidGenerator {
 
     // Parse node definitions to extract status and ID
     for (const line of lines) {
-      const match = line.match(/^\s+(\w+-\w+)\["([☑◧☐⊗])/);
+      const match = line.match(/^\s+([\w.-]+)\["([☑◧☐⊗])/);
       if (match) {
         const [, nodeId, statusSymbol] = match;
         const style = this.getStyleForStatus(statusSymbol);
