@@ -23,7 +23,10 @@ beads.left.meta.json
 beads.right.jsonl
 beads.right.meta.json
 
+# Legacy JSONL file (ignore, use beads.jsonl instead)
+issues.jsonl
+
 # Keep JSONL exports and config (source of truth for git)
-!issues.jsonl
+!beads.jsonl
 !metadata.json
 !config.json
