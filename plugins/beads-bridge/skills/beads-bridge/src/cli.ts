@@ -638,6 +638,153 @@ program
   });
 
 // ============================================================================
+// Auto-Sync Command (POC A - Revised)
+// ============================================================================
+
+program
+  .command('auto-sync')
+  .description('Auto-detect beads state changes and update diagrams')
+  .option('--dry-run', 'show what would be synced without syncing', false)
+  .option('--no-push', 'don\'t push beads metadata after sync', false)
+  .action(async (options) => {
+    const { BdCli } = await import('./utils/bd-cli.js');
+    const { parseExternalRef } = await import('./utils/external-ref-parser.js');
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+
+    try {
+      // Load config to get repository paths
+      const configPath = program.opts().config;
+      const configContent = readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(configContent);
+
+      if (!config.repositories || config.repositories.length === 0) {
+        console.error(JSON.stringify({
+          success: false,
+          error: {
+            code: 'CONFIG_ERROR',
+            message: 'No repositories configured in .beads-bridge/config.json'
+          }
+        }, null, 2));
+        process.exit(1);
+      }
+
+      const results = [];
+      const backend = await import('./cli/auth-wrapper.js')
+        .then(m => m.getBackendFromConfig(configPath));
+
+      // Check each configured repository for changes
+      for (const repo of config.repositories) {
+        const bdCli = new BdCli({ cwd: resolve(repo.path) });
+
+        try {
+          // STEP 1: Run bd sync --no-push to export and commit locally
+          await bdCli.exec(['sync', '--no-push', '--no-daemon']);
+
+          // STEP 2: Detect what changed
+          const changeResult = await bdCli.detectChangedIssues();
+
+          if (changeResult.changedIssueIds.length === 0) {
+            results.push({
+              repository: repo.name,
+              path: repo.path,
+              changedIssues: [],
+              affectedEpics: 0,
+              message: 'No changes detected'
+            });
+
+            // Complete the sync (push)
+            if (!options.noPush && !options.dryRun) {
+              await bdCli.exec(['sync', '--no-daemon']);
+            }
+            continue;
+          }
+
+          // Log what we found
+          const affectedEpicsArray = Array.from(changeResult.affectedEpics.entries());
+          results.push({
+            repository: repo.name,
+            path: repo.path,
+            changedIssues: changeResult.changedIssueIds,
+            affectedEpics: affectedEpicsArray.map(([ref, id]) => ({ externalRef: ref, epicId: id }))
+          });
+
+          // STEP 3: Update diagrams for each affected external_ref
+          if (!options.dryRun) {
+            await import('./cli/auth-wrapper.js')
+              .then(async (authModule) => {
+                await authModule.withAuth(backend, async () => {
+                  // Update each affected epic's diagram
+                  for (const [externalRef] of changeResult.affectedEpics) {
+                    try {
+                      const parsed = parseExternalRef(externalRef);
+
+                      if (parsed.backend === 'github' && parsed.owner && parsed.repo && parsed.issueNumber) {
+                        console.error(`Updating diagram for ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}...`);
+
+                        // Use existing capability to update diagram
+                        const context = {
+                          repository: `${parsed.owner}/${parsed.repo}`,
+                          issueNumber: parsed.issueNumber,
+                          placement: 'description' as const
+                        };
+
+                        await executeCapability('generate_diagrams', context, program.opts());
+                      } else if (parsed.backend === 'shortcut' && parsed.storyId) {
+                        console.error(`Updating diagram for Shortcut story ${parsed.storyId}...`);
+
+                        // Use Shortcut backend
+                        const context = {
+                          repository: 'shortcut',
+                          issueNumber: parsed.storyId,
+                          placement: 'description' as const
+                        };
+
+                        await executeCapability('generate_diagrams', context, program.opts(), 'shortcut');
+                      }
+                    } catch (error: any) {
+                      console.error(`Failed to update diagram for ${externalRef}: ${error.message}`);
+                    }
+                  }
+                });
+              });
+          }
+
+          // STEP 4: Complete the sync (push)
+          if (!options.noPush && !options.dryRun) {
+            await bdCli.exec(['sync', '--no-daemon']);
+          }
+
+        } catch (error: any) {
+          results.push({
+            repository: repo.name,
+            path: repo.path,
+            error: error.message
+          });
+        }
+      }
+
+      console.log(JSON.stringify({
+        success: true,
+        dryRun: options.dryRun,
+        results
+      }, null, 2));
+
+      process.exit(0);
+    } catch (error: any) {
+      console.error(JSON.stringify({
+        success: false,
+        error: {
+          code: 'AUTO_SYNC_ERROR',
+          message: error.message,
+          stack: error.stack
+        }
+      }, null, 2));
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // Serve Command - Live Web Dashboard
 // ============================================================================
 

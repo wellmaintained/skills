@@ -47,6 +47,17 @@ export interface BdExecResult {
 }
 
 /**
+ * Result from detectChangedIssues operation
+ */
+export interface ChangedIssuesResult {
+  /** List of Beads issue IDs that changed */
+  changedIssueIds: string[];
+
+  /** Map of external_ref to epic issue ID */
+  affectedEpics: Map<string, string>;
+}
+
+/**
  * Execute a bd CLI command and return parsed JSON output
  */
 export class BdCli {
@@ -119,6 +130,192 @@ export class BdCli {
    */
   getCwd(): string {
     return this.cwd;
+  }
+
+  /**
+   * Detect changed beads issues by comparing local and remote beads-metadata branches
+   *
+   * POC A: Correct implementation that:
+   * 1. Compares local beads-metadata with origin/beads-metadata
+   * 2. Parses git diff to find changed issue IDs
+   * 3. Walks up dependency tree to find external_ref for each changed issue
+   * 4. Returns map of external_ref to epic issue ID
+   *
+   * @returns Changed issue IDs and affected epics with external_ref
+   */
+  async detectChangedIssues(): Promise<ChangedIssuesResult> {
+    const gitDiff = await this.getBeadsMetadataDiff();
+    const changedIssueIds = this.parseChangedIssueIds(gitDiff);
+
+    if (changedIssueIds.length === 0) {
+      return { changedIssueIds: [], affectedEpics: new Map() };
+    }
+
+    const affectedEpics = await this.mapIssuesToExternalRefs(changedIssueIds);
+
+    return { changedIssueIds, affectedEpics };
+  }
+
+  /**
+   * Get git diff between local and remote beads-metadata branches
+   * @returns Git diff output or empty string on error
+   */
+  private async getBeadsMetadataDiff(): Promise<string> {
+    try {
+      const { stdout } = await execFileAsync('git',
+        ['diff', 'origin/beads-metadata', 'beads-metadata', '--', '.beads/issues.jsonl'],
+        { cwd: this.cwd, timeout: this.timeout }
+      );
+      return stdout;
+    } catch (error: any) {
+      // Branch doesn't exist or other git error - return empty diff
+      if (error.code === 128 || error.message?.includes('unknown revision')) {
+        return '';
+      }
+      throw this.handleExecError(error, ['diff beads-metadata']);
+    }
+  }
+
+  /**
+   * Parse git diff to extract changed issue IDs
+   * @param gitDiff - Git diff output
+   * @returns Array of changed issue IDs
+   */
+  private parseChangedIssueIds(gitDiff: string): string[] {
+    if (!gitDiff) return [];
+
+    const issueIds = new Set<string>();
+
+    for (const line of gitDiff.split('\n')) {
+      if (!line.startsWith('+{')) continue;
+
+      try {
+        const json = JSON.parse(line.substring(1));
+        if (json.id) {
+          issueIds.add(json.id);
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    return Array.from(issueIds);
+  }
+
+  /**
+   * Map changed issues to their external_refs by walking dependency tree
+   * @param issueIds - Array of changed issue IDs
+   * @returns Map of external_ref to epic issue ID
+   */
+  private async mapIssuesToExternalRefs(issueIds: string[]): Promise<Map<string, string>> {
+    const affectedEpics = new Map<string, string>();
+
+    // Cache the list of all issues to avoid repeated calls
+    const allIssues = await this.getAllIssues();
+
+    for (const issueId of issueIds) {
+      const externalRef = await this.findExternalRef(issueId);
+      if (!externalRef) continue;
+
+      // Find epic with this external_ref (if not already in map)
+      if (!affectedEpics.has(externalRef)) {
+        const epic = allIssues.find(issue => issue.external_ref === externalRef);
+        if (epic) {
+          affectedEpics.set(externalRef, epic.id);
+        }
+      }
+    }
+
+    return affectedEpics;
+  }
+
+  /**
+   * Get all issues from beads (cached helper)
+   * @returns Array of all issues
+   */
+  private async getAllIssues(): Promise<Array<{ id: string; external_ref?: string }>> {
+    try {
+      return await this.execJson<any[]>(['list', '--no-daemon', '--no-db']);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Walk up dependency tree to find external_ref
+   *
+   * Recursively walks parent-child dependencies until it finds an issue
+   * with an external_ref, or exhausts all parents.
+   *
+   * @param issueId - Issue ID to start from
+   * @param visited - Set of visited issue IDs to prevent infinite loops
+   * @returns external_ref if found, null otherwise
+   */
+  async findExternalRef(
+    issueId: string,
+    visited = new Set<string>()
+  ): Promise<string | null> {
+    // Prevent infinite loops in circular dependencies
+    if (visited.has(issueId)) return null;
+    visited.add(issueId);
+
+    const issue = await this.getIssue(issueId);
+    if (!issue) return null;
+
+    // Found external_ref at this level
+    if (issue.external_ref) {
+      return issue.external_ref;
+    }
+
+    // Walk up to parent issues
+    const parents = this.getParentDependencies(issue);
+    for (const parentId of parents) {
+      const parentRef = await this.findExternalRef(parentId, visited);
+      if (parentRef) return parentRef;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get a single issue by ID
+   * @param issueId - Issue ID
+   * @returns Issue object or null if not found
+   */
+  private async getIssue(issueId: string): Promise<any | null> {
+    try {
+      const issues = await this.execJson<any[]>(['show', issueId, '--no-daemon']);
+      return issues[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Extract parent issue IDs from dependencies
+   * @param issue - Issue object with dependencies
+   * @returns Array of parent issue IDs
+   */
+  private getParentDependencies(issue: any): string[] {
+    if (!issue.dependencies || !Array.isArray(issue.dependencies)) {
+      return [];
+    }
+
+    return issue.dependencies
+      .filter((dep: any) => dep.dependency_type === 'parent-child')
+      .map((dep: any) => dep.id);
+  }
+
+  /**
+   * Find issue by external_ref
+   *
+   * @param externalRef - External reference to search for
+   * @returns Issue if found, null otherwise
+   */
+  async findIssueByExternalRef(externalRef: string): Promise<{ id: string } | null> {
+    const issues = await this.getAllIssues();
+    const issue = issues.find(i => i.external_ref === externalRef);
+    return issue ? { id: issue.id } : null;
   }
 
   /**
