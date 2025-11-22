@@ -66,10 +66,37 @@ bd automatically syncs with git:
 - Imports from JSONL when newer (e.g., after `git pull`)
 - No manual export/import needed!
 
+### Git Worktrees and Multi-Agent Configuration
+
+**IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents.
+
+**Why daemon is disabled:**
+- Git worktrees share the same `.beads/beads.db` file and `.git` directory
+- The daemon cannot track which branch each worktree has checked out
+- This could cause commits to go to the wrong branch
+
+**Configuration via `.envrc`:**
+The project uses direnv to automatically configure bd for worktree usage. Each worktree inherits:
+- `BEADS_NO_DAEMON=1` - Forces direct database access (required for worktrees)
+- `BD_ACTOR` - Unique identity per worktree for audit trail
+- `BD_DB` - Explicit database path
+
+**What this means:**
+- Auto-sync still works, but requires manual `bd sync` calls
+- Each agent/worktree operates independently
+- No background daemon interference
+- Audit trail shows which worktree made which changes
+
+**If creating new worktrees:**
+1. The `.envrc` file automatically applies to all worktrees
+2. Ensure direnv is installed and enabled: `eval "$(direnv hook zsh)"`
+3. Allow direnv in new worktree: `direnv allow`
+4. Verify configuration: `echo $BD_ACTOR` should show worktree name
+
 ### GitHub Copilot Integration
 
-If using GitHub Copilot, also create `.github/copilot-instructions.md` for automatic instruction loading.
-Run `bd onboard` to get the content, or see step 2 of the onboard instructions.
+If using GitHub Copilot, it will automatically load instructions from `.github/copilot-instructions.md`.
+For projects that USE bd (rather than develop bd itself), reference this AGENTS.md file from your copilot instructions instead of using the template from `bd onboard` (which is designed for bd developers).
 
 ### MCP Server (Recommended)
 
