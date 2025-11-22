@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -32,16 +32,27 @@ export function Canvas({ nodes, edges, onRegisterFit, onDropReparent }: CanvasPr
 
 function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProps) {
   const reactFlow = useReactFlow();
+  const previousNodeCountRef = useRef(nodes.length);
 
   useEffect(() => {
     onRegisterFit(() => reactFlow.fitView({ padding: 0.3, duration: 500 }));
   }, [onRegisterFit, reactFlow]);
 
   useEffect(() => {
-    if (nodes.length) {
-      reactFlow.fitView({ padding: 0.3, duration: 500 });
+    const currentNodeCount = nodes.length;
+    const previousNodeCount = previousNodeCountRef.current;
+    
+    // Only fit view if nodes were added (count increased)
+    if (currentNodeCount > previousNodeCount && currentNodeCount > 0) {
+      // Use requestAnimationFrame to ensure ReactFlow has finished rendering
+      // the new nodes before calling fitView
+      requestAnimationFrame(() => {
+        reactFlow.fitView({ padding: 0.3, duration: 500 });
+      });
     }
-  }, [nodes, reactFlow]);
+    
+    previousNodeCountRef.current = currentNodeCount;
+  }, [nodes.length, reactFlow]);
 
   const handleDragStop = useCallback<NodeDragHandler>(
     (_event, node) => {
