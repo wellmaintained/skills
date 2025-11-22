@@ -1,11 +1,12 @@
 import express, { type Express, type Request, type Response } from 'express';
 import type { Server } from 'http';
-import path from 'path';
 import { fileURLToPath } from 'url';
+import path from 'path';
 import { readFileSync } from 'fs';
 import type { LiveWebBackend } from '../backends/liveweb.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
 import { NotFoundError, ValidationError } from '../types/errors.js';
+import { AssetManager, FileSystemAssetManager } from './asset-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,22 +15,38 @@ export class ExpressServer {
   private app: Express;
   private server?: Server;
   private broadcaster: SSEBroadcaster;
+  private assetManager: AssetManager;
 
   constructor(
     private backend: LiveWebBackend,
-    private port: number
+    private port: number,
+    assetManager?: AssetManager
   ) {
     this.app = express();
     this.app.use(express.json());
     this.broadcaster = new SSEBroadcaster();
     this.backend.setBroadcaster(this.broadcaster);
+    this.assetManager = assetManager || new FileSystemAssetManager();
     this.setupRoutes();
   }
 
   private setupRoutes(): void {
     // Serve static files (CSS, JS)
-    const frontendPath = path.join(__dirname, '..', 'frontend');
-    this.app.use(express.static(frontendPath));
+    const staticPath = this.assetManager.getStaticPath();
+    if (staticPath) {
+      this.app.use('/static', express.static(staticPath));
+    } else {
+      // Serve manually from asset manager (for bundled binaries)
+      this.app.get('/static/:filename', (req: Request, res: Response) => {
+        const asset = this.assetManager.getStaticAsset(req.params.filename);
+        if (asset) {
+          res.type(asset.contentType);
+          res.send(asset.content);
+        } else {
+          res.sendStatus(404);
+        }
+      });
+    }
 
     // Health check
     this.app.get('/api/health', (_req: Request, res: Response) => {
@@ -40,6 +57,12 @@ export class ExpressServer {
     this.app.get('/api/issue/:id', async (req: Request, res: Response) => {
       try {
         const state = this.backend.getState(req.params.id);
+
+        if (!state) {
+          res.status(404).json({ error: 'Issue not found' });
+          return;
+        }
+        console.log(`[ExpressServer] State found: ${!!state}`);
 
         if (!state) {
           res.status(404).json({ error: 'Issue not found' });
@@ -110,9 +133,9 @@ export class ExpressServer {
     });
 
     // Serve dashboard HTML with issue ID placeholder replacement
-    this.app.get('/issue/:id', (_req: Request, res: Response) => {
-      const htmlPath = path.join(frontendPath, 'index.html');
-      const html = readFileSync(htmlPath, 'utf-8');
+    this.app.get('/issue/:id', (req: Request, res: Response) => {
+      let html = this.assetManager.getDashboardHtml();
+      html = html.replace(/{{ISSUE_ID}}/g, req.params.id);
       res.send(html);
     });
   }

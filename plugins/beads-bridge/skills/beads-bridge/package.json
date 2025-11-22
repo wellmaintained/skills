@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc && npm run build:client",
     "build:client": "vite build --config src/client/vite.config.ts",
+    "build:binary": "node scripts/build-binary.mjs",
     "dev": "tsc --watch",
     "dev:client": "vite dev --config src/client/vite.config.ts",
     "test": "vitest run",
@@ -41,8 +42,10 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.0.9",
     "autoprefixer": "^10.4.20",
+    "esbuild": "^0.25.0",
     "eslint": "^9.39.1",
     "postcss": "^8.4.49",
+    "postject": "^1.0.0-alpha.6",
     "prettier": "^3.0.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.0",

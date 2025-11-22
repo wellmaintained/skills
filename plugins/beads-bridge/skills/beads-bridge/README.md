@@ -149,6 +149,11 @@ npm run typecheck
 npm run build
 ```
 
+### Distribution
+
+The CLI can be compiled into a single binary for distribution.
+See [Building Single Binary](./docs/BUILDING_BINARY.md).
+
 ### Test Coverage
 
 Current coverage: **81.75%** (463 tests passing)

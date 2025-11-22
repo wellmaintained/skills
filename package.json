@@ -15,10 +15,12 @@
   "author": "David Laing <david@davidlaing.com>",
   "license": "MIT",
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/git": "^10.0.0",
     "ajv-cli": "^5.0.0",
     "ajv-formats": "^3.0.1",
-    "semantic-release": "^22.0.0",
-    "@semantic-release/changelog": "^6.0.0",
-    "@semantic-release/git": "^10.0.0"
+    "esbuild": "^0.27.0",
+    "postject": "^1.0.0-alpha.6",
+    "semantic-release": "^22.0.0"
   }
 }

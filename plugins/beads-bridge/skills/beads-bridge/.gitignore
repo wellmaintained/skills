@@ -1,5 +1,6 @@
 node_modules/
 dist/
+src/server/asset-manager.bundled.ts
 coverage/
 *.log
 .DS_Store

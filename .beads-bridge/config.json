@@ -1,0 +1,17 @@
+{
+  "version": "2.0",
+  "backend": "github",
+  "github": {
+    "repository": "mrdavidlaing/wellmaintained-skills"
+  },
+  "repositories": [
+    {
+      "name": "wellmaintained-skills",
+      "path": "/Users/mrdavidlaing/mo-inator-workspace/wellmaintained-skills",
+      "prefix": "wms"
+    }
+  ],
+  "logging": {
+    "level": "info"
+  }
+}
