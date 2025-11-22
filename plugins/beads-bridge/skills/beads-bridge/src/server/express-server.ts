@@ -4,23 +4,27 @@ import type { LiveWebBackend } from '../backends/liveweb.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
 import { NotFoundError, ValidationError } from '../types/errors.js';
 import { AssetManager, FileSystemAssetManager } from './asset-manager.js';
+import { Logger } from '../monitoring/logger.js';
 
 export class ExpressServer {
   private app: Express;
   private server?: Server;
   private broadcaster: SSEBroadcaster;
   private assetManager: AssetManager;
+  private logger: Logger;
 
   constructor(
     private backend: LiveWebBackend,
     private port: number,
-    assetManager?: AssetManager
+    assetManager?: AssetManager,
+    logger?: Logger
   ) {
     this.app = express();
     this.app.use(express.json());
     this.broadcaster = new SSEBroadcaster();
     this.backend.setBroadcaster(this.broadcaster);
     this.assetManager = assetManager || new FileSystemAssetManager();
+    this.logger = logger || new Logger({ level: 'INFO' });
     this.setupRoutes();
   }
 
@@ -35,6 +39,16 @@ export class ExpressServer {
       // Serve manually from asset manager (for bundled binaries)
       this.app.get('/static/:filename', (req: Request, res: Response) => {
         const asset = this.assetManager.getStaticAsset(req.params.filename);
+        if (asset) {
+          res.type(asset.contentType);
+          res.send(asset.content);
+        } else {
+          res.sendStatus(404);
+        }
+      });
+
+      this.app.get('/assets/:filename', (req: Request, res: Response) => {
+        const asset = this.assetManager.getStaticAsset('assets/' + req.params.filename);
         if (asset) {
           res.type(asset.contentType);
           res.send(asset.content);
@@ -58,12 +72,7 @@ export class ExpressServer {
           res.status(404).json({ error: 'Issue not found' });
           return;
         }
-        console.log(`[ExpressServer] State found: ${!!state}`);
-
-        if (!state) {
-          res.status(404).json({ error: 'Issue not found' });
-          return;
-        }
+        this.logger.info('State found', { issueId: req.params.id, hasState: !!state });
 
         res.json({
           issueId: req.params.id,
@@ -96,7 +105,7 @@ export class ExpressServer {
       try {
         const parentId = req.params.id;
         const { title, type, priority, description, status } = req.body ?? {};
-        console.log('[Express] create-child called with parentId:', parentId, 'title:', title);
+        this.logger.debug('create-child called', { parentId, title });
         // Ensure priority is a number
         const priorityNum = typeof priority === 'string' ? parseInt(priority, 10) : priority;
         const issue = await this.backend.createSubtask(parentId, {
@@ -106,10 +115,10 @@ export class ExpressServer {
           description,
           status,
         });
-        console.log('[Express] create-child created issue:', issue.id, 'parent should be:', parentId);
+        this.logger.debug('create-child created issue', { issueId: issue.id, parentId });
         res.json(issue);
       } catch (error) {
-        console.error('Error creating subtask:', error);
+        this.logger.error('Error creating subtask:', error as Error);
         this.handleError(res, error);
       }
     });
@@ -135,7 +144,8 @@ export class ExpressServer {
 
     // Serve dashboard HTML with issue ID placeholder replacement
     this.app.get('/issue/:id', (req: Request, res: Response) => {
-      let html = this.assetManager.getDashboardHtml();
+      const logLevel = this.logger.getLevel();
+      let html = this.assetManager.getDashboardHtml(logLevel);
       html = html.replace(/{{ISSUE_ID}}/g, req.params.id);
       res.send(html);
     });
@@ -144,7 +154,7 @@ export class ExpressServer {
   async start(): Promise<void> {
     return new Promise((resolve) => {
       this.server = this.app.listen(this.port, () => {
-        console.log(`Dashboard running at http://localhost:${this.port}`);
+        this.logger.info(`Dashboard running at http://localhost:${this.port}`);
         resolve();
       });
     });
@@ -170,16 +180,22 @@ export class ExpressServer {
 
   private handleError(res: Response, error: unknown): void {
     if (error instanceof ValidationError) {
+      this.logger.warn('Validation error', { message: error.message });
       res.status(400).json({ error: error.message });
       return;
     }
 
     if (error instanceof NotFoundError) {
+      this.logger.warn('Not found error', { message: error.message });
       res.status(404).json({ error: error.message });
       return;
     }
 
-    console.error('ExpressServer error:', error);
+    this.logger.error('ExpressServer error:', error as Error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+
+  getLogger(): Logger {
+    return this.logger;
   }
 }

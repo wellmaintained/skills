@@ -17,6 +17,7 @@ import type {
 } from '../types/beads.js';
 import { NotFoundError } from '../types/index.js';
 import { BdCli } from '../utils/bd-cli.js';
+import type { Logger } from '../monitoring/logger.js';
 
 /**
  * Beads client for multi-repository issue tracking
@@ -25,14 +26,14 @@ export class BeadsClient {
   private readonly repositories: Map<string, BeadsRepository>;
   private readonly bdClients: Map<string, BdCli>;
 
-  constructor(config: BeadsConfig) {
+  constructor(config: BeadsConfig & { logger?: Logger }) {
     this.repositories = new Map();
     this.bdClients = new Map();
 
     // Initialize repositories
     for (const repo of config.repositories) {
       this.repositories.set(repo.name, repo);
-      this.bdClients.set(repo.name, new BdCli({ cwd: repo.path }));
+      this.bdClients.set(repo.name, new BdCli({ cwd: repo.path, logger: config.logger }));
     }
   }
 

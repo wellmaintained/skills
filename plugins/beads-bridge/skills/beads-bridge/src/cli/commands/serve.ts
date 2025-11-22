@@ -8,6 +8,7 @@ import type { DependencyTreeNode, BeadsIssue, BeadsRepository } from '../../type
 import { execBdCommand } from '../../utils/bd-cli.js';
 import { ConfigManager } from '../../config/config-manager.js';
 import { open } from '../../utils/open-browser.js';
+import { Logger, type LogLevel } from '../../monitoring/logger.js';
 
 // Helper: Find which repository contains an issue by checking the prefix
 function findRepositoryForIssue(issueId: string, repositories: BeadsRepository[]): string | null {
@@ -51,15 +52,36 @@ export async function findAvailablePortInRange(start: number, end: number): Prom
   throw new Error(`No available ports found between ${start} and ${end - 1}`);
 }
 
+function parseLogLevel(level: string): LogLevel {
+  const upperLevel = level.toUpperCase() as LogLevel;
+  if (['DEBUG', 'INFO', 'WARN', 'ERROR'].includes(upperLevel)) {
+    return upperLevel;
+  }
+  throw new Error(`Invalid log level: ${level}. Must be one of: DEBUG, INFO, WARN, ERROR`);
+}
+
 export function createServeCommand(): Command {
   return new Command('serve')
     .description('Start live web dashboard for a beads issue')
     .argument('<issue-id>', 'Beads issue ID to visualize')
     .option('-p, --port <number>', 'Server port')
     .option('--poll-interval <seconds>', 'Polling interval in seconds', '5')
+    .option('--log-level <level>', 'Log level (DEBUG|INFO|WARN|ERROR)', 'INFO')
     .option('--no-open', 'Do not auto-open browser')
     .action(async (issueId: string, options) => {
+      // Parse and validate log level early so we can use logger in error handler
+      let logLevel: LogLevel;
       try {
+        logLevel = parseLogLevel(options.logLevel);
+      } catch (error) {
+        console.error(`Invalid log level: ${options.logLevel}. Must be one of: DEBUG, INFO, WARN, ERROR`);
+        process.exit(1);
+      }
+      const baseLogger = new Logger({ level: logLevel });
+      const logger = baseLogger.withScope('ServeCommand');
+
+      try {
+
         const requestedPort = options.port ? parseInt(options.port, 10) : undefined;
         const port =
           typeof requestedPort === 'number' && Number.isFinite(requestedPort)
@@ -67,17 +89,17 @@ export function createServeCommand(): Command {
             : await findAvailablePortInRange(3000, 4000);
 
         if (!requestedPort && port !== 3000) {
-          console.log(`Port 3000 is busy, using ${port} instead.`);
+          logger.info(`Port 3000 is busy, using ${port} instead.`);
         }
 
         const pollInterval = parseInt(options.pollInterval, 10);
 
         // Validate issue exists
-        console.log(`Validating issue ${issueId}...`);
+        logger.info(`Validating issue ${issueId}...`);
         try {
-          await execBdCommand(['show', issueId]);
+          await execBdCommand(['show', issueId], logger);
         } catch (error) {
-          console.error(`Error: Issue ${issueId} not found`);
+          logger.error(`Error: Issue ${issueId} not found`, error as Error);
           process.exit(1);
         }
 
@@ -85,7 +107,7 @@ export function createServeCommand(): Command {
         const configManager = await ConfigManager.load(process.env.BEADS_GITHUB_CONFIG || '.beads-bridge/config.json');
         const repositories = configManager.getRepositories();
 
-        const beadsClient = new BeadsClient({ repositories: repositories as BeadsRepository[] });
+        const beadsClient = new BeadsClient({ repositories: repositories as BeadsRepository[], logger: baseLogger });
 
         // Find repository path for the issue
         const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
@@ -98,13 +120,15 @@ export function createServeCommand(): Command {
         }
 
         // Initialize backend and server with repository path
-        const backend = new LiveWebBackend(repo.path);
-        const server = new ExpressServer(backend, port);
+        const backendLogger = baseLogger.withScope('LiveWebBackend');
+        const backend = new LiveWebBackend(repo.path, undefined, backendLogger);
+        const serverLogger = baseLogger.withScope('ExpressServer');
+        const server = new ExpressServer(backend, port, undefined, serverLogger);
 
 
 
         const updateState = async () => {
-          console.log(`Updating state for ${issueId}...`);
+          logger.info(`Updating state for ${issueId}...`);
 
           // Find which repository contains this issue
           const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
@@ -173,7 +197,7 @@ export function createServeCommand(): Command {
         };
 
         const onError = (error: Error) => {
-          console.error('Polling error:', error.message);
+          logger.error('Polling error:', error);
           server.getBroadcaster().broadcast({
             type: 'error',
             message: error.message,
@@ -187,11 +211,11 @@ export function createServeCommand(): Command {
         );
 
         // Initialize state before starting server so dashboard can load immediately
-        console.log('Initializing state...');
+        logger.info('Initializing state...');
         try {
           await updateState();
         } catch (error) {
-          console.error('Failed to initialize state:', error);
+          logger.error('Failed to initialize state:', error as Error);
           process.exit(1);
         }
 
@@ -207,19 +231,20 @@ export function createServeCommand(): Command {
           await open(url);
         }
 
-        console.log(`\nDashboard running at http://localhost:${port}/issue/${issueId}`);
-        console.log('Press Ctrl+C to stop\n');
+        logger.info(`Dashboard running at http://localhost:${port}/issue/${issueId}`);
+        logger.info('Press Ctrl+C to stop');
 
         // Graceful shutdown
         process.on('SIGINT', () => {
-          console.log('\nShutting down dashboard...');
+          logger.info('Shutting down dashboard...');
           polling.stop();
           server.stop().then(() => {
             process.exit(0);
           });
         });
       } catch (error) {
-        console.error('Failed to start server:', error);
+        const errorLogger = new Logger({ level: logLevel }).withScope('ServeCommand');
+        errorLogger.error('Failed to start server:', error as Error);
         process.exit(1);
       }
     });

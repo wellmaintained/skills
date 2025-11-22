@@ -12,6 +12,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 BRIDGE_DIR="$REPO_ROOT/plugins/beads-bridge/skills/beads-bridge"
 ISSUE_ID="${1:-wms-yun}"
+LOG_LEVEL="${2:-INFO}"
 
 echo "🚀 Starting beads-bridge in dev watch mode for issue: $ISSUE_ID"
 echo "📁 Repository root: $REPO_ROOT"
@@ -51,6 +52,7 @@ sleep 2
 echo "🌐 Starting serve command for $ISSUE_ID..."
 echo "   (Running from repo root so .beads/ directory can be found)"
 echo "   (Using Bun to run TypeScript directly)"
+echo "   (Log level: $LOG_LEVEL)"
 echo ""
-cd "$REPO_ROOT" && bun "$BRIDGE_DIR/src/cli.ts" serve "$ISSUE_ID"
+cd "$REPO_ROOT" && bun "$BRIDGE_DIR/src/cli.ts" serve "$ISSUE_ID" --log-level "$LOG_LEVEL"
 

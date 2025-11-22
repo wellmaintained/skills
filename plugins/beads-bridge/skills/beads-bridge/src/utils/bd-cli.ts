@@ -9,21 +9,27 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { BackendError, NotFoundError } from '../types/index.js';
+import type { Logger } from '../monitoring/logger.js';
 
 const execFileAsync = promisify(execFile);
 
-function logBdCommand(args: string[], cwd?: string): void {
-  const prefix = cwd ? `[bd:${cwd}]` : '[bd]';
-  console.log(prefix, 'bd', args.join(' '));
+function logBdCommand(args: string[], logger?: Logger, cwd?: string): void {
+  if (logger) {
+    const commandStr = args.join(' ');
+    logger.debug(`bd ${commandStr}`, cwd ? { cwd } : undefined);
+  } else {
+    const prefix = cwd ? `[bd:${cwd}]` : '[bd]';
+    console.log(prefix, 'bd', args.join(' '));
+  }
 }
 
 /**
  * Execute a bd command in the current working directory
  * Simple wrapper for CLI commands that don't need repository context
  */
-export async function execBdCommand(args: string[]): Promise<string> {
+export async function execBdCommand(args: string[], logger?: Logger): Promise<string> {
   try {
-    logBdCommand(args);
+    logBdCommand(args, logger);
     const { stdout } = await execFileAsync('bd', args, {
       timeout: 30000,
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer
@@ -45,6 +51,9 @@ export interface BdCliOptions {
 
   /** Maximum timeout for bd commands in milliseconds */
   timeout?: number;
+
+  /** Optional logger for command execution logging */
+  logger?: Logger;
 }
 
 export interface BdExecResult {
@@ -58,10 +67,13 @@ export interface BdExecResult {
 export class BdCli {
   private readonly cwd: string;
   private readonly timeout: number;
+  private readonly logger?: Logger;
 
-  constructor(options: BdCliOptions) {
+  constructor(options: BdCliOptions & { logger?: Logger }) {
     this.cwd = options.cwd;
     this.timeout = options.timeout || 30000; // 30s default
+    // Create a scoped logger for BdCli if a logger is provided
+    this.logger = options.logger ? options.logger.withScope('BdCli') : undefined;
   }
 
   /**
@@ -82,7 +94,7 @@ export class BdCli {
     }
 
     try {
-      logBdCommand(args, this.cwd);
+      logBdCommand(args, this.logger, this.cwd);
       const { stdout, stderr } = await execFileAsync('bd', args, {
         timeout: this.timeout,
         cwd: this.cwd,

@@ -1,43 +1,48 @@
 /**
- * Simple Logger
- *
- * Console-only logging for CLI tool.
+ * Client-side logger for browser console
+ * Reads log level from window.__LOG_LEVEL__ (set by server)
  */
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
-
-export interface LoggerConfig {
-  level: LogLevel;
-}
 
 const PRIORITY: Record<LogLevel, number> = {
   DEBUG: 0,
   INFO: 1,
   WARN: 2,
-  ERROR: 3
+  ERROR: 3,
 };
 
 /**
- * Simple console logger for CLI
+ * Get log level from window or default to INFO
  */
-export class Logger {
-  constructor(
-    private readonly config: LoggerConfig,
-    private readonly scope?: string
-  ) {}
+function getLogLevel(): LogLevel {
+  if (typeof window !== 'undefined' && (window as any).__LOG_LEVEL__) {
+    const level = (window as any).__LOG_LEVEL__.toUpperCase() as LogLevel;
+    if (['DEBUG', 'INFO', 'WARN', 'ERROR'].includes(level)) {
+      return level;
+    }
+  }
+  return 'INFO';
+}
+
+/**
+ * Client-side logger with same interface as server logger
+ */
+export class ClientLogger {
+  private level: LogLevel;
+  private scope?: string;
+
+  constructor(scope?: string) {
+    this.level = getLogLevel();
+    this.scope = scope;
+  }
 
   /**
    * Create a child logger with a specific scope
    */
-  withScope(scope: string): Logger {
-    return new Logger(this.config, scope);
-  }
-
-  /**
-   * Get the current log level
-   */
-  getLevel(): LogLevel {
-    return this.config.level;
+  withScope(scope: string): ClientLogger {
+    const child = new ClientLogger(scope);
+    return child;
   }
 
   /**
@@ -71,8 +76,8 @@ export class Logger {
           error: {
             name: error.name,
             message: error.message,
-            stack: error.stack
-          }
+            stack: error.stack,
+          },
         }
       : context;
 
@@ -88,23 +93,21 @@ export class Logger {
     context?: Record<string, any>
   ): void {
     // Filter by log level
-    if (PRIORITY[level] < PRIORITY[this.config.level]) {
+    if (PRIORITY[level] < PRIORITY[this.level]) {
       return;
     }
 
-    const timestamp = new Date().toISOString();
     const scopeStr = this.scope ? `[${this.scope}]` : '';
     const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-    const logMessage = `[${timestamp}] ${level}${scopeStr} ${message}${contextStr}`;
+    const logMessage = `${level}${scopeStr} ${message}${contextStr}`;
 
     // Use appropriate console method
-    // Note: Use console.log for INFO to ensure visibility in Node.js terminal
     switch (level) {
       case 'DEBUG':
         console.debug(logMessage);
         break;
       case 'INFO':
-        console.log(logMessage);
+        console.info(logMessage);
         break;
       case 'WARN':
         console.warn(logMessage);
@@ -115,3 +118,7 @@ export class Logger {
     }
   }
 }
+
+// Export singleton instance
+export const logger = new ClientLogger();
+

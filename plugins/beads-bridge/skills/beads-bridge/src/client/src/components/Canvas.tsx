@@ -10,6 +10,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import NodeCard, { type IssueNodeComponentData } from './NodeCard';
+import { ClientLogger } from '../utils/logger';
 
 const nodeTypes = {
   issueNode: NodeCard,
@@ -33,6 +34,7 @@ export function Canvas({ nodes, edges, onRegisterFit, onDropReparent }: CanvasPr
 function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProps) {
   const reactFlow = useReactFlow();
   const previousNodeCountRef = useRef(nodes.length);
+  const logger = new ClientLogger('Canvas');
 
   useEffect(() => {
     onRegisterFit(() => reactFlow.fitView({ padding: 0.3, duration: 500 }));
@@ -57,16 +59,16 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
   const handleDragStart = useCallback<NodeDragHandler>(
     (_event, node) => {
       // Ensure the node is being dragged from the drag handle
-      console.log('[Canvas] Drag started for node:', node.id);
+      logger.debug('Drag started for node', { nodeId: node.id });
     },
-    []
+    [logger]
   );
 
   const handleDragStop = useCallback<NodeDragHandler>(
     (_event, node) => {
-      console.log('[Canvas] Drag stopped for node:', node.id);
-      console.log('[Canvas] Dragged node position:', node.position);
-      console.log('[Canvas] Dragged node dimensions:', { width: node.width, height: node.height });
+      logger.debug('Drag stopped for node', { nodeId: node.id });
+      logger.debug('Dragged node position', { position: node.position });
+      logger.debug('Dragged node dimensions', { width: node.width, height: node.height });
       
       // Get the center point of the dragged node
       const nodeWidth = node.width || 260;
@@ -74,11 +76,11 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
       const nodeCenterX = node.position.x + nodeWidth / 2;
       const nodeCenterY = node.position.y + nodeHeight / 2;
       
-      console.log('[Canvas] Dragged node center:', { x: nodeCenterX, y: nodeCenterY });
+      logger.debug('Dragged node center', { x: nodeCenterX, y: nodeCenterY });
       
       // Find the node that contains this center point
       const allNodes = reactFlow.getNodes();
-      console.log('[Canvas] Checking', allNodes.length, 'nodes for intersection...');
+      logger.debug('Checking nodes for intersection', { nodeCount: allNodes.length });
       
       const target = allNodes.find((candidate) => {
         if (candidate.id === node.id) return false;
@@ -96,28 +98,31 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
           nodeCenterY <= candidateY + candidateHeight;
         
         if (isWithinBounds) {
-          console.log('[Canvas] ✓ Found target node:', candidate.id);
-          console.log('[Canvas]   Target position:', candidate.position);
-          console.log('[Canvas]   Target dimensions:', { width: candidateWidth, height: candidateHeight });
-          console.log('[Canvas]   Center point check:', {
-            centerX: nodeCenterX,
-            centerY: nodeCenterY,
-            bounds: {
-              left: candidateX,
-              right: candidateX + candidateWidth,
-              top: candidateY,
-              bottom: candidateY + candidateHeight
-            }
+          logger.debug('Found target node', {
+            targetId: candidate.id,
+            targetPosition: candidate.position,
+            targetDimensions: { width: candidateWidth, height: candidateHeight },
+            centerPoint: {
+              centerX: nodeCenterX,
+              centerY: nodeCenterY,
+              bounds: {
+                left: candidateX,
+                right: candidateX + candidateWidth,
+                top: candidateY,
+                bottom: candidateY + candidateHeight,
+              },
+            },
           });
         } else {
           // Log why it didn't match for debugging
           const distanceX = Math.min(Math.abs(nodeCenterX - candidateX), Math.abs(nodeCenterX - (candidateX + candidateWidth)));
           const distanceY = Math.min(Math.abs(nodeCenterY - candidateY), Math.abs(nodeCenterY - (candidateY + candidateHeight)));
           if (distanceX < 100 && distanceY < 100) {
-            console.log('[Canvas]   Close but not overlapping:', candidate.id, {
+            logger.debug('Close but not overlapping', {
+              candidateId: candidate.id,
               distanceX,
               distanceY,
-              candidatePos: candidate.position
+              candidatePos: candidate.position,
             });
           }
         }
@@ -126,18 +131,19 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
       });
       
       if (target) {
-        console.log('[Canvas] ✓✓✓ Reparenting', node.id, 'to', target.id);
+        logger.info('Reparenting', { childId: node.id, parentId: target.id });
         onDropReparent(node.id, target.id);
       } else {
-        console.log('[Canvas] ✗ No target found for reparenting');
-        console.log('[Canvas] All nodes:', allNodes.map(n => ({
-          id: n.id,
-          pos: n.position,
-          size: { w: n.width || 260, h: n.height || 150 }
-        })));
+        logger.debug('No target found for reparenting', {
+          allNodes: allNodes.map((n) => ({
+            id: n.id,
+            pos: n.position,
+            size: { w: n.width || 260, h: n.height || 150 },
+          })),
+        });
       }
     },
-    [onDropReparent, reactFlow]
+    [onDropReparent, reactFlow, logger]
   );
 
   return (

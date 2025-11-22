@@ -17,6 +17,7 @@ import { DetailModal } from './components/DetailModal';
 import { CreateModal } from './components/CreateModal';
 import type { IssueNodeComponentData } from './components/NodeCard';
 import type { DashboardMetrics } from './types';
+import { ClientLogger } from './utils/logger';
 
 const QUERY_KEY = (issueId: string) => ['issue', issueId];
 
@@ -124,6 +125,7 @@ function useCollapsedNodes(issueId: string) {
 
 export default function App() {
   const issueId = getIssueIdFromPath();
+  const logger = new ClientLogger('App');
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
@@ -182,7 +184,7 @@ export default function App() {
 
   const createMutation = useMutation({
     mutationFn: async ({ parentId, payload }: { parentId: string; payload: CreateSubtaskPayload }) => {
-      console.log('[CreateSubtask] Creating subtask with parentId:', parentId, 'payload:', payload);
+      logger.debug('Creating subtask', { parentId, payload });
       return createSubtask(parentId, payload);
     },
     onMutate: async ({ parentId, payload }) => {
@@ -405,7 +407,7 @@ export default function App() {
           isSubmitting={createMutation.isPending}
           onClose={() => setCreateParentId(null)}
           onSubmit={(parentId, payload) => {
-            console.log('[CreateModal] onSubmit called with parentId:', parentId, 'payload:', payload);
+            logger.debug('onSubmit called', { parentId, payload });
             createMutation.mutate({ parentId, payload });
           }}
         />

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import type { IssueNodeData } from '../hooks/useTreeLayout';
 import type { IssueStatus } from '../types';
 import { STATUS_OPTIONS, STATUS_STYLES } from '../status';
+import { ClientLogger } from '../utils/logger';
 
 export interface NodeActions {
   onToggleCollapse: (id: string) => void;
@@ -17,6 +18,7 @@ export type IssueNodeComponentData = IssueNodeData & NodeActions;
 const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
   const { issue, isCollapsed, childCount, onToggleCollapse, onSelect, onCreateChild, onStatusChange } = data;
   const [isMenuOpen, setMenuOpen] = useState(false);
+  const logger = new ClientLogger('NodeCard');
 
   const status = (issue.metadata?.beadsStatus ?? 'open') as IssueStatus;
   const statusStyle = STATUS_STYLES[status];
@@ -83,7 +85,7 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           aria-label="Create subtask"
           onClick={(event) => {
             event.stopPropagation();
-            console.log('[NodeCard] onCreateChild called with issue.id:', issue.id, 'issue.title:', issue.title);
+            logger.debug('onCreateChild called', { issueId: issue.id, issueTitle: issue.title });
             onCreateChild(issue.id);
           }}
         >

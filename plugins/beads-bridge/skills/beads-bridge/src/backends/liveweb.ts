@@ -12,6 +12,7 @@ import { NotFoundError, NotSupportedError, ValidationError } from '../types/erro
 import type { SSEBroadcaster } from '../server/sse-broadcaster.js';
 import { execBdCommand, BdCli } from '../utils/bd-cli.js';
 import type { BeadsIssue, BeadsIssueType, BeadsPriority, BeadsStatus } from '../types/beads.js';
+import type { Logger } from '../monitoring/logger.js';
 
 export interface IssueGraphEdge {
   id: string;
@@ -53,13 +54,15 @@ export class LiveWebBackend implements ProjectManagementBackend {
   private broadcaster?: SSEBroadcaster;
   private bdCli?: BdCli;
   private runCommand: BdCommandRunner;
+  private logger?: Logger;
 
-  constructor(repositoryPath?: string, runCommand?: BdCommandRunner) {
+  constructor(repositoryPath?: string, runCommand?: BdCommandRunner, logger?: Logger) {
     if (repositoryPath) {
-      this.bdCli = new BdCli({ cwd: repositoryPath });
+      this.bdCli = new BdCli({ cwd: repositoryPath, logger });
     }
     // Fallback to execBdCommand if no repository path provided (for backwards compatibility)
-    this.runCommand = runCommand || execBdCommand;
+    this.runCommand = runCommand || ((args: string[]) => execBdCommand(args, logger));
+    this.logger = logger;
   }
 
   private async runBdCommand(args: string[]): Promise<string> {
@@ -159,7 +162,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
   }
 
   async createSubtask(parentId: string, params: CreateSubtaskParams): Promise<BeadsIssue> {
-    console.log('[LiveWebBackend] createSubtask called with parentId:', parentId, 'title:', params.title);
+    this.logger?.debug('createSubtask called', { parentId, title: params.title });
     if (!parentId) {
       throw new ValidationError('parentId is required');
     }
@@ -186,18 +189,18 @@ export class LiveWebBackend implements ProjectManagementBackend {
       args.push('--status', params.status);
     }
 
-    console.log('[LiveWebBackend] Running bd command:', args.join(' '));
+    this.logger?.debug('Running bd command', { command: args.join(' ') });
     const raw = await this.runBdCommand(args);
     const createdIssue = JSON.parse(raw.trim()) as BeadsIssue;
-    console.log('[LiveWebBackend] Created issue:', createdIssue.id);
+    this.logger?.debug('Created issue', { issueId: createdIssue.id });
 
     // For parent-child relationship: child depends on parent
     // Syntax: bd dep add <child-id> <parent-id> -t parent-child
     // This creates: child depends on parent, meaning parent is the parent of child
     const depArgs = ['dep', 'add', createdIssue.id, parentId, '-t', 'parent-child'];
-    console.log('[LiveWebBackend] Running bd command:', depArgs.join(' '));
+    this.logger?.debug('Running bd command', { command: depArgs.join(' ') });
     await this.runBdCommand(depArgs);
-    console.log('[LiveWebBackend] Added dependency:', createdIssue.id, 'depends on', parentId);
+    this.logger?.debug('Added dependency', { childId: createdIssue.id, parentId });
 
     return createdIssue;
   }

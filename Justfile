@@ -83,11 +83,12 @@ dev-bridge-client:
     cd plugins/beads-bridge/skills/beads-bridge && bun run dev:client
 
 # Start beads-bridge serve in dev watch mode (installs deps, watches client, serves issue)
-# Usage: just serve-bridge [issue-id]
+# Usage: just serve-bridge [issue-id] [log-level]
 # Default issue-id: wms-yun
+# Default log-level: INFO
 # Note: TypeScript type checking is separate - use 'just type-check-bridge'
-serve-bridge issue-id="wms-yun":
-    @bash scripts/serve-bridge-dev.sh {{issue-id}}
+serve-bridge issue-id="wms-yun" log-level="INFO":
+    @bash scripts/serve-bridge-dev.sh {{issue-id}} {{log-level}}
 
 # Full quality check for beads-bridge (lint + type-check + test)
 qa-bridge: lint-bridge type-check-bridge test-bridge
