@@ -128,6 +128,7 @@ export class BdCli {
     return this.cwd;
   }
 
+
   /**
    * Execute bd dep tree command
    *
@@ -144,6 +145,23 @@ export class BdCli {
     const { stdout } = await this.exec(args);
     return stdout;
   }
+
+  /**
+   * Execute bd dep tree command with JSON output
+   *
+   * @param issueId - Issue ID to get tree for
+   * @param reverse - If true, shows dependents tree (children), otherwise shows dependencies tree
+   * @returns Tree as array of issues with parent_id and depth
+   */
+  async execTreeJson<T = any>(issueId: string, reverse: boolean = true): Promise<T> {
+    const args = ['dep', 'tree', issueId];
+    if (reverse) {
+      args.push('--reverse');
+    }
+
+    return this.execJson<T>(args);
+  }
+
 
   /**
    * Handle execution errors and convert to typed errors

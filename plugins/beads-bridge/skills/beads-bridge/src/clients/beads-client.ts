@@ -265,31 +265,6 @@ export class BeadsClient {
   // ============================================================================
 
   /**
-   * Parse bd dep tree output into structured tree
-   *
-   * WORKAROUND: bd list --json doesn't include dependency information,
-   * so we parse the text output from bd dep tree --reverse
-   *
-   * TODO: Switch to JSON API when bd supports it
-   */
-
-
-  /**
-   * Get issue details including dependencies using bd show
-   */
-  private async getIssueDetails(repository: string, issueId: string): Promise<BeadsIssue | null> {
-    const bd = this.getBdCli(repository);
-    try {
-      // bd show supports --json and returns dependencies
-      const result = await bd.execJson<BeadsIssue[]>(['show', issueId]);
-      return result[0] || null;
-    } catch (error) {
-      console.warn(`Failed to fetch details for ${issueId}:`, error);
-      return null;
-    }
-  }
-
-  /**
    * Get epic children as full dependency tree
    */
   async getEpicChildrenTree(
@@ -299,37 +274,54 @@ export class BeadsClient {
     try {
       const bd = this.getBdCli(repository);
 
-      // 1. Get all descendant IDs using bd dep tree
-      // We only care about the IDs, not the structure
-      const treeOutput = await bd.execTree(epicId, true);
-      const lines = treeOutput.split('\n');
-      const ids = new Set<string>();
-
-      // Always include the root epic
-      ids.add(epicId);
-
-      for (const line of lines) {
-        const idMatch = line.match(/([a-zA-Z0-9_-]+)-([a-zA-Z0-9.]+):/);
-        if (idMatch) {
-          ids.add(`${idMatch[1]}-${idMatch[2]}`);
-        }
+      // Use bd dep tree --json to get all issue details in one call
+      interface DepTreeNode {
+        id: string;
+        title: string;
+        description?: string;
+        notes?: string;
+        design?: string;
+        acceptance_criteria?: string;
+        external_ref?: string;
+        status: string;
+        priority: number;
+        issue_type: string;
+        created_at: string;
+        updated_at: string;
+        closed_at?: string;
+        assignee?: string;
+        labels?: string[];
+        depth: number;
+        parent_id: string;
+        truncated: boolean;
       }
 
-      // 2. Fetch details for all IDs in parallel
-      // Limit concurrency to 5 to avoid overwhelming bd/sqlite
-      const uniqueIds = Array.from(ids);
+      const treeNodes = await bd.execTreeJson<DepTreeNode[]>(epicId, true);
+
+      // Convert to BeadsIssue map
       const issuesMap = new Map<string, BeadsIssue>();
-      const chunk = 5;
-
-      for (let i = 0; i < uniqueIds.length; i += chunk) {
-        const batch = uniqueIds.slice(i, i + chunk);
-        const results = await Promise.all(
-          batch.map(id => this.getIssueDetails(repository, id))
-        );
-
-        results.forEach(issue => {
-          if (issue) issuesMap.set(issue.id, issue);
-        });
+      for (const node of treeNodes) {
+        const issue: BeadsIssue = {
+          id: node.id,
+          content_hash: '', // Not provided by dep tree
+          title: node.title,
+          description: node.description || '',
+          design: node.design,
+          acceptance_criteria: node.acceptance_criteria,
+          notes: node.notes,
+          external_ref: node.external_ref,
+          status: node.status as any,
+          priority: node.priority as any,
+          issue_type: node.issue_type as any,
+          created_at: node.created_at,
+          updated_at: node.updated_at,
+          closed_at: node.closed_at,
+          assignee: node.assignee,
+          labels: node.labels || [],
+          dependencies: [], // Will populate if needed
+          dependents: []
+        };
+        issuesMap.set(node.id, issue);
       }
 
       const rootIssue = issuesMap.get(epicId);
@@ -339,29 +331,23 @@ export class BeadsClient {
         return { issue: epic, dependencies: [], depth: 0 };
       }
 
-      // 3. Build tree recursively based on ACTUAL dependencies
+      // Build tree based on parent_id from the flat structure
       const childrenMap = new Map<string, BeadsIssue[]>();
 
-      for (const issue of issuesMap.values()) {
-        if (issue.dependencies) {
-          for (const dep of issue.dependencies) {
-            const parentId = dep.id;
-            // Only add if parent is in our tree scope (or is the root)
-            // Actually, if A depends on B, and both are in the tree, B is parent of A.
-            if (issuesMap.has(parentId)) {
-              const children = childrenMap.get(parentId) || [];
-              children.push(issue);
-              childrenMap.set(parentId, children);
-            }
+      for (const node of treeNodes) {
+        if (node.parent_id && node.id !== epicId) {
+          const issue = issuesMap.get(node.id);
+          if (issue) {
+            const children = childrenMap.get(node.parent_id) || [];
+            children.push(issue);
+            childrenMap.set(node.parent_id, children);
           }
         }
       }
 
       const buildNode = (issue: BeadsIssue, depth: number): DependencyTreeNode => {
         const children = childrenMap.get(issue.id) || [];
-        // Sort children by ID or creation date for stability?
-        // bd dep tree usually sorts by creation date or ID.
-        // Let's sort by ID for now.
+        // Sort children by ID for stability
         children.sort((a, b) => a.id.localeCompare(b.id));
 
         const dependencyNodes = children.map(child => buildNode(child, depth + 1));
