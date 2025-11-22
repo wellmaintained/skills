@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/wellmaintained/skills/compare/v1.2.1...v1.3.0) (2025-11-22)
+
+
+### Bug Fixes
+
+* Update beads-bridge serve to work with Vite build output ([8379db8](https://github.com/wellmaintained/skills/commit/8379db8ed9899311ca934b02f6abe7cca1fd8148))
+
+
+### Features
+
+* Upgrade beads-bridge serve from read-only Mermaid visualization to interactive React/reactflow editor. ([0e8a996](https://github.com/wellmaintained/skills/commit/0e8a996297879a3b2dba68904fb57c494120fe70))
+
 ## [1.2.1](https://github.com/wellmaintained/skills/compare/v1.2.0...v1.2.1) (2025-11-18)
 
 
