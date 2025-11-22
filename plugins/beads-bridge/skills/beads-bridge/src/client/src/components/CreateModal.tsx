@@ -5,14 +5,15 @@ const ISSUE_TYPES = ['task', 'feature', 'bug', 'chore', 'epic'];
 const PRIORITIES = [0, 1, 2, 3, 4];
 
 interface CreateModalProps {
+  parentId: string;
   parentTitle?: string;
   isOpen: boolean;
   isSubmitting?: boolean;
   onClose: () => void;
-  onSubmit: (payload: CreateSubtaskPayload) => void;
+  onSubmit: (parentId: string, payload: CreateSubtaskPayload) => void;
 }
 
-export function CreateModal({ parentTitle, isOpen, onClose, onSubmit, isSubmitting }: CreateModalProps) {
+export function CreateModal({ parentId, parentTitle, isOpen, onClose, onSubmit, isSubmitting }: CreateModalProps) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState('task');
   const [priority, setPriority] = useState(2);
@@ -48,7 +49,7 @@ export function CreateModal({ parentTitle, isOpen, onClose, onSubmit, isSubmitti
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit({ title, type, priority, description });
+            onSubmit(parentId, { title, type, priority, description });
             setTitle('');
             setDescription('');
             setPriority(2);

@@ -82,6 +82,7 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           aria-label="Create subtask"
           onClick={(event) => {
             event.stopPropagation();
+            console.log('[NodeCard] onCreateChild called with issue.id:', issue.id, 'issue.title:', issue.title);
             onCreateChild(issue.id);
           }}
         >

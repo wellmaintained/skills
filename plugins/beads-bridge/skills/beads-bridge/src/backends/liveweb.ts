@@ -10,7 +10,7 @@ import type {
 } from '../types/core.js';
 import { NotFoundError, NotSupportedError, ValidationError } from '../types/errors.js';
 import type { SSEBroadcaster } from '../server/sse-broadcaster.js';
-import { execBdCommand } from '../utils/bd-cli.js';
+import { execBdCommand, BdCli } from '../utils/bd-cli.js';
 import type { BeadsIssue, BeadsIssueType, BeadsPriority, BeadsStatus } from '../types/beads.js';
 
 export interface IssueGraphEdge {
@@ -52,8 +52,24 @@ export class LiveWebBackend implements ProjectManagementBackend {
 
   private state = new Map<string, IssueState>();
   private broadcaster?: SSEBroadcaster;
+  private bdCli?: BdCli;
+  private runCommand: BdCommandRunner;
 
-  constructor(private readonly runCommand: BdCommandRunner = execBdCommand) {}
+  constructor(repositoryPath?: string, runCommand?: BdCommandRunner) {
+    if (repositoryPath) {
+      this.bdCli = new BdCli({ cwd: repositoryPath });
+    }
+    // Fallback to execBdCommand if no repository path provided (for backwards compatibility)
+    this.runCommand = runCommand || execBdCommand;
+  }
+
+  private async runBdCommand(args: string[]): Promise<string> {
+    if (this.bdCli) {
+      const result = await this.bdCli.exec(args);
+      return result.stdout;
+    }
+    return this.runCommand(args);
+  }
 
   setBroadcaster(broadcaster: SSEBroadcaster): void {
     this.broadcaster = broadcaster;
@@ -140,7 +156,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
       throw new ValidationError('status is required');
     }
 
-    await this.runCommand(['update', issueId, '--status', status]);
+    await this.runBdCommand(['update', issueId, '--status', status]);
   }
 
   async createSubtask(parentId: string, params: CreateSubtaskParams): Promise<BeadsIssue> {
@@ -170,10 +186,13 @@ export class LiveWebBackend implements ProjectManagementBackend {
       args.push('--status', params.status);
     }
 
-    const raw = await this.runCommand(args);
+    const raw = await this.runBdCommand(args);
     const createdIssue = JSON.parse(raw.trim()) as BeadsIssue;
 
-    await this.runCommand(['dep', 'add', createdIssue.id, parentId, '-t', 'parent-child']);
+    // For parent-child relationship: child depends on parent
+    // Syntax: bd dep add <child-id> <parent-id> -t parent-child
+    // This creates: child depends on parent, meaning parent is the parent of child
+    await this.runBdCommand(['dep', 'add', createdIssue.id, parentId, '-t', 'parent-child']);
 
     return createdIssue;
   }
@@ -201,7 +220,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
       let removed = false;
 
       try {
-        await this.runCommand(['dep', 'remove', issueId, currentParentId]);
+        await this.runBdCommand(['dep', 'remove', issueId, currentParentId]);
         removed = true;
       } catch (error) {
         if (!isMissingDependencyError(error)) {
@@ -211,7 +230,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
 
       if (!removed) {
         try {
-          await this.runCommand(['dep', 'remove', currentParentId, issueId]);
+          await this.runBdCommand(['dep', 'remove', currentParentId, issueId]);
           removed = true;
         } catch (error) {
           if (!isMissingDependencyError(error)) {
@@ -221,7 +240,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
       }
     }
 
-    await this.runCommand(['dep', 'add', issueId, newParentId, '-t', 'parent-child']);
+    await this.runBdCommand(['dep', 'add', issueId, newParentId, '-t', 'parent-child']);
   }
 
   // Unsupported write operations

@@ -96,15 +96,18 @@ export class ExpressServer {
     this.app.post('/api/issue/:id/create-child', async (req: Request, res: Response) => {
       try {
         const { title, type, priority, description, status } = req.body ?? {};
+        // Ensure priority is a number
+        const priorityNum = typeof priority === 'string' ? parseInt(priority, 10) : priority;
         const issue = await this.backend.createSubtask(req.params.id, {
           title,
           type,
-          priority,
+          priority: priorityNum,
           description,
           status,
         });
         res.json(issue);
       } catch (error) {
+        console.error('Error creating subtask:', error);
         this.handleError(res, error);
       }
     });

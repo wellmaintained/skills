@@ -138,6 +138,7 @@ export default function App() {
 
   const createMutation = useMutation({
     mutationFn: async ({ parentId, payload }: { parentId: string; payload: CreateSubtaskPayload }) => {
+      console.log('[CreateSubtask] Creating subtask with parentId:', parentId, 'payload:', payload);
       return createSubtask(parentId, payload);
     },
     onMutate: async ({ parentId, payload }) => {
@@ -349,16 +350,19 @@ export default function App() {
         parentOptions={(query.data?.issues ?? []).map((issue) => ({ id: issue.id, title: issue.title }))}
       />
 
-      <CreateModal
-        parentTitle={parentIssue?.title}
-        isOpen={Boolean(createParentId)}
-        isSubmitting={createMutation.isPending}
-        onClose={() => setCreateParentId(null)}
-        onSubmit={(payload) => {
-          if (!createParentId) return;
-          createMutation.mutate({ parentId: createParentId, payload });
-        }}
-      />
+      {createParentId && (
+        <CreateModal
+          parentId={createParentId}
+          parentTitle={parentIssue?.title}
+          isOpen={true}
+          isSubmitting={createMutation.isPending}
+          onClose={() => setCreateParentId(null)}
+          onSubmit={(parentId, payload) => {
+            console.log('[CreateModal] onSubmit called with parentId:', parentId, 'payload:', payload);
+            createMutation.mutate({ parentId, payload });
+          }}
+        />
+      )}
     </div>
   );
 }

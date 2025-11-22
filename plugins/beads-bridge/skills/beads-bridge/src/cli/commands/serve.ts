@@ -87,8 +87,18 @@ export function createServeCommand(): Command {
 
         const beadsClient = new BeadsClient({ repositories: repositories as BeadsRepository[] });
 
-        // Initialize backend and server
-        const backend = new LiveWebBackend();
+        // Find repository path for the issue
+        const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
+        if (!repoName) {
+          throw new Error(`Cannot find repository for issue ${issueId}`);
+        }
+        const repo = repositories.find((r) => r.name === repoName || r.prefix === repoName);
+        if (!repo || !repo.path) {
+          throw new Error(`Repository path not found for ${repoName}`);
+        }
+
+        // Initialize backend and server with repository path
+        const backend = new LiveWebBackend(repo.path);
         const server = new ExpressServer(backend, port);
 
         // Create polling service
