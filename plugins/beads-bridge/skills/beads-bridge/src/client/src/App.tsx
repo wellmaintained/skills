@@ -16,8 +16,48 @@ import { Toolbar } from './components/Toolbar';
 import { DetailModal } from './components/DetailModal';
 import { CreateModal } from './components/CreateModal';
 import type { IssueNodeComponentData } from './components/NodeCard';
+import type { DashboardMetrics } from './types';
 
 const QUERY_KEY = (issueId: string) => ['issue', issueId];
+
+/**
+ * Recalculate metrics from the current issues array
+ */
+function recalculateMetrics(issues: DashboardIssue[]): DashboardMetrics {
+  const metrics: DashboardMetrics = {
+    total: issues.length,
+    completed: 0,
+    inProgress: 0,
+    blocked: 0,
+    open: 0,
+  };
+
+  for (const issue of issues) {
+    const status = issue.metadata?.beadsStatus as IssueStatus | undefined;
+    if (!status) {
+      metrics.open++;
+      continue;
+    }
+
+    switch (status) {
+      case 'closed':
+        metrics.completed++;
+        break;
+      case 'in_progress':
+        metrics.inProgress++;
+        break;
+      case 'blocked':
+        metrics.blocked++;
+        break;
+      case 'open':
+      default:
+        metrics.open++;
+        break;
+    }
+  }
+
+  return metrics;
+}
 
 function getIssueIdFromPath(): string {
   const segments = window.location.pathname.split('/');
@@ -114,14 +154,18 @@ export default function App() {
       await queryClient.cancelQueries({ queryKey: QUERY_KEY(issueId) });
       const previous = queryClient.getQueryData<IssueResponse>(QUERY_KEY(issueId));
 
-      updateCache((current) => ({
-        ...current,
-        issues: current.issues.map((issue) =>
+      updateCache((current) => {
+        const updatedIssues = current.issues.map((issue) =>
           issue.id === variables.targetId
             ? { ...issue, metadata: { ...issue.metadata, beadsStatus: variables.status } }
             : issue
-        ),
-      }));
+        );
+        return {
+          ...current,
+          issues: updatedIssues,
+          metrics: recalculateMetrics(updatedIssues),
+        };
+      });
 
       return { previous };
     },
@@ -166,11 +210,12 @@ export default function App() {
           },
         };
 
+        const updatedIssues = [...current.issues, optimisticIssue];
         return {
           ...current,
-          issues: [...current.issues, optimisticIssue],
+          issues: updatedIssues,
           edges: [...current.edges, { id: `${parentId}-${tempId}`, source: parentId, target: tempId }],
-          metrics: { ...current.metrics, total: current.metrics.total + 1 },
+          metrics: recalculateMetrics(updatedIssues),
         };
       });
 
@@ -189,11 +234,13 @@ export default function App() {
         const filteredIssues = current.issues.filter((issue) => issue.id !== context.tempId);
 
         const normalized = toDashboardIssue(result, context.parentId, filteredIssues.length + 1);
+        const updatedIssues = [...filteredIssues, normalized];
 
         return {
           ...current,
-          issues: [...filteredIssues, normalized],
+          issues: updatedIssues,
           edges: [...filteredEdges, { id: `${context.parentId}-${normalized.id}`, source: context.parentId, target: normalized.id }],
+          metrics: recalculateMetrics(updatedIssues),
         };
       });
       setCreateParentId(null);
