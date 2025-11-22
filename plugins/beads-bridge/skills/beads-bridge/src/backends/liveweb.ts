@@ -160,6 +160,7 @@ export class LiveWebBackend implements ProjectManagementBackend {
   }
 
   async createSubtask(parentId: string, params: CreateSubtaskParams): Promise<BeadsIssue> {
+    console.log('[LiveWebBackend] createSubtask called with parentId:', parentId, 'title:', params.title);
     if (!parentId) {
       throw new ValidationError('parentId is required');
     }
@@ -186,13 +187,18 @@ export class LiveWebBackend implements ProjectManagementBackend {
       args.push('--status', params.status);
     }
 
+    console.log('[LiveWebBackend] Running bd command:', args.join(' '));
     const raw = await this.runBdCommand(args);
     const createdIssue = JSON.parse(raw.trim()) as BeadsIssue;
+    console.log('[LiveWebBackend] Created issue:', createdIssue.id);
 
     // For parent-child relationship: child depends on parent
     // Syntax: bd dep add <child-id> <parent-id> -t parent-child
     // This creates: child depends on parent, meaning parent is the parent of child
-    await this.runBdCommand(['dep', 'add', createdIssue.id, parentId, '-t', 'parent-child']);
+    const depArgs = ['dep', 'add', createdIssue.id, parentId, '-t', 'parent-child'];
+    console.log('[LiveWebBackend] Running bd command:', depArgs.join(' '));
+    await this.runBdCommand(depArgs);
+    console.log('[LiveWebBackend] Added dependency:', createdIssue.id, 'depends on', parentId);
 
     return createdIssue;
   }
