@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createServer } from 'node:net';
 import { LiveWebBackend } from '../../backends/liveweb.js';
 import { ExpressServer } from '../../server/express-server.js';
 import { PollingService } from '../../server/polling-service.js';
@@ -23,16 +24,52 @@ function findRepositoryForIssue(issueId: string, repositories: BeadsRepository[]
   return null;
 }
 
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const tester = createServer();
+    tester.unref();
+
+    tester.once('error', () => {
+      resolve(false);
+    });
+
+    tester.once('listening', () => {
+      tester.close(() => resolve(true));
+    });
+
+    tester.listen(port, '0.0.0.0');
+  });
+}
+
+export async function findAvailablePortInRange(start: number, end: number): Promise<number> {
+  for (let port = start; port < end; port += 1) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+
+  throw new Error(`No available ports found between ${start} and ${end - 1}`);
+}
+
 export function createServeCommand(): Command {
   return new Command('serve')
     .description('Start live web dashboard for a beads issue')
     .argument('<issue-id>', 'Beads issue ID to visualize')
-    .option('-p, --port <number>', 'Server port', '3000')
+    .option('-p, --port <number>', 'Server port')
     .option('--poll-interval <seconds>', 'Polling interval in seconds', '5')
     .option('--no-open', 'Do not auto-open browser')
     .action(async (issueId: string, options) => {
       try {
-        const port = parseInt(options.port, 10);
+        const requestedPort = options.port ? parseInt(options.port, 10) : undefined;
+        const port =
+          typeof requestedPort === 'number' && Number.isFinite(requestedPort)
+            ? requestedPort
+            : await findAvailablePortInRange(3000, 4000);
+
+        if (!requestedPort && port !== 3000) {
+          console.log(`Port 3000 is busy, using ${port} instead.`);
+        }
+
         const pollInterval = parseInt(options.pollInterval, 10);
 
         // Validate issue exists
@@ -75,32 +112,42 @@ export function createServeCommand(): Command {
           // Get all issues in tree using bd dep tree
           const tree = await beadsClient.getEpicChildrenTree(repoName, issueId);
 
-          // Flatten tree to get all issues
-          const flattenTree = (node: DependencyTreeNode): BeadsIssue[] => {
-            const result = [node.issue];
-            for (const child of node.dependencies) {
-              result.push(...flattenTree(child));
-            }
-            return result;
+          type FlattenedNode = { issue: BeadsIssue; parentId?: string; depth: number };
+          const flattenTree = (node: DependencyTreeNode, parentId?: string, depth: number = 0): FlattenedNode[] => {
+            const current: FlattenedNode = { issue: node.issue, parentId, depth };
+            const children = node.dependencies.flatMap((child) =>
+              flattenTree(child, node.issue.id, depth + 1)
+            );
+            return [current, ...children];
           };
 
-          const allIssues = flattenTree(tree);
+          const flattened = flattenTree(tree);
 
-          const issues = allIssues.map((issue, idx) => ({
-            id: issue.id,
+          const edges = flattened
+            .filter((entry) => entry.parentId)
+            .map((entry) => ({
+              id: `${entry.parentId}-${entry.issue.id}`,
+              source: entry.parentId as string,
+              target: entry.issue.id,
+            }));
+
+          const issues = flattened.map((entry, idx) => ({
+            id: entry.issue.id,
             number: idx + 1,
-            title: issue.title,
-            body: issue.description || '',
-            state: issue.status === 'closed' ? 'closed' as const : 'open' as const,
-            url: `http://localhost:${port}/issue/${issue.id}`,
-            labels: (issue.labels || []).map(label => ({ id: label, name: label })),
-            assignees: issue.assignee ? [{ id: issue.assignee, login: issue.assignee }] : [],
-            createdAt: new Date(issue.created_at),
-            updatedAt: new Date(issue.updated_at),
+            title: entry.issue.title,
+            body: entry.issue.description || '',
+            state: entry.issue.status === 'closed' ? ('closed' as const) : ('open' as const),
+            url: `http://localhost:${port}/issue/${entry.issue.id}`,
+            labels: (entry.issue.labels || []).map(label => ({ id: label, name: label })),
+            assignees: entry.issue.assignee ? [{ id: entry.issue.assignee, login: entry.issue.assignee }] : [],
+            createdAt: new Date(entry.issue.created_at),
+            updatedAt: new Date(entry.issue.updated_at),
             metadata: {
-              beadsStatus: issue.status,
-              beadsPriority: issue.priority,
-              beadsType: issue.issue_type,
+              beadsStatus: entry.issue.status,
+              beadsPriority: entry.issue.priority,
+              beadsType: entry.issue.issue_type,
+              parentId: entry.parentId ?? null,
+              depth: entry.depth,
             },
           }));
 
@@ -117,6 +164,8 @@ export function createServeCommand(): Command {
             diagram,
             metrics,
             issues,
+            edges,
+            rootId: tree.issue.id,
             lastUpdate: new Date(),
           });
         };

@@ -8,7 +8,7 @@ export default tseslint.config(
 
   {
     // Ignore patterns
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/frontend/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/client/**'],
   },
 
   {

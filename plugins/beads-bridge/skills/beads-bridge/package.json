@@ -8,15 +8,17 @@
     "beads-bridge": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc && npm run copy-frontend",
-    "copy-frontend": "rm -rf dist/frontend && mkdir -p dist/frontend && rsync -a src/frontend/ dist/frontend/",
+    "build": "tsc && npm run build:client",
+    "build:client": "vite build --config src/client/vite.config.ts",
     "dev": "tsc --watch",
+    "dev:client": "vite dev --config src/client/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src tests",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit && npm run type-check:client",
+    "type-check:client": "tsc --project src/client/tsconfig.json --noEmit"
   },
   "keywords": [
     "beads",
@@ -29,22 +31,38 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/dagre": "^0.7.52",
     "@types/node": "^20.19.25",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/supertest": "^2.0.15",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
+    "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.0.9",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9.39.1",
+    "postcss": "^8.4.49",
     "prettier": "^3.0.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.46.4",
-    "vitest": "^4.0.9"
+    "vite": "^5.4.11",
+    "vitest": "^4.0.9",
+    "supertest": "^7.0.0"
   },
   "dependencies": {
     "@shortcut/client": "^2.3.1",
+    "@tanstack/react-query": "^5.59.16",
     "@types/express": "^5.0.5",
+    "clsx": "^2.1.1",
     "commander": "^14.0.2",
+    "dagre": "^0.8.5",
     "express": "^5.1.0",
-    "octokit": "^5.0.5"
+    "octokit": "^5.0.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "reactflow": "^11.11.4"
   },
   "engines": {
     "node": ">=20.0.0"
