@@ -30,14 +30,23 @@ cd "$BRIDGE_DIR" && npm run build
 # Start TypeScript watch mode in background
 echo "👀 Starting TypeScript watch mode in background..."
 cd "$BRIDGE_DIR" && npm run dev &
-WATCH_PID=$!
+TS_WATCH_PID=$!
+
+# Start Vite client watch mode in background (rebuilds on file changes)
+echo "👀 Starting Vite client watch mode in background..."
+cd "$BRIDGE_DIR" && npx vite build --config src/client/vite.config.ts --watch &
+VITE_WATCH_PID=$!
 
 # Function to cleanup on exit
 cleanup() {
     echo ""
-    echo "🛑 Stopping TypeScript watch (PID: $WATCH_PID)..."
-    kill $WATCH_PID 2>/dev/null || true
-    wait $WATCH_PID 2>/dev/null || true
+    echo "🛑 Stopping watch processes..."
+    echo "   Stopping TypeScript watch (PID: $TS_WATCH_PID)..."
+    kill $TS_WATCH_PID 2>/dev/null || true
+    wait $TS_WATCH_PID 2>/dev/null || true
+    echo "   Stopping Vite watch (PID: $VITE_WATCH_PID)..."
+    kill $VITE_WATCH_PID 2>/dev/null || true
+    wait $VITE_WATCH_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 

@@ -70,13 +70,14 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
             </div>
           )}
         </div>
-        <button
-          type="button"
-          className="drag-handle rounded-full border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-400 hover:text-slate-700 cursor-grab active:cursor-grabbing"
+        <div
+          data-handleid="drag-handle"
+          className="drag-handle rounded-full border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-400 hover:text-slate-700 cursor-grab active:cursor-grabbing select-none"
           title="Drag to reparent"
+          draggable={false}
         >
           Drag
-        </button>
+        </div>
         <button
           className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
           aria-label="Create subtask"

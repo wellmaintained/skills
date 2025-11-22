@@ -75,6 +75,7 @@ export function useTreeLayout(
           x: position.x - NODE_WIDTH / 2,
           y: position.y - NODE_HEIGHT / 2,
         },
+        draggable: true,
         data: {
           issue,
           isCollapsed: collapsedNodes.has(issue.id),
