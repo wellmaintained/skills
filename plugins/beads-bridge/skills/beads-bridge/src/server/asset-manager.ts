@@ -21,7 +21,7 @@ export class FileSystemAssetManager implements AssetManager {
   }
 
   getDashboardHtml(): string {
-    const htmlPath = path.join(this.frontendPath, 'dashboard.html');
+    const htmlPath = path.join(this.frontendPath, 'index.html');
     return readFileSync(htmlPath, 'utf-8');
   }
 

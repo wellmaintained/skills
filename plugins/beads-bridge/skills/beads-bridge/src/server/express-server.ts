@@ -1,15 +1,9 @@
 import express, { type Express, type Request, type Response } from 'express';
 import type { Server } from 'http';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import { readFileSync } from 'fs';
 import type { LiveWebBackend } from '../backends/liveweb.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
 import { NotFoundError, ValidationError } from '../types/errors.js';
 import { AssetManager, FileSystemAssetManager } from './asset-manager.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export class ExpressServer {
   private app: Express;
@@ -35,6 +29,8 @@ export class ExpressServer {
     const staticPath = this.assetManager.getStaticPath();
     if (staticPath) {
       this.app.use('/static', express.static(staticPath));
+      // Also serve Vite assets from /assets path
+      this.app.use('/assets', express.static(staticPath + '/assets'));
     } else {
       // Serve manually from asset manager (for bundled binaries)
       this.app.get('/static/:filename', (req: Request, res: Response) => {
