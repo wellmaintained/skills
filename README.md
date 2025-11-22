@@ -47,6 +47,43 @@ Bridge Beads issue tracking with GitHub Projects and Shortcut for unified projec
 
 ---
 
+## Development
+
+This repository uses [`just`](https://just.systems/) as a command runner for development tasks.
+
+### Usage
+
+View all available commands:
+
+```bash
+just
+# or
+just --list
+```
+
+Common commands:
+
+```bash
+# Validation and checks
+just validate              # Validate all JSON schemas
+just check-versions        # Check version consistency
+just check                 # Run all root-level checks
+
+# Beads-bridge plugin
+just build-bridge          # Build the plugin
+just test-bridge           # Run tests
+just dev-bridge            # Watch TypeScript compilation
+just qa-bridge             # Run all quality checks (lint + type-check + test)
+
+# Combined workflows
+just ci                    # Full CI check (validate + build + test)
+just install-all           # Install all dependencies
+```
+
+See the [Justfile](./Justfile) for all available commands.
+
+---
+
 ## Contributing
 
 ### Schema Validation
