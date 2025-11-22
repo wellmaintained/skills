@@ -12,17 +12,17 @@ default:
 # Validate all JSON schemas (marketplace and plugins)
 validate:
     @echo "🔍 Validating JSON schemas..."
-    npm run validate
+    bun run validate
 
 # Validate marketplace.json schema
 validate-marketplace:
     @echo "📋 Validating marketplace.json..."
-    npm run validate:marketplace
+    bun run validate:marketplace
 
 # Validate all plugin.json files
 validate-plugins:
     @echo "🔌 Validating plugin.json files..."
-    npm run validate:plugins
+    bun run validate:plugins
 
 # Check version consistency across all plugins
 check-versions:
@@ -40,56 +40,52 @@ check: validate check-versions
 # Build the beads-bridge plugin
 build-bridge:
     @echo "🔨 Building beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run build
+    cd plugins/beads-bridge/skills/beads-bridge && bun run build
 
 # Build beads-bridge binary
 build-bridge-binary:
     @echo "🔨 Building beads-bridge binary..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run build:binary
+    cd plugins/beads-bridge/skills/beads-bridge && bun run build:binary
 
 # Run TypeScript type checking for beads-bridge
 type-check-bridge:
     @echo "🔍 Type checking beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run type-check
+    cd plugins/beads-bridge/skills/beads-bridge && bun run type-check
 
-# Run tests for beads-bridge
+# Run tests for beads-bridge (using Vitest)
 test-bridge:
     @echo "🧪 Running beads-bridge tests..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm test
+    cd plugins/beads-bridge/skills/beads-bridge && bun run test
 
-# Run tests in watch mode for beads-bridge
+# Run tests in watch mode for beads-bridge (using Vitest)
 test-bridge-watch:
     @echo "🧪 Running beads-bridge tests (watch mode)..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run test:watch
+    cd plugins/beads-bridge/skills/beads-bridge && bun run test:watch
 
-# Run tests with coverage for beads-bridge
+# Run tests with coverage for beads-bridge (using Vitest)
 test-bridge-coverage:
     @echo "🧪 Running beads-bridge tests with coverage..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run test:coverage
+    cd plugins/beads-bridge/skills/beads-bridge && bun run test:coverage
 
 # Lint beads-bridge code
 lint-bridge:
     @echo "🔍 Linting beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run lint
+    cd plugins/beads-bridge/skills/beads-bridge && bun run lint
 
 # Format beads-bridge code
 format-bridge:
     @echo "✨ Formatting beads-bridge code..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run format
-
-# Watch TypeScript compilation for beads-bridge
-dev-bridge:
-    @echo "👀 Watching beads-bridge TypeScript..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run dev
+    cd plugins/beads-bridge/skills/beads-bridge && bun run format
 
 # Watch client development server for beads-bridge
 dev-bridge-client:
     @echo "👀 Starting beads-bridge client dev server..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm run dev:client
+    cd plugins/beads-bridge/skills/beads-bridge && bun run dev:client
 
-# Start beads-bridge serve in dev watch mode (installs deps, watches TypeScript, serves issue)
+# Start beads-bridge serve in dev watch mode (installs deps, watches client, serves issue)
 # Usage: just serve-bridge [issue-id]
 # Default issue-id: wms-yun
+# Note: TypeScript type checking is separate - use 'just type-check-bridge'
 serve-bridge issue-id="wms-yun":
     @bash scripts/serve-bridge-dev.sh {{issue-id}}
 
@@ -124,12 +120,12 @@ ci: qa build-all test-all
 # Install dependencies for root project
 install:
     @echo "📦 Installing root dependencies..."
-    npm install
+    bun install
 
 # Install dependencies for beads-bridge
 install-bridge:
     @echo "📦 Installing beads-bridge dependencies..."
-    cd plugins/beads-bridge/skills/beads-bridge && npm install
+    cd plugins/beads-bridge/skills/beads-bridge && bun install
 
 # Install all dependencies
 install-all: install install-bridge

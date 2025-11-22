@@ -1,7 +1,8 @@
 #!/bin/bash
 # Start beads-bridge in dev watch mode
-# Ensures dependencies are installed, runs TypeScript watch, and serves the dashboard
+# Ensures dependencies are installed, watches client for rebuilds, and serves the dashboard
 # IMPORTANT: The serve command must run from repository root so it can find .beads/
+# Note: TypeScript type checking is separate - use 'just type-check-bridge'
 
 set -e
 
@@ -21,42 +22,35 @@ cd "$REPO_ROOT"
 
 # Ensure dependencies are installed
 echo "📦 Ensuring dependencies are installed..."
-cd "$BRIDGE_DIR" && npm install
+cd "$BRIDGE_DIR" && bun install
 
-# Build initial compilation
-echo "🔨 Building initial compilation..."
-cd "$BRIDGE_DIR" && npm run build
-
-# Start TypeScript watch mode in background
-echo "👀 Starting TypeScript watch mode in background..."
-cd "$BRIDGE_DIR" && npm run dev &
-TS_WATCH_PID=$!
+# Build client (needed for frontend assets)
+echo "🔨 Building client..."
+cd "$BRIDGE_DIR" && bun run build:client
 
 # Start Vite client watch mode in background (rebuilds on file changes)
 echo "👀 Starting Vite client watch mode in background..."
-cd "$BRIDGE_DIR" && npx vite build --config src/client/vite.config.ts --watch &
+cd "$BRIDGE_DIR" && bunx vite build --config src/client/vite.config.ts --watch &
 VITE_WATCH_PID=$!
 
 # Function to cleanup on exit
 cleanup() {
     echo ""
     echo "🛑 Stopping watch processes..."
-    echo "   Stopping TypeScript watch (PID: $TS_WATCH_PID)..."
-    kill $TS_WATCH_PID 2>/dev/null || true
-    wait $TS_WATCH_PID 2>/dev/null || true
     echo "   Stopping Vite watch (PID: $VITE_WATCH_PID)..."
     kill $VITE_WATCH_PID 2>/dev/null || true
     wait $VITE_WATCH_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-# Wait for initial compilation
-echo "⏳ Waiting for initial compilation..."
-sleep 3
+# Wait a moment for watch process to start
+echo "⏳ Waiting for watch process to start..."
+sleep 2
 
 # Start serve command from repository root (so it can find .beads/)
 echo "🌐 Starting serve command for $ISSUE_ID..."
 echo "   (Running from repo root so .beads/ directory can be found)"
+echo "   (Using Bun to run TypeScript directly)"
 echo ""
-cd "$REPO_ROOT" && node "$BRIDGE_DIR/dist/cli.js" serve "$ISSUE_ID"
+cd "$REPO_ROOT" && bun "$BRIDGE_DIR/src/cli.ts" serve "$ISSUE_ID"
 
