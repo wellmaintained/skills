@@ -1,16 +1,12 @@
-import crypto from 'crypto';
-
 export class PollingService {
   private timeoutId: NodeJS.Timeout | null = null;
-  private lastHash: string | null = null;
   private isRunning: boolean = false;
 
   constructor(
-    private fetchDiagram: () => Promise<string>,
     private onUpdate: () => Promise<void>,
     private intervalSeconds: number,
     private onError?: (error: Error) => void
-  ) {}
+  ) { }
 
   start(): void {
     this.isRunning = true;
@@ -41,23 +37,12 @@ export class PollingService {
 
   private async poll(): Promise<void> {
     try {
-      const diagram = await this.fetchDiagram();
-      const hash = this.hashString(diagram);
-
-      // First poll always triggers update, or when hash changes
-      if (this.lastHash === null || hash !== this.lastHash) {
-        this.lastHash = hash;
-        await this.onUpdate();
-      }
+      await this.onUpdate();
     } catch (error) {
       if (this.onError) {
         this.onError(error as Error);
       }
       // Don't crash, continue polling
     }
-  }
-
-  private hashString(str: string): string {
-    return crypto.createHash('sha256').update(str).digest('hex');
   }
 }

@@ -67,7 +67,6 @@ export class ExpressServer {
 
         res.json({
           issueId: req.params.id,
-          diagram: state.diagram,
           metrics: state.metrics,
           issues: state.issues,
           edges: state.edges,

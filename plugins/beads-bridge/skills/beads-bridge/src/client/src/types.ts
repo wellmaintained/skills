@@ -40,7 +40,6 @@ export interface DashboardEdge {
 
 export interface IssueResponse {
   issueId: string;
-  diagram: string;
   metrics: DashboardMetrics;
   issues: DashboardIssue[];
   edges: DashboardEdge[];

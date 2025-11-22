@@ -101,17 +101,10 @@ export function createServeCommand(): Command {
         const backend = new LiveWebBackend(repo.path);
         const server = new ExpressServer(backend, port);
 
-        // Create polling service
-        const fetchDiagram = async () => {
-          const result = await execBdCommand(['dep', 'tree', issueId, '--reverse', '--format', 'mermaid']);
-          return result.trim();
-        };
+
 
         const updateState = async () => {
           console.log(`Updating state for ${issueId}...`);
-
-          // Get dependency tree
-          const diagram = await fetchDiagram();
 
           // Find which repository contains this issue
           const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
@@ -171,7 +164,6 @@ export function createServeCommand(): Command {
           };
 
           backend.updateState(issueId, {
-            diagram,
             metrics,
             issues,
             edges,
@@ -189,7 +181,6 @@ export function createServeCommand(): Command {
         };
 
         const polling = new PollingService(
-          fetchDiagram,
           updateState,
           pollInterval,
           onError

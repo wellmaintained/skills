@@ -20,7 +20,6 @@ export interface IssueGraphEdge {
 }
 
 export interface IssueState {
-  diagram: string;
   metrics: {
     total: number;
     completed: number;
