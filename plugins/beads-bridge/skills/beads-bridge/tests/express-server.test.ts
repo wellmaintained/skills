@@ -1,60 +1,76 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import request from 'supertest';
 import { ExpressServer } from '../src/server/express-server.js';
 import { LiveWebBackend } from '../src/backends/liveweb.js';
 
-describe('ExpressServer', () => {
+describe('ExpressServer API', () => {
   let server: ExpressServer;
   let backend: LiveWebBackend;
 
   beforeEach(() => {
-    backend = new LiveWebBackend();
-    server = new ExpressServer(backend, 3001); // Use different port for testing
+    backend = new LiveWebBackend(vi.fn().mockResolvedValue('[]'));
+    server = new ExpressServer(backend, 0);
   });
 
   afterEach(async () => {
     await server.stop();
   });
 
-  // TODO: Fix flaky test - timeouts/socket errors in CI environment
-  it.skip('should start and stop server', async () => {
-    await server.start();
-
-    const response = await fetch('http://localhost:3001/api/health');
-    expect(response.ok).toBe(true);
-
-    await server.stop();
-
-    // Server should be stopped
-    await expect(fetch('http://localhost:3001/api/health')).rejects.toThrow();
-  });
-
-  // TODO: Fix flaky test - timeouts/socket errors in CI environment
-  it.skip('should serve issue API endpoint', async () => {
+  it('returns cached issue state', async () => {
     backend.updateState('test-1', {
-      diagram: 'flowchart TD\n  test["Test"]',
+      diagram: 'graph TD',
       metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
-      issues: [
-        { id: 'test-1', title: 'Test', status: 'open', url: 'http://localhost:3001/issue/test-1' },
-      ],
+      issues: [{ id: 'test-1', title: 'Test', number: 1, body: '', state: 'open', url: '', labels: [] } as any],
+      edges: [],
+      rootId: 'test-1',
       lastUpdate: new Date('2025-11-05T20:00:00Z'),
     });
 
-    await server.start();
+    const response = await request(server.getExpressApp()).get('/api/issue/test-1');
 
-    const response = await fetch('http://localhost:3001/api/issue/test-1');
-    const data = await response.json();
-
-    expect(data.issueId).toBe('test-1');
-    expect(data.diagram).toContain('flowchart TD');
-    expect(data.metrics.total).toBe(1);
-    expect(data.issues).toHaveLength(1);
+    expect(response.status).toBe(200);
+    expect(response.body.issueId).toBe('test-1');
+    expect(response.body.edges).toEqual([]);
   });
 
-  // TODO: Fix flaky test - timeouts/socket errors in CI environment
-  it.skip('should return 404 for non-existent issue', async () => {
-    await server.start();
+  it('returns 404 for unknown issues', async () => {
+    const response = await request(server.getExpressApp()).get('/api/issue/missing');
 
-    const response = await fetch('http://localhost:3001/api/issue/nonexistent');
     expect(response.status).toBe(404);
+  });
+
+  it('handles status updates via POST', async () => {
+    const spy = vi.spyOn(backend, 'updateIssueStatus').mockResolvedValue();
+
+    const response = await request(server.getExpressApp())
+      .post('/api/issue/test-1/status')
+      .send({ status: 'in_progress' });
+
+    expect(response.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('test-1', 'in_progress');
+  });
+
+  it('creates subtasks via POST', async () => {
+    const child = { id: 'child-1' };
+    const spy = vi.spyOn(backend, 'createSubtask').mockResolvedValue(child as any);
+
+    const response = await request(server.getExpressApp())
+      .post('/api/issue/test-1/create-child')
+      .send({ title: 'Child', type: 'task', priority: 2 });
+
+    expect(response.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('test-1', { title: 'Child', type: 'task', priority: 2 });
+    expect(response.body).toEqual(child);
+  });
+
+  it('reparents issues via POST', async () => {
+    const spy = vi.spyOn(backend, 'reparentIssue').mockResolvedValue();
+
+    const response = await request(server.getExpressApp())
+      .post('/api/issue/test-2/reparent')
+      .send({ newParentId: 'test-1' });
+
+    expect(response.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('test-2', 'test-1');
   });
 });

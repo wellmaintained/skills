@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LiveWebBackend } from '../src/backends/liveweb.js';
 import { NotSupportedError } from '../src/types/errors.js';
 
@@ -35,6 +35,8 @@ describe('LiveWebBackend', () => {
       diagram: 'graph TD',
       metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
       issues: [issueData],
+      edges: [],
+      rootId: 'test-1',
       lastUpdate: new Date(),
     });
 
@@ -59,6 +61,8 @@ describe('LiveWebBackend', () => {
         { id: 'test-1', title: 'Parent', number: 1, body: '', state: 'open' as const, url: '', labels: [] },
         { id: 'test-2', title: 'Child Task', number: 2, body: '', state: 'closed' as const, url: '', labels: [] },
       ],
+      edges: [{ id: 'test-1-test-2', source: 'test-1', target: 'test-2' }],
+      rootId: 'test-1',
       lastUpdate: new Date(),
     });
 
@@ -70,12 +74,138 @@ describe('LiveWebBackend', () => {
     expect(allIssues).toHaveLength(2);
   });
 
-  it('should throw NotSupportedError for write operations', async () => {
+  it('should throw NotSupportedError for generic write operations', async () => {
     const backend = new LiveWebBackend();
 
     await expect(backend.createIssue({ title: 'Test', body: '' })).rejects.toThrow(NotSupportedError);
     await expect(backend.updateIssue('test', {})).rejects.toThrow(NotSupportedError);
     await expect(backend.addComment('test', 'comment')).rejects.toThrow(NotSupportedError);
     await expect(backend.linkIssues('a', 'b', 'blocks')).rejects.toThrow(NotSupportedError);
+  });
+
+  it('should execute bd update when updating issue status', async () => {
+    const runCommand = vi.fn().mockResolvedValue('');
+    const backend = new LiveWebBackend(runCommand);
+
+    await backend.updateIssueStatus('issue-1', 'in_progress');
+
+    expect(runCommand).toHaveBeenCalledWith(['update', 'issue-1', '--status', 'in_progress']);
+  });
+
+  it('should create subtasks and wire dependencies', async () => {
+    const createdIssue = {
+      id: 'child-1',
+      title: 'Child',
+      status: 'open',
+    };
+    const runCommand = vi
+      .fn()
+      .mockResolvedValueOnce(JSON.stringify(createdIssue))
+      .mockResolvedValue('');
+
+    const backend = new LiveWebBackend(runCommand);
+
+    const issue = await backend.createSubtask('parent-1', {
+      title: 'Child',
+      type: 'task',
+      priority: 2,
+    } as any);
+
+    expect(issue).toEqual(createdIssue);
+    expect(runCommand).toHaveBeenNthCalledWith(1, [
+      'create',
+      'Child',
+      '-t',
+      'task',
+      '-p',
+      '2',
+      '--json',
+    ]);
+    expect(runCommand).toHaveBeenNthCalledWith(2, [
+      'dep',
+      'add',
+      'child-1',
+      'parent-1',
+      '-t',
+      'parent-child',
+    ]);
+  });
+
+  it('should reparent issues by removing old deps first', async () => {
+    const runCommand = vi.fn().mockResolvedValue('');
+
+    const backend = new LiveWebBackend(runCommand);
+    backend.updateState('root-issue', {
+      diagram: 'graph TD',
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [
+        {
+          id: 'child-1',
+          title: 'Child',
+          number: 1,
+          body: '',
+          state: 'open',
+          url: '',
+          labels: [],
+          metadata: { parentId: 'old-parent' },
+        } as any,
+      ],
+      edges: [],
+      rootId: 'root-issue',
+      lastUpdate: new Date(),
+    });
+
+    await backend.reparentIssue('child-1', 'parent-2');
+
+    expect(runCommand).toHaveBeenNthCalledWith(1, ['dep', 'remove', 'child-1', 'old-parent']);
+    expect(runCommand).toHaveBeenNthCalledWith(2, [
+      'dep',
+      'add',
+      'child-1',
+      'parent-2',
+      '-t',
+      'parent-child',
+    ]);
+  });
+
+  it('should tolerate missing dependency during reparent', async () => {
+    const runCommand = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('dependency from child-1 to old-parent does not exist'))
+      .mockResolvedValueOnce('')
+      .mockResolvedValue('');
+
+    const backend = new LiveWebBackend(runCommand);
+    backend.updateState('root', {
+      diagram: '',
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [
+        {
+          id: 'child-1',
+          title: 'x',
+          number: 1,
+          body: '',
+          state: 'open',
+          url: '',
+          labels: [],
+          metadata: { parentId: 'old-parent' },
+        } as any,
+      ],
+      edges: [],
+      rootId: 'root',
+      lastUpdate: new Date(),
+    });
+
+    await backend.reparentIssue('child-1', 'parent-2');
+
+    expect(runCommand).toHaveBeenNthCalledWith(2, ['dep', 'remove', 'old-parent', 'child-1']);
+    expect(runCommand).toHaveBeenNthCalledWith(3, [
+      'dep',
+      'add',
+      'child-1',
+      'parent-2',
+      '-t',
+      'parent-child',
+    ]);
   });
 });
