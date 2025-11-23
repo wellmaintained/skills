@@ -2,7 +2,7 @@
  * Tests for DiagramPlacer
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { DiagramPlacer } from '../src/diagrams/diagram-placer.js';
 import type { ProjectManagementBackend } from '../src/types/backend.js';
 import type { BeadsClient } from '../src/clients/beads-client.js';
@@ -58,20 +58,20 @@ describe('DiagramPlacer', () => {
 
   beforeEach(() => {
     mockBackend = {
-      getIssue: vi.fn(),
-      updateIssue: vi.fn(),
-      addComment: vi.fn()
+      getIssue: mock(),
+      updateIssue: mock(),
+      addComment: mock()
     };
 
     mockBeads = {};
 
     mockGenerator = {
-      generateFromTree: vi.fn(),
-      render: vi.fn()
+      generateFromTree: mock(),
+      render: mock()
     };
 
     mockMappings = {
-      findByGitHubIssue: vi.fn()
+      findByGitHubIssue: mock()
     } as any;
 
     placer = new DiagramPlacer(
@@ -83,11 +83,11 @@ describe('DiagramPlacer', () => {
 
   describe('updateDiagram', () => {
     it('should update issue description with diagram', async () => {
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mockMapping);
-      vi.mocked(mockGenerator.generateFromTree!).mockResolvedValue(mockDiagram);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
-      vi.mocked(mockBackend.updateIssue!).mockResolvedValue(mockIssue);
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mockMapping);
+      (mockGenerator.generateFromTree as any).mockResolvedValue(mockDiagram);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
+      (mockBackend.updateIssue as any).mockResolvedValue(mockIssue);
 
       const result = await placer.updateDiagram('owner/repo', 1, {
         trigger: 'manual',
@@ -98,7 +98,7 @@ describe('DiagramPlacer', () => {
       expect(result.descriptionUpdated).toBe(true);
       expect(mockBackend.updateIssue).toHaveBeenCalled();
 
-      const updateCall = vi.mocked(mockBackend.updateIssue!).mock.calls[0];
+      const updateCall = (mockBackend.updateIssue as any).mock.calls[0];
       const updatedBody = updateCall[1].body;
       expect(updatedBody).toContain(DIAGRAM_MARKERS.START);
       expect(updatedBody).toContain(DIAGRAM_MARKERS.END);
@@ -120,11 +120,11 @@ describe('DiagramPlacer', () => {
         url: 'https://github.com/owner/repo/issues/1#comment-1'
       };
 
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mockMapping);
-      vi.mocked(mockGenerator.generateFromTree!).mockResolvedValue(mockDiagram);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
-      vi.mocked(mockBackend.addComment!).mockResolvedValue(mockComment);
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mockMapping);
+      (mockGenerator.generateFromTree as any).mockResolvedValue(mockDiagram);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
+      (mockBackend.addComment as any).mockResolvedValue(mockComment);
 
       const result = await placer.updateDiagram('owner/repo', 1, {
         trigger: 'weekly',
@@ -153,11 +153,11 @@ describe('DiagramPlacer', () => {
         url: 'https://github.com/owner/repo/issues/1#comment-1'
       };
 
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mockMapping);
-      vi.mocked(mockGenerator.generateFromTree!).mockResolvedValue(mockDiagram);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
-      vi.mocked(mockBackend.addComment!).mockResolvedValue(mockComment);
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mockMapping);
+      (mockGenerator.generateFromTree as any).mockResolvedValue(mockDiagram);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
+      (mockBackend.addComment as any).mockResolvedValue(mockComment);
 
       await placer.updateDiagram('owner/repo', 1, {
         trigger: 'scope_change',
@@ -165,13 +165,13 @@ describe('DiagramPlacer', () => {
         message: 'Scope expanded due to new dependencies discovered'
       });
 
-      const commentCall = vi.mocked(mockBackend.addComment!).mock.calls[0];
+      const commentCall = (mockBackend.addComment as any).mock.calls[0];
       const commentBody = commentCall[1];
       expect(commentBody).toContain('Scope expanded due to new dependencies discovered');
     });
 
     it('should handle update failure gracefully', async () => {
-      vi.mocked(mockBackend.getIssue!).mockRejectedValue(new Error('API Error'));
+      (mockBackend.getIssue as any).mockRejectedValue(new Error('API Error'));
 
       const result = await placer.updateDiagram('owner/repo', 1, {
         trigger: 'manual'
@@ -182,8 +182,8 @@ describe('DiagramPlacer', () => {
     });
 
     it('should handle missing mapping', async () => {
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(null);
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(null);
 
       const result = await placer.updateDiagram('owner/repo', 1, {
         trigger: 'manual'
@@ -239,11 +239,11 @@ More content
 
   describe('updateDiagramSection', () => {
     it('should append diagram to empty body', async () => {
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue({ ...mockIssue, body: '' });
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mockMapping);
-      vi.mocked(mockGenerator.generateFromTree!).mockResolvedValue(mockDiagram);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
-      vi.mocked(mockBackend.updateIssue!).mockResolvedValue(mockIssue);
+      (mockBackend.getIssue as any).mockResolvedValue({ ...mockIssue, body: '' });
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mockMapping);
+      (mockGenerator.generateFromTree as any).mockResolvedValue(mockDiagram);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ngraph TB\nA-->B\n```');
+      (mockBackend.updateIssue as any).mockResolvedValue(mockIssue);
 
       await placer.updateDiagram('owner/repo', 1, {
         trigger: 'initial',
@@ -251,7 +251,7 @@ More content
         createSnapshot: false
       });
 
-      const updateCall = vi.mocked(mockBackend.updateIssue!).mock.calls[0];
+      const updateCall = (mockBackend.updateIssue as any).mock.calls[0];
       const updatedBody = updateCall[1].body!;
 
       expect(updatedBody).toContain(DIAGRAM_MARKERS.START);
@@ -269,11 +269,11 @@ ${DIAGRAM_MARKERS.END}
 More content
 `;
 
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue({ ...mockIssue, body: existingBody });
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mockMapping);
-      vi.mocked(mockGenerator.generateFromTree!).mockResolvedValue(mockDiagram);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ngraph TB\nNEW-->DIAGRAM\n```');
-      vi.mocked(mockBackend.updateIssue!).mockResolvedValue(mockIssue);
+      (mockBackend.getIssue as any).mockResolvedValue({ ...mockIssue, body: existingBody });
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mockMapping);
+      (mockGenerator.generateFromTree as any).mockResolvedValue(mockDiagram);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ngraph TB\nNEW-->DIAGRAM\n```');
+      (mockBackend.updateIssue as any).mockResolvedValue(mockIssue);
 
       await placer.updateDiagram('owner/repo', 1, {
         trigger: 'weekly',
@@ -281,7 +281,7 @@ More content
         createSnapshot: false
       });
 
-      const updateCall = vi.mocked(mockBackend.updateIssue!).mock.calls[0];
+      const updateCall = (mockBackend.updateIssue as any).mock.calls[0];
       const updatedBody = updateCall[1].body!;
 
       expect(updatedBody).toContain('Original content');
@@ -311,13 +311,13 @@ More content
         nodeCount: 1
       };
 
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(multiRepoMapping);
-      vi.mocked(mockGenerator.generateFromTree!)
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(multiRepoMapping);
+      (mockGenerator.generateFromTree as any)
         .mockResolvedValueOnce(diagram1)
         .mockResolvedValueOnce(diagram2);
-      vi.mocked(mockGenerator.render!).mockReturnValue('combined diagram');
-      vi.mocked(mockBackend.updateIssue!).mockResolvedValue(mockIssue);
+      (mockGenerator.render as any).mockReturnValue('combined diagram');
+      (mockBackend.updateIssue as any).mockResolvedValue(mockIssue);
 
       await placer.updateDiagram('owner/repo', 1, {
         trigger: 'manual',
@@ -331,7 +331,7 @@ More content
 
       // Should call render with combined mermaid string
       expect(mockGenerator.render).toHaveBeenCalledTimes(1);
-      const renderCall = vi.mocked(mockGenerator.render!).mock.calls[0];
+      const renderCall = (mockGenerator.render as any).mock.calls[0];
       const combinedMermaid = renderCall[0];
 
       // Combined diagram should contain both repository sections
@@ -361,20 +361,20 @@ More content
         nodeCount: 1
       };
 
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(mockIssue);
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(multiRepoMapping);
-      vi.mocked(mockGenerator.generateFromTree!)
+      (mockBackend.getIssue as any).mockResolvedValue(mockIssue);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(multiRepoMapping);
+      (mockGenerator.generateFromTree as any)
         .mockResolvedValueOnce(diagram1)
         .mockResolvedValueOnce(diagram2);
-      vi.mocked(mockGenerator.render!).mockReturnValue('```mermaid\ncombined diagram\n```');
-      vi.mocked(mockBackend.updateIssue!).mockResolvedValue(mockIssue);
+      (mockGenerator.render as any).mockReturnValue('```mermaid\ncombined diagram\n```');
+      (mockBackend.updateIssue as any).mockResolvedValue(mockIssue);
 
       await placer.updateDiagram('owner/repo', 1, {
         trigger: 'manual',
         updateDescription: true
       });
 
-      const renderCall = vi.mocked(mockGenerator.render!).mock.calls[0];
+      const renderCall = (mockGenerator.render as any).mock.calls[0];
       const combinedMermaid = renderCall[0];
 
       // Combined diagram should concatenate both diagrams with section headers

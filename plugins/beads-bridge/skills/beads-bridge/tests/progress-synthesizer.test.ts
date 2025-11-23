@@ -2,7 +2,7 @@
  * Tests for ProgressSynthesizer
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { ProgressSynthesizer } from '../src/synthesis/progress-synthesizer.js';
 import type { BeadsClient } from '../src/clients/beads-client.js';
 import type { ProjectManagementBackend } from '../src/types/backend.js';
@@ -34,17 +34,17 @@ describe('ProgressSynthesizer', () => {
 
   beforeEach(() => {
     mockBeads = {
-      getEpicWithSubtasks: vi.fn()
+      getEpicWithSubtasks: mock()
     };
 
     mockBackend = {
-      getIssue: vi.fn(),
-      addComment: vi.fn()
+      getIssue: mock(),
+      addComment: mock()
     };
 
     mockMappings = {
-      findByGitHubIssue: vi.fn(),
-      update: vi.fn()
+      findByGitHubIssue: mock(),
+      update: mock()
     };
 
     synthesizer = new ProgressSynthesizer(
@@ -106,7 +106,7 @@ describe('ProgressSynthesizer', () => {
         createMockIssue({ id: 'task-3', status: 'open' })
       ];
 
-      vi.mocked(mockBeads.getEpicWithSubtasks!).mockResolvedValue({
+      (mockBeads.getEpicWithSubtasks as any).mockResolvedValue({
         epic,
         subtasks
       });
@@ -135,7 +135,7 @@ describe('ProgressSynthesizer', () => {
         createMockIssue({ id: 'task-2', status: 'open' })
       ];
 
-      vi.mocked(mockBeads.getEpicWithSubtasks!).mockResolvedValue({
+      (mockBeads.getEpicWithSubtasks as any).mockResolvedValue({
         epic,
         subtasks
       });
@@ -169,10 +169,10 @@ describe('ProgressSynthesizer', () => {
         }
       };
 
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mapping);
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mapping);
 
       // Mock epic progress for repo-1
-      vi.mocked(mockBeads.getEpicWithSubtasks!).mockResolvedValueOnce({
+      (mockBeads.getEpicWithSubtasks as any).mockResolvedValueOnce({
         epic: createMockIssue({ id: 'epic-1', issue_type: 'epic' }),
         subtasks: [
           createMockIssue({ id: 'task-1', status: 'closed' }),
@@ -181,7 +181,7 @@ describe('ProgressSynthesizer', () => {
       });
 
       // Mock epic progress for repo-2
-      vi.mocked(mockBeads.getEpicWithSubtasks!).mockResolvedValueOnce({
+      (mockBeads.getEpicWithSubtasks as any).mockResolvedValueOnce({
         epic: createMockIssue({ id: 'epic-2', issue_type: 'epic' }),
         subtasks: [
           createMockIssue({ id: 'task-3', status: 'closed' }),
@@ -381,17 +381,17 @@ describe('ProgressSynthesizer', () => {
         url: 'https://github.com/owner/repo/issues/1#comment-1'
       };
 
-      vi.mocked(mockMappings.findByGitHubIssue!).mockResolvedValue(mapping);
-      vi.mocked(mockBeads.getEpicWithSubtasks!).mockResolvedValue({
+      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mapping);
+      (mockBeads.getEpicWithSubtasks as any).mockResolvedValue({
         epic: createMockIssue({ id: 'epic-1', issue_type: 'epic' }),
         subtasks: [
           createMockIssue({ id: 'task-1', status: 'closed' }),
           createMockIssue({ id: 'task-2', status: 'open' })
         ]
       });
-      vi.mocked(mockBackend.getIssue!).mockResolvedValue(issue);
-      vi.mocked(mockBackend.addComment!).mockResolvedValue(comment);
-      vi.mocked(mockMappings.update!).mockResolvedValue(mapping);
+      (mockBackend.getIssue as any).mockResolvedValue(issue);
+      (mockBackend.addComment as any).mockResolvedValue(comment);
+      (mockMappings.update as any).mockResolvedValue(mapping);
 
       const result = await synthesizer.updateGitHubProgress('owner/repo', 1);
 

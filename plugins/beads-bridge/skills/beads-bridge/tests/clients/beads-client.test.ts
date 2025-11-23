@@ -4,7 +4,7 @@
  * Comprehensive tests for the BeadsClient with mocked bd CLI calls.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { BeadsClient } from '../../src/clients/beads-client.js';
 import type {
   BeadsConfig,
@@ -13,27 +13,17 @@ import type {
   UpdateBeadsIssueParams,
   BeadsDependency
 } from '../../src/types/beads.js';
-import { NotFoundError, BackendError } from '../../src/types/index.js';
+import { NotFoundError } from '../../src/types/index.js';
+import { BdCli } from '../../src/utils/bd-cli.js';
 
 // Mock the BdCli module
-vi.mock('../../src/utils/bd-cli.js', () => {
-  return {
-    BdCli: vi.fn().mockImplementation(function() {
-      return {
-        exec: vi.fn(),
-        execJson: vi.fn(),
-        execTree: vi.fn(),
-        getCwd: vi.fn()
-      };
-    })
-  };
-});
-
-import { BdCli } from '../../src/utils/bd-cli.js';
+let mockBdCliInstance: any;
+mock.module('../../src/utils/bd-cli.js', () => ({
+  BdCli: mock(() => mockBdCliInstance)
+}));
 
 describe('BeadsClient', () => {
   let client: BeadsClient;
-  let mockBdCli: any;
 
   const mockConfig: BeadsConfig = {
     repositories: [
@@ -58,22 +48,20 @@ describe('BeadsClient', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
     // Setup mock BdCli
-    mockBdCli = {
-      exec: vi.fn(),
-      execJson: vi.fn(),
-      execTree: vi.fn(),
-      getCwd: vi.fn()
+    mockBdCliInstance = {
+      exec: mock(),
+      execJson: mock(),
+      execTree: mock(),
+      execTreeJson: mock(),
+      getCwd: mock()
     };
-
-    (BdCli as any).mockImplementation(function() {
-      return mockBdCli;
-    });
 
     client = new BeadsClient(mockConfig);
   });
+
+  // ... (Repository Management, List Operations, Get Operations, Create Operations, Update Operations, Close Operations, Dependency Operations - same as before)
+  // I will copy them to ensure file is complete
 
   // ============================================================================
   // Repository Management
@@ -116,64 +104,64 @@ describe('BeadsClient', () => {
   describe('List Operations', () => {
     it('should list all issues without filters', async () => {
       const mockIssues = [mockIssue, { ...mockIssue, id: 'test-456' }];
-      mockBdCli.execJson.mockResolvedValue(mockIssues);
+      mockBdCliInstance.execJson.mockResolvedValue(mockIssues);
 
       const issues = await client.listIssues('test-repo');
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list']);
       expect(issues).toEqual(mockIssues);
     });
 
     it('should list issues with status filter', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { status: 'open' });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--status', 'open']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--status', 'open']);
     });
 
     it('should list issues with priority filter', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { priority: 1 });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--priority', '1']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--priority', '1']);
     });
 
     it('should list issues with type filter', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { type: 'epic' });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--type', 'epic']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--type', 'epic']);
     });
 
     it('should list issues with assignee filter', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { assignee: 'user1' });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--assignee', 'user1']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--assignee', 'user1']);
     });
 
     it('should list issues with labels filter', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { labels: ['bug', 'critical'] });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--label', 'bug', '--label', 'critical']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--label', 'bug', '--label', 'critical']);
     });
 
     it('should list issues with limit', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', { limit: 10 });
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--limit', '10']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--limit', '10']);
     });
 
     it('should list issues with multiple filters', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.listIssues('test-repo', {
         status: 'in_progress',
@@ -182,7 +170,7 @@ describe('BeadsClient', () => {
         assignee: 'dev1'
       });
 
-      const call = mockBdCli.execJson.mock.calls[0][0];
+      const call = mockBdCliInstance.execJson.mock.calls[0][0];
       expect(call).toContain('list');
       expect(call).toContain('--status');
       expect(call).toContain('in_progress');
@@ -201,16 +189,16 @@ describe('BeadsClient', () => {
 
   describe('Get Operations', () => {
     it('should get issue by ID', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       const issue = await client.getIssue('test-repo', 'test-123');
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(['list', '--id', 'test-123']);
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(['list', '--id', 'test-123']);
       expect(issue).toEqual(mockIssue);
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {
-      mockBdCli.execJson.mockResolvedValue([]);
+      mockBdCliInstance.execJson.mockResolvedValue([]);
 
       await expect(client.getIssue('test-repo', 'non-existent')).rejects.toThrow(NotFoundError);
       await expect(client.getIssue('test-repo', 'non-existent')).rejects.toThrow('Issue non-existent not found in test-repo');
@@ -232,11 +220,11 @@ describe('BeadsClient', () => {
         title: 'New Issue'
       };
 
-      mockBdCli.execJson.mockResolvedValue(mockIssue);
+      mockBdCliInstance.execJson.mockResolvedValue(mockIssue);
 
       const issue = await client.createIssue('test-repo', params);
 
-      expect(mockBdCli.execJson).toHaveBeenCalledWith(expect.arrayContaining([
+      expect(mockBdCliInstance.execJson).toHaveBeenCalledWith(expect.arrayContaining([
         'create',
         'New Issue'
       ]));
@@ -257,11 +245,11 @@ describe('BeadsClient', () => {
         external_ref: 'https://github.com/org/repo/issues/123'
       };
 
-      mockBdCli.execJson.mockResolvedValue(mockIssue);
+      mockBdCliInstance.execJson.mockResolvedValue(mockIssue);
 
       await client.createIssue('test-repo', params);
 
-      const call = mockBdCli.execJson.mock.calls[0][0];
+      const call = mockBdCliInstance.execJson.mock.calls[0][0];
       expect(call).toContain('create');
       expect(call).toContain('Complete Issue');
       expect(call).toContain('-d');
@@ -291,11 +279,11 @@ describe('BeadsClient', () => {
         issue_type: 'epic'
       };
 
-      mockBdCli.execJson.mockResolvedValue({ ...mockIssue, issue_type: 'epic' });
+      mockBdCliInstance.execJson.mockResolvedValue({ ...mockIssue, issue_type: 'epic' });
 
       await client.createEpic('test-repo', params);
 
-      const call = mockBdCli.execJson.mock.calls[0][0];
+      const call = mockBdCliInstance.execJson.mock.calls[0][0];
       expect(call).toContain('-t');
       expect(call).toContain('epic');
     });
@@ -305,11 +293,11 @@ describe('BeadsClient', () => {
         title: 'Epic without type'
       };
 
-      mockBdCli.execJson.mockResolvedValue(mockIssue);
+      mockBdCliInstance.execJson.mockResolvedValue(mockIssue);
 
       await client.createEpic('test-repo', params);
 
-      const call = mockBdCli.execJson.mock.calls[0][0];
+      const call = mockBdCliInstance.execJson.mock.calls[0][0];
       expect(call).toContain('-t');
       expect(call).toContain('epic');
     });
@@ -325,12 +313,12 @@ describe('BeadsClient', () => {
         status: 'in_progress'
       };
 
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
-      mockBdCli.execJson.mockResolvedValue([{ ...mockIssue, status: 'in_progress' }]);
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.execJson.mockResolvedValue([{ ...mockIssue, status: 'in_progress' }]);
 
       const issue = await client.updateIssue('test-repo', 'test-123', updates);
 
-      expect(mockBdCli.exec).toHaveBeenCalledWith(['update', 'test-123', '--status', 'in_progress']);
+      expect(mockBdCliInstance.exec).toHaveBeenCalledWith(['update', 'test-123', '--status', 'in_progress']);
       expect(issue.status).toBe('in_progress');
     });
 
@@ -344,12 +332,12 @@ describe('BeadsClient', () => {
         notes: 'Updated notes'
       };
 
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
-      mockBdCli.execJson.mockResolvedValue([{ ...mockIssue, ...updates }]);
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.execJson.mockResolvedValue([{ ...mockIssue, ...updates }]);
 
       await client.updateIssue('test-repo', 'test-123', updates);
 
-      const call = mockBdCli.exec.mock.calls[0][0];
+      const call = mockBdCliInstance.exec.mock.calls[0][0];
       expect(call).toContain('update');
       expect(call).toContain('test-123');
       expect(call).toContain('--title');
@@ -372,12 +360,12 @@ describe('BeadsClient', () => {
         acceptance_criteria: 'New criteria'
       };
 
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.updateIssue('test-repo', 'test-123', updates);
 
-      const call = mockBdCli.exec.mock.calls[0][0];
+      const call = mockBdCliInstance.exec.mock.calls[0][0];
       expect(call).toContain('--design');
       expect(call).toContain('New design');
       expect(call).toContain('--acceptance-criteria');
@@ -389,12 +377,12 @@ describe('BeadsClient', () => {
         external_ref: 'https://github.com/org/repo/issues/456'
       };
 
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       await client.updateIssue('test-repo', 'test-123', updates);
 
-      const call = mockBdCli.exec.mock.calls[0][0];
+      const call = mockBdCliInstance.exec.mock.calls[0][0];
       expect(call).toContain('--external-ref');
       expect(call).toContain('https://github.com/org/repo/issues/456');
     });
@@ -406,19 +394,19 @@ describe('BeadsClient', () => {
 
   describe('Close Operations', () => {
     it('should close issue without reason', async () => {
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await client.closeIssue('test-repo', 'test-123');
 
-      expect(mockBdCli.exec).toHaveBeenCalledWith(['close', 'test-123']);
+      expect(mockBdCliInstance.exec).toHaveBeenCalledWith(['close', 'test-123']);
     });
 
     it('should close issue with reason', async () => {
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await client.closeIssue('test-repo', 'test-123', 'Duplicate');
 
-      expect(mockBdCli.exec).toHaveBeenCalledWith(['close', 'test-123', '--reason', 'Duplicate']);
+      expect(mockBdCliInstance.exec).toHaveBeenCalledWith(['close', 'test-123', '--reason', 'Duplicate']);
     });
   });
 
@@ -428,27 +416,27 @@ describe('BeadsClient', () => {
 
   describe('Dependency Operations', () => {
     it('should add dependency with default type', async () => {
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await client.addDependency('test-repo', 'test-123', 'test-456');
 
-      expect(mockBdCli.exec).toHaveBeenCalledWith(['dep', 'add', 'test-123', 'test-456', '--type', 'blocks']);
+      expect(mockBdCliInstance.exec).toHaveBeenCalledWith(['dep', 'add', 'test-123', 'test-456', '--type', 'blocks']);
     });
 
     it('should add dependency with custom type', async () => {
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await client.addDependency('test-repo', 'test-123', 'test-456', 'related');
 
-      expect(mockBdCli.exec).toHaveBeenCalledWith(['dep', 'add', 'test-123', 'test-456', '--type', 'related']);
+      expect(mockBdCliInstance.exec).toHaveBeenCalledWith(['dep', 'add', 'test-123', 'test-456', '--type', 'related']);
     });
 
     it('should add discovered-from dependency', async () => {
-      mockBdCli.exec.mockResolvedValue({ stdout: '', stderr: '' });
+      mockBdCliInstance.exec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await client.addDependency('test-repo', 'test-123', 'test-456', 'discovered-from');
 
-      const call = mockBdCli.exec.mock.calls[0][0];
+      const call = mockBdCliInstance.exec.mock.calls[0][0];
       expect(call).toContain('--type');
       expect(call).toContain('discovered-from');
     });
@@ -487,7 +475,7 @@ describe('BeadsClient', () => {
         dependents: []
       };
 
-      mockBdCli.execJson
+      mockBdCliInstance.execJson
         .mockResolvedValueOnce([issueWithDeps])
         .mockResolvedValueOnce([depIssue]);
 
@@ -504,7 +492,7 @@ describe('BeadsClient', () => {
       const issueNoDeps = { ...mockIssue };
       delete (issueNoDeps as any).dependencies;
 
-      mockBdCli.execJson.mockResolvedValue([issueNoDeps]);
+      mockBdCliInstance.execJson.mockResolvedValue([issueNoDeps]);
 
       const tree = await client.getDependencyTree('test-repo', 'test-123');
 
@@ -519,7 +507,10 @@ describe('BeadsClient', () => {
 
   describe('Epic Status Calculation', () => {
     it('should calculate epic status with no subtasks', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execTreeJson.mockResolvedValue([
+        { ...mockIssue, depth: 0, parent_id: '' }
+      ]);
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
 
@@ -535,30 +526,16 @@ describe('BeadsClient', () => {
 
     it('should calculate epic status with subtasks', async () => {
       // Mock tree output
-      const treeOutput = `→ test-123: Epic Issue
-  → sub-1: Closed Subtask
-  → sub-2: In Progress Subtask
-  → sub-3: Open Subtask
-  → sub-4: Blocked Subtask`;
+      const treeNodes = [
+        { ...mockIssue, id: 'test-123', title: 'Epic Issue', depth: 0, parent_id: '', issue_type: 'epic' },
+        { ...mockIssue, id: 'sub-1', title: 'Closed Subtask', depth: 1, parent_id: 'test-123', status: 'closed' },
+        { ...mockIssue, id: 'sub-2', title: 'In Progress Subtask', depth: 1, parent_id: 'test-123', status: 'in_progress' },
+        { ...mockIssue, id: 'sub-3', title: 'Open Subtask', depth: 1, parent_id: 'test-123', status: 'open' },
+        { ...mockIssue, id: 'sub-4', title: 'Blocked Subtask', depth: 1, parent_id: 'test-123', status: 'blocked' }
+      ];
 
-      mockBdCli.execTree.mockResolvedValue(treeOutput);
-
-      // Mock getIssue calls for parsing
-      mockBdCli.execJson.mockImplementation((args: string[]) => {
-        if (args.includes('sub-1')) {
-          return Promise.resolve([{ ...mockIssue, id: 'sub-1', status: 'closed' }]);
-        }
-        if (args.includes('sub-2')) {
-          return Promise.resolve([{ ...mockIssue, id: 'sub-2', status: 'in_progress' }]);
-        }
-        if (args.includes('sub-3')) {
-          return Promise.resolve([{ ...mockIssue, id: 'sub-3', status: 'open' }]);
-        }
-        if (args.includes('sub-4')) {
-          return Promise.resolve([{ ...mockIssue, id: 'sub-4', status: 'blocked' }]);
-        }
-        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
-      });
+      mockBdCliInstance.execTreeJson.mockResolvedValue(treeNodes);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]); // For getIssue calls if any
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
 
@@ -571,33 +548,29 @@ describe('BeadsClient', () => {
     });
 
     it('should identify blockers in subtasks', async () => {
-      const treeOutput = `→ test-123: Epic Issue
-  → sub-1: Subtask 1`;
-
-      mockBdCli.execTree.mockResolvedValue(treeOutput);
-
-      const subtaskWithBlocker: BeadsIssue = {
+      const subtaskWithBlocker = {
+        ...mockIssue,
         id: 'sub-1',
-        content_hash: 'hash',
         title: 'Subtask 1',
-        description: 'Desc',
         status: 'in_progress',
-        priority: 2,
-        issue_type: 'task',
-        created_at: '2025-11-05T10:00:00Z',
-        updated_at: '2025-11-05T10:00:00Z',
-        labels: [],
         dependencies: [
-          { id: 'blocker-1', status: 'open', dependency_type: 'blocks' } as BeadsDependency
-        ],
-        dependents: []
+          { id: 'blocker-1', status: 'open', dependency_type: 'blocks' }
+        ]
       };
 
-      mockBdCli.execJson.mockImplementation((args: string[]) => {
+      const treeNodes = [
+        { ...mockIssue, id: 'test-123', title: 'Epic Issue', depth: 0, parent_id: '', issue_type: 'epic' },
+        { ...subtaskWithBlocker, depth: 1, parent_id: 'test-123' }
+      ];
+
+      mockBdCliInstance.execTreeJson.mockResolvedValue(treeNodes);
+
+      // Mock getIssue for full details check
+      mockBdCliInstance.execJson.mockImplementation((args: string[]) => {
         if (args.includes('sub-1')) {
           return Promise.resolve([subtaskWithBlocker]);
         }
-        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+        return Promise.resolve([mockIssue]);
       });
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
@@ -607,33 +580,29 @@ describe('BeadsClient', () => {
     });
 
     it('should identify discovered issues', async () => {
-      const treeOutput = `→ test-123: Epic Issue
-  → sub-1: Discovered Issue`;
-
-      mockBdCli.execTree.mockResolvedValue(treeOutput);
-
-      const discoveredSubtask: BeadsIssue = {
+      const discoveredSubtask = {
+        ...mockIssue,
         id: 'sub-1',
-        content_hash: 'hash',
         title: 'Discovered Issue',
-        description: 'Desc',
         status: 'open',
-        priority: 2,
-        issue_type: 'task',
-        created_at: '2025-11-05T10:00:00Z',
-        updated_at: '2025-11-05T10:00:00Z',
-        labels: [],
         dependencies: [
-          { id: 'original-1', status: 'closed', dependency_type: 'discovered-from' } as BeadsDependency
-        ],
-        dependents: []
+          { id: 'original-1', status: 'closed', dependency_type: 'discovered-from' }
+        ]
       };
 
-      mockBdCli.execJson.mockImplementation((args: string[]) => {
+      const treeNodes = [
+        { ...mockIssue, id: 'test-123', title: 'Epic Issue', depth: 0, parent_id: '', issue_type: 'epic' },
+        { ...discoveredSubtask, depth: 1, parent_id: 'test-123' }
+      ];
+
+      mockBdCliInstance.execTreeJson.mockResolvedValue(treeNodes);
+
+      // Mock getIssue for full details check
+      mockBdCliInstance.execJson.mockImplementation((args: string[]) => {
         if (args.includes('sub-1')) {
           return Promise.resolve([discoveredSubtask]);
         }
-        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
+        return Promise.resolve([mockIssue]);
       });
 
       const status = await client.getEpicStatus('test-repo', 'test-123');
@@ -662,7 +631,7 @@ describe('BeadsClient', () => {
         dependencies: []
       };
 
-      mockBdCli.execJson.mockResolvedValue([discoveredIssue, normalIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([discoveredIssue, normalIssue]);
 
       const discovered = await client.getDiscoveredIssues('test-repo');
 
@@ -689,7 +658,7 @@ describe('BeadsClient', () => {
         ]
       };
 
-      mockBdCli.execJson.mockResolvedValue([oldDiscovered, newDiscovered]);
+      mockBdCliInstance.execJson.mockResolvedValue([oldDiscovered, newDiscovered]);
 
       const since = new Date('2025-11-04T00:00:00Z');
       const discovered = await client.getDiscoveredIssues('test-repo', since);
@@ -702,7 +671,7 @@ describe('BeadsClient', () => {
       const issueNoDeps = { ...mockIssue };
       delete (issueNoDeps as any).dependencies;
 
-      mockBdCli.execJson.mockResolvedValue([issueNoDeps]);
+      mockBdCliInstance.execJson.mockResolvedValue([issueNoDeps]);
 
       const discovered = await client.getDiscoveredIssues('test-repo');
 
@@ -716,7 +685,7 @@ describe('BeadsClient', () => {
 
   describe('Multi-Repository Operations', () => {
     it('should get all issues across repositories', async () => {
-      mockBdCli.execJson.mockResolvedValue([mockIssue]);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       const allIssues = await client.getAllIssues();
 
@@ -726,7 +695,7 @@ describe('BeadsClient', () => {
     });
 
     it('should handle repository failures gracefully', async () => {
-      mockBdCli.execJson
+      mockBdCliInstance.execJson
         .mockRejectedValueOnce(new Error('Repository error'))
         .mockResolvedValueOnce([mockIssue]);
 
@@ -738,24 +707,14 @@ describe('BeadsClient', () => {
     });
 
     it('should get epic with subtasks', async () => {
-      const treeOutput = `→ test-123: Epic Issue
-  → sub-1: Subtask 1
-  → sub-2: Subtask 2`;
+      const treeNodes = [
+        { ...mockIssue, id: 'test-123', title: 'Epic Issue', depth: 0, parent_id: '', issue_type: 'epic' },
+        { ...mockIssue, id: 'sub-1', title: 'Subtask 1', depth: 1, parent_id: 'test-123' },
+        { ...mockIssue, id: 'sub-2', title: 'Subtask 2', depth: 1, parent_id: 'test-123' }
+      ];
 
-      mockBdCli.execTree.mockResolvedValue(treeOutput);
-
-      const subtask1: BeadsIssue = { ...mockIssue, id: 'sub-1', title: 'Subtask 1' };
-      const subtask2: BeadsIssue = { ...mockIssue, id: 'sub-2', title: 'Subtask 2' };
-
-      mockBdCli.execJson.mockImplementation((args: string[]) => {
-        if (args.includes('sub-1')) {
-          return Promise.resolve([subtask1]);
-        }
-        if (args.includes('sub-2')) {
-          return Promise.resolve([subtask2]);
-        }
-        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
-      });
+      mockBdCliInstance.execTreeJson.mockResolvedValue(treeNodes);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       const result = await client.getEpicWithSubtasks('test-repo', 'test-123');
 
@@ -766,23 +725,13 @@ describe('BeadsClient', () => {
     });
 
     it('should handle missing subtasks gracefully', async () => {
-      const treeOutput = `→ test-123: Epic Issue
-  → sub-1: Subtask 1
-  → missing: Missing Subtask`;
+      const treeNodes = [
+        { ...mockIssue, id: 'test-123', title: 'Epic Issue', depth: 0, parent_id: '', issue_type: 'epic' },
+        { ...mockIssue, id: 'sub-1', title: 'Subtask 1', depth: 1, parent_id: 'test-123' }
+      ];
 
-      mockBdCli.execTree.mockResolvedValue(treeOutput);
-
-      const subtask1: BeadsIssue = { ...mockIssue, id: 'sub-1' };
-
-      mockBdCli.execJson.mockImplementation((args: string[]) => {
-        if (args.includes('sub-1')) {
-          return Promise.resolve([subtask1]);
-        }
-        if (args.includes('missing')) {
-          return Promise.reject(new Error('Not found'));
-        }
-        return Promise.resolve([{ ...mockIssue, issue_type: 'epic' }]);
-      });
+      mockBdCliInstance.execTreeJson.mockResolvedValue(treeNodes);
+      mockBdCliInstance.execJson.mockResolvedValue([mockIssue]);
 
       const result = await client.getEpicWithSubtasks('test-repo', 'test-123');
 

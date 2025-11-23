@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import request from 'supertest';
 import { ExpressServer } from '../src/server/express-server.js';
 import { LiveWebBackend } from '../src/backends/liveweb.js';
@@ -8,7 +8,7 @@ describe('ExpressServer API', () => {
   let backend: LiveWebBackend;
 
   beforeEach(() => {
-    backend = new LiveWebBackend(vi.fn().mockResolvedValue('[]'));
+    backend = new LiveWebBackend(undefined, mock(async () => '[]'));
     server = new ExpressServer(backend, 0);
   });
 
@@ -40,7 +40,7 @@ describe('ExpressServer API', () => {
   });
 
   it('handles status updates via POST', async () => {
-    const spy = vi.spyOn(backend, 'updateIssueStatus').mockResolvedValue();
+    const spy = spyOn(backend, 'updateIssueStatus').mockResolvedValue(undefined);
 
     const response = await request(server.getExpressApp())
       .post('/api/issue/test-1/status')
@@ -52,7 +52,7 @@ describe('ExpressServer API', () => {
 
   it('creates subtasks via POST', async () => {
     const child = { id: 'child-1' };
-    const spy = vi.spyOn(backend, 'createSubtask').mockResolvedValue(child as any);
+    const spy = spyOn(backend, 'createSubtask').mockResolvedValue(child as any);
 
     const response = await request(server.getExpressApp())
       .post('/api/issue/test-1/create-child')
@@ -64,7 +64,7 @@ describe('ExpressServer API', () => {
   });
 
   it('reparents issues via POST', async () => {
-    const spy = vi.spyOn(backend, 'reparentIssue').mockResolvedValue();
+    const spy = spyOn(backend, 'reparentIssue').mockResolvedValue(undefined);
 
     const response = await request(server.getExpressApp())
       .post('/api/issue/test-2/reparent')

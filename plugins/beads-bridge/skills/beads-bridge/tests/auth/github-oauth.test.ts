@@ -1,25 +1,27 @@
 // tests/auth/github-oauth.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import { GitHubOAuth } from '../../src/auth/github-oauth.js';
 
 describe('GitHubOAuth', () => {
   let oauth: GitHubOAuth;
+  let sleepSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     oauth = new GitHubOAuth({
       clientId: 'test-client-id',
       scopes: ['repo', 'read:org'],
     });
+    // Mock sleep to resolve immediately
+    sleepSpy = spyOn(oauth as any, 'sleep').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    mock.restore();
   });
 
   it('should request device code', async () => {
     // Mock fetch for device code request
-    global.fetch = vi.fn().mockResolvedValueOnce({
+    global.fetch = mock().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         device_code: 'device_abc123',
@@ -51,7 +53,7 @@ describe('GitHubOAuth', () => {
 
   it('should poll for authorization', async () => {
     // Mock fetch for polling
-    global.fetch = vi.fn()
+    global.fetch = mock()
       // First poll: pending
       .mockResolvedValueOnce({
         ok: true,
@@ -69,43 +71,35 @@ describe('GitHubOAuth', () => {
         }),
       });
 
-    const pollPromise = oauth.pollForToken('device_abc123', 1); // 1s interval for testing
-
-    // Advance timers to trigger the polling
-    await vi.advanceTimersByTimeAsync(3000); // Advance enough for 2 polls
-
-    const result = await pollPromise;
+    const result = await oauth.pollForToken('device_abc123', 1);
 
     expect(result).toEqual({
       accessToken: 'gho_test_token_123',
       scopes: ['repo', 'read:org'],
     });
+    
+    // Should have slept once between polls
+    expect(sleepSpy).toHaveBeenCalled();
   });
 
   it('should handle expired device code', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    global.fetch = mock().mockResolvedValue({
       ok: true,
       json: async () => ({
         error: 'expired_token',
       }),
     });
 
-    // Create the polling promise and immediately wrap it in expect
-    // This ensures the rejection handler is registered before we advance timers
-    const pollPromise = oauth.pollForToken('device_abc123', 1, 2);
-    const expectPromise = expect(pollPromise).rejects.toThrow('Device code expired');
-
-    // Now advance timers to trigger the polling
-    await vi.advanceTimersByTimeAsync(2200);
-
-    // Await the expect to complete
-    await expectPromise;
+    try {
+      await oauth.pollForToken('device_abc123', 1, 2);
+      expect(true).toBe(false);
+    } catch (e: any) {
+      expect(e.message).toContain('Device code expired');
+    }
   });
 
   it('should handle slow down requests', async () => {
-    const sleepSpy = vi.spyOn(oauth as any, 'sleep');
-
-    global.fetch = vi.fn()
+    global.fetch = mock()
       // Slow down response
       .mockResolvedValueOnce({
         ok: true,
@@ -120,14 +114,9 @@ describe('GitHubOAuth', () => {
         }),
       });
 
-    const pollPromise = oauth.pollForToken('device_code', 1);
+    await oauth.pollForToken('device_code', 1);
 
-    // Advance timers to allow both polls (with increased interval on second)
-    await vi.advanceTimersByTimeAsync(10000);
-
-    await pollPromise;
-
-    // Should have increased interval on slow_down
-    expect(sleepSpy).toHaveBeenCalled();
+    // Should have slept twice (once for slow_down, once for next poll)
+    expect(sleepSpy).toHaveBeenCalledTimes(2);
   });
 });

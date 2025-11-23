@@ -24,6 +24,14 @@ import type {
   SkillResult
 } from './types/skill.js';
 
+// Capability Handlers
+import { StatusQueryHandler } from './capabilities/status-query.js';
+import { ProgressSyncHandler } from './capabilities/progress-sync.js';
+import { DiagramGeneratorHandler } from './capabilities/diagram-generator.js';
+import { MappingManagerHandler } from './capabilities/mapping-manager.js';
+import { DecomposerHandler } from './capabilities/decomposer.js';
+import { ForceSyncHandler } from './capabilities/force-sync.js';
+
 /**
  * Claude Skill for Beads Integration (supports GitHub and Shortcut backends)
  */
@@ -38,6 +46,14 @@ export class BeadsSkill {
   private epicDecomposer?: EpicDecomposer;
   private shortcutSyncOrchestrator?: ShortcutSyncOrchestrator;
   private logger: Logger;
+
+  // Handlers
+  private statusQueryHandler: StatusQueryHandler;
+  private progressSyncHandler: ProgressSyncHandler;
+  private diagramGeneratorHandler: DiagramGeneratorHandler;
+  private mappingManagerHandler: MappingManagerHandler;
+  private decomposerHandler: DecomposerHandler;
+  private forceSyncHandler: ForceSyncHandler;
 
   constructor(configManager: ConfigManager, credentials?: Credentials) {
     this.config = configManager;
@@ -111,6 +127,25 @@ export class BeadsSkill {
         this.mappings
       );
     }
+
+    // Initialize Handlers
+    this.statusQueryHandler = new StatusQueryHandler(this.progressSynthesizer);
+    this.progressSyncHandler = new ProgressSyncHandler(
+      this.backend,
+      this.progressSynthesizer,
+      this.shortcutSyncOrchestrator
+    );
+    this.diagramGeneratorHandler = new DiagramGeneratorHandler(
+      this.mappings,
+      this.beads,
+      this.diagramPlacer
+    );
+    this.mappingManagerHandler = new MappingManagerHandler(this.mappings);
+    this.decomposerHandler = new DecomposerHandler(this.epicDecomposer);
+    this.forceSyncHandler = new ForceSyncHandler(
+      this.progressSyncHandler,
+      this.diagramGeneratorHandler
+    );
   }
 
   /**
@@ -124,27 +159,27 @@ export class BeadsSkill {
 
       switch (capability) {
         case 'query_status':
-          result = await this.queryStatus(context);
+          result = await this.statusQueryHandler.execute(context);
           break;
 
         case 'sync_progress':
-          result = await this.syncProgress(context);
+          result = await this.progressSyncHandler.execute(context);
           break;
 
         case 'generate_diagrams':
-          result = await this.generateDiagrams(context);
+          result = await this.diagramGeneratorHandler.execute(context);
           break;
 
         case 'manage_mappings':
-          result = await this.manageMappings(context);
+          result = await this.mappingManagerHandler.execute(context);
           break;
 
         case 'decompose':
-          result = await this.decompose(context);
+          result = await this.decomposerHandler.execute(context);
           break;
 
         case 'force_sync':
-          result = await this.forceSync(context);
+          result = await this.forceSyncHandler.execute(context);
           break;
 
         default:
@@ -165,368 +200,6 @@ export class BeadsSkill {
         }
       };
     }
-  }
-
-  /**
-   * Query status capability
-   */
-  private async queryStatus(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    const progress = await this.progressSynthesizer.getAggregatedProgress(
-      repository,
-      issueNumber
-    );
-
-    return {
-      success: true,
-      data: {
-        totalTasks: progress.totalMetrics.total,
-        completed: progress.totalMetrics.completed,
-        inProgress: progress.totalMetrics.inProgress,
-        blocked: progress.totalMetrics.blocked,
-        open: progress.totalMetrics.open,
-        percentComplete: progress.totalMetrics.percentComplete,
-        repositories: progress.epics.map(epic => ({
-          name: epic.repository,
-          completed: epic.metrics.completed,
-          total: epic.metrics.total,
-          percentComplete: epic.metrics.percentComplete
-        })),
-        blockers: progress.allBlockers.map(blocker => ({
-          id: blocker.id,
-          title: blocker.title,
-          repository: progress.epics.find(e =>
-            e.subtasks.some(t => t.id === blocker.id)
-          )?.repository
-        }))
-      }
-    };
-  }
-
-  /**
-   * Sync progress capability
-   */
-  private async syncProgress(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, includeBlockers = true, userNarrative } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    // Route to ShortcutSyncOrchestrator for Shortcut backend
-    if (this.backend.name === 'shortcut' && this.shortcutSyncOrchestrator) {
-      const syncResult = await this.shortcutSyncOrchestrator.syncStory(
-        issueNumber,
-        { userNarrative }
-      );
-
-      return {
-        success: syncResult.success,
-        data: syncResult.success ? {
-          storyUrl: syncResult.storyUrl,
-          commentUrl: syncResult.commentUrl,
-          syncedAt: syncResult.syncedAt
-        } : undefined,
-        error: syncResult.error ? {
-          code: 'SYNC_ERROR',
-          message: syncResult.error
-        } : undefined
-      };
-    }
-
-    // Fall back to ProgressSynthesizer for GitHub backend
-    const result = await this.progressSynthesizer.updateIssueProgress(
-      repository,
-      issueNumber,
-      {
-        includeBlockers,
-        includeDiagram: true  // Enable diagram by default
-      }
-    );
-
-    return {
-      success: result.success,
-      data: result.success ? {
-        commentUrl: result.commentUrl,
-        fieldsUpdated: result.fieldsUpdated
-      } : undefined,
-      error: result.error ? {
-        code: 'SYNC_ERROR',
-        message: result.error
-      } : undefined
-    };
-  }
-
-  /**
-   * Generate diagrams capability
-   */
-  private async generateDiagrams(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, placement = 'description' } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    const mapping = await this.mappings.findByGitHubIssue(repository, issueNumber);
-    if (!mapping) {
-      return {
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: `No mapping found for ${repository}#${issueNumber}`
-        }
-      };
-    }
-
-    // Get dependency tree
-    const tree = await this.beads.getDependencyTree(
-      mapping.beadsEpics[0].repository,
-      mapping.beadsEpics[0].epicId
-    );
-
-    // Place diagram
-    const result = await this.diagramPlacer.updateDiagram(
-      repository,
-      issueNumber,
-      {
-        updateDescription: placement !== 'comment',
-        createSnapshot: placement === 'comment',
-        trigger: 'manual'
-      }
-    );
-
-    return {
-      success: true,
-      data: {
-        diagramUrl: result.issueUrl,
-        descriptionUpdated: result.descriptionUpdated,
-        snapshotCreated: !!result.snapshot,
-        complexity: this.calculateComplexity(tree)
-      }
-    };
-  }
-
-  /**
-   * Manage mappings capability
-   */
-  private async manageMappings(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, action = 'get', epicIds } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    if (action === 'create') {
-      if (!epicIds || !Array.isArray(epicIds)) {
-        return {
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'epicIds array is required for create action'
-          }
-        };
-      }
-
-      // Validate epic IDs have required fields
-      const invalidEpic = epicIds.find(e => !e.repository || !e.epicId || !e.repositoryPath);
-      if (invalidEpic) {
-        return {
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Each epic must have repository, epicId, and repositoryPath'
-          }
-        };
-      }
-
-      const mapping = await this.mappings.create({
-        githubIssue: `${repository}#${issueNumber}`,
-        githubRepository: repository,
-        githubIssueNumber: issueNumber,
-        beadsEpics: epicIds
-      });
-
-      return {
-        success: true,
-        data: {
-          mappingId: mapping.id,
-          epicsLinked: epicIds.length
-        }
-      };
-    } else {
-      const mapping = await this.mappings.findByGitHubIssue(repository, issueNumber);
-
-      if (!mapping) {
-        return {
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: `No mapping found for ${repository}#${issueNumber}`
-          }
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          mappingId: mapping.id,
-          beadsEpics: mapping.beadsEpics,
-          createdAt: mapping.createdAt,
-          updatedAt: mapping.updatedAt
-        }
-      };
-    }
-  }
-
-  /**
-   * Decompose capability
-   */
-  private async decompose(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, postComment = true, defaultPriority = 2 } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    if (!this.epicDecomposer) {
-      return {
-        success: false,
-        error: {
-          code: 'NOT_SUPPORTED',
-          message: 'Decompose is only supported for GitHub backend'
-        }
-      };
-    }
-
-    const result = await this.epicDecomposer.decompose(issueNumber, {
-      postComment,
-      defaultPriority
-    });
-
-    return {
-      success: result.success,
-      data: result.success ? {
-        githubIssue: result.githubIssue,
-        mappingId: result.mappingId,
-        epics: result.epics.map(e => ({
-          repository: e.repository,
-          epicId: e.epicId,
-          tasksCreated: e.childIssueIds.length
-        })),
-        totalTasks: result.totalTasks
-      } : undefined,
-      error: result.error ? {
-        code: 'DECOMPOSE_ERROR',
-        message: result.error
-      } : undefined
-    };
-  }
-
-  /**
-   * Force sync capability
-   */
-  private async forceSync(context: SkillContext): Promise<SkillResult> {
-    const {
-      repository,
-      issueNumber,
-      operations = ['progress', 'diagram']
-    } = context;
-
-    if (!repository || !issueNumber) {
-      return {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'repository and issueNumber are required'
-        }
-      };
-    }
-
-    const startTime = Date.now();
-    const results: Record<string, boolean> = {};
-
-    // Execute requested operations
-    for (const op of operations) {
-      try {
-        switch (op) {
-          case 'progress':
-            const progressResult = await this.syncProgress({ repository, issueNumber });
-            results.progress = progressResult.success;
-            break;
-
-          case 'diagram':
-            const diagramResult = await this.generateDiagrams({ repository, issueNumber });
-            results.diagram = diagramResult.success;
-            break;
-        }
-      } catch (error) {
-        results[op] = false;
-      }
-    }
-
-    const duration = Date.now() - startTime;
-
-    return {
-      success: Object.values(results).some(v => v),
-      data: {
-        operations: results,
-        duration
-      }
-    };
-  }
-
-  /**
-   * Calculate complexity rating based on dependency tree
-   */
-  private calculateComplexity(tree: any): 'low' | 'medium' | 'high' {
-    // Count all nodes in the tree recursively
-    const countNodes = (node: any): number => {
-      if (!node) return 0;
-      const childCount = (node.children || []).reduce((sum: number, child: any) =>
-        sum + countNodes(child), 0);
-      return 1 + childCount;
-    };
-
-    const nodeCount = countNodes(tree);
-
-    if (nodeCount > 50) return 'high';
-    if (nodeCount > 20) return 'medium';
-    return 'low';
   }
 
   /**

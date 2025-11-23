@@ -18,6 +18,8 @@ import type {
 import { NotFoundError } from '../types/index.js';
 import { BdCli } from '../utils/bd-cli.js';
 import type { Logger } from '../monitoring/logger.js';
+import { DependencyTreeBuilder } from '../services/dependency-tree-builder.js';
+import { EpicStatusCalculator } from '../services/epic-status-calculator.js';
 
 /**
  * Beads client for multi-repository issue tracking
@@ -25,6 +27,8 @@ import type { Logger } from '../monitoring/logger.js';
 export class BeadsClient {
   private readonly repositories: Map<string, BeadsRepository>;
   private readonly bdClients: Map<string, BdCli>;
+  private readonly treeBuilder: DependencyTreeBuilder;
+  private readonly statusCalculator: EpicStatusCalculator;
 
   constructor(config: BeadsConfig & { logger?: Logger }) {
     this.repositories = new Map();
@@ -35,6 +39,9 @@ export class BeadsClient {
       this.repositories.set(repo.name, repo);
       this.bdClients.set(repo.name, new BdCli({ cwd: repo.path, logger: config.logger }));
     }
+
+    this.treeBuilder = new DependencyTreeBuilder(this);
+    this.statusCalculator = new EpicStatusCalculator(this, this.treeBuilder);
   }
 
   // ============================================================================
@@ -272,183 +279,16 @@ export class BeadsClient {
     repository: string,
     epicId: string
   ): Promise<DependencyTreeNode> {
-    try {
-      const bd = this.getBdCli(repository);
-
-      // Use bd dep tree --json to get all issue details in one call
-      interface DepTreeNode {
-        id: string;
-        title: string;
-        description?: string;
-        notes?: string;
-        design?: string;
-        acceptance_criteria?: string;
-        external_ref?: string;
-        status: string;
-        priority: number;
-        issue_type: string;
-        created_at: string;
-        updated_at: string;
-        closed_at?: string;
-        assignee?: string;
-        labels?: string[];
-        depth: number;
-        parent_id: string;
-        truncated: boolean;
-      }
-
-      const treeNodes = await bd.execTreeJson<DepTreeNode[]>(epicId, true);
-
-      // Convert to BeadsIssue map
-      const issuesMap = new Map<string, BeadsIssue>();
-      for (const node of treeNodes) {
-        const issue: BeadsIssue = {
-          id: node.id,
-          content_hash: '', // Not provided by dep tree
-          title: node.title,
-          description: node.description || '',
-          design: node.design,
-          acceptance_criteria: node.acceptance_criteria,
-          notes: node.notes,
-          external_ref: node.external_ref,
-          status: node.status as any,
-          priority: node.priority as any,
-          issue_type: node.issue_type as any,
-          created_at: node.created_at,
-          updated_at: node.updated_at,
-          closed_at: node.closed_at,
-          assignee: node.assignee,
-          labels: node.labels || [],
-          dependencies: [], // Will populate if needed
-          dependents: []
-        };
-        issuesMap.set(node.id, issue);
-      }
-
-      const rootIssue = issuesMap.get(epicId);
-      if (!rootIssue) {
-        // Should not happen if epic exists
-        const epic = await this.getIssue(repository, epicId);
-        return { issue: epic, dependencies: [], depth: 0 };
-      }
-
-      // Build tree based on parent_id from the flat structure
-      const childrenMap = new Map<string, BeadsIssue[]>();
-
-      for (const node of treeNodes) {
-        if (node.parent_id && node.id !== epicId) {
-          const issue = issuesMap.get(node.id);
-          if (issue) {
-            const children = childrenMap.get(node.parent_id) || [];
-            children.push(issue);
-            childrenMap.set(node.parent_id, children);
-          }
-        }
-      }
-
-      const buildNode = (issue: BeadsIssue, depth: number): DependencyTreeNode => {
-        const children = childrenMap.get(issue.id) || [];
-        // Sort children by ID for stability
-        children.sort((a, b) => a.id.localeCompare(b.id));
-
-        const dependencyNodes = children.map(child => buildNode(child, depth + 1));
-
-        return {
-          issue,
-          dependencies: dependencyNodes,
-          depth
-        };
-      };
-
-      return buildNode(rootIssue, 0);
-
-    } catch (error) {
-      console.error('Error building tree:', error);
-      // Fallback to simple view
-      const epic = await this.getIssue(repository, epicId);
-      return { issue: epic, dependencies: [], depth: 0 };
-    }
-  }
-
-  /**
-   * Flatten dependency tree into array of all descendant issues
-   */
-  private flattenDependencyTree(tree: DependencyTreeNode): BeadsIssue[] {
-    const result: BeadsIssue[] = [];
-
-    const traverse = (node: DependencyTreeNode) => {
-      result.push(node.issue);
-      for (const child of node.dependencies) {
-        traverse(child);
-      }
-    };
-
-    traverse(tree);
-
-    // Remove root epic from results (first item)
-    return result.slice(1);
+    const bd = this.getBdCli(repository);
+    return this.treeBuilder.getEpicChildrenTree(repository, epicId, bd);
   }
 
   /**
    * Calculate epic status across a repository
    */
   async getEpicStatus(repository: string, epicId: string): Promise<EpicStatus> {
-    // Get all descendant issues (children and grandchildren)
-    const tree = await this.getEpicChildrenTree(repository, epicId);
-    const dependents = this.flattenDependencyTree(tree);
-
-    // Count by status
-    const total = dependents.length;
-    const completed = dependents.filter(d => d.status === 'closed').length;
-    const inProgress = dependents.filter(d => d.status === 'in_progress').length;
-    const blocked = dependents.filter(d => d.status === 'blocked').length;
-    const notStarted = total - completed - inProgress - blocked;
-
-    // Calculate percentage
-    const percentComplete = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    // Find blockers (issues with blocking dependencies)
-    const blockers: BeadsIssue[] = [];
-    const discovered: BeadsIssue[] = [];
-
-    for (const dep of dependents) {
-      // Fetch full issue details if we need to check dependencies
-      try {
-        const fullIssue = await this.getIssue(repository, dep.id);
-
-        // Check for blocking dependencies (if they exist)
-        if (fullIssue.dependencies && Array.isArray(fullIssue.dependencies)) {
-          const hasBlockingDeps = fullIssue.dependencies.some(
-            d => d.status !== 'closed'
-          );
-          if (hasBlockingDeps) {
-            blockers.push(fullIssue);
-          }
-
-          // Check if this was discovered during work
-          const isDiscovered = fullIssue.dependencies.some(
-            d => d.dependency_type === 'discovered-from'
-          );
-          if (isDiscovered) {
-            discovered.push(fullIssue);
-          }
-        }
-      } catch (error) {
-        // Skip if issue can't be fetched
-        continue;
-      }
-    }
-
-    return {
-      total,
-      completed,
-      inProgress,
-      blocked,
-      notStarted,
-      percentComplete,
-      blockers,
-      discovered
-    };
+    const bd = this.getBdCli(repository);
+    return this.statusCalculator.getEpicStatus(repository, epicId, bd);
   }
 
   // ============================================================================
@@ -477,42 +317,11 @@ export class BeadsClient {
     issueId: string
   ): Promise<DependencyTreeNode> {
     const issue = await this.getIssue(repository, issueId);
-
-    return this.buildDependencyTree(repository, issue, 0);
+    return this.treeBuilder.buildDependencyTree(repository, issue, 0);
   }
 
-  /**
-   * Build dependency tree recursively
-   */
-  private async buildDependencyTree(
-    repository: string,
-    issue: BeadsIssue,
-    depth: number
-  ): Promise<DependencyTreeNode> {
-    const dependencies: DependencyTreeNode[] = [];
-
-    // Recursively build trees for dependencies (if they exist)
-    if (issue.dependencies && Array.isArray(issue.dependencies)) {
-      for (const dep of issue.dependencies) {
-        try {
-          const depIssue = await this.getIssue(repository, dep.id);
-          const depTree = await this.buildDependencyTree(repository, depIssue, depth + 1);
-          depTree.dependencyType = dep.dependency_type;
-          dependencies.push(depTree);
-        } catch (error) {
-          // Skip if dependency can't be fetched
-          continue;
-        }
-      }
-    }
-
-    return {
-      issue,
-      dependencies,
-      depth
-    };
-  }
-
+  // ============================================================================
+  // Discovery Detection
   // ============================================================================
   // Discovery Detection
   // ============================================================================
@@ -582,7 +391,23 @@ export class BeadsClient {
 
     // Get all descendant issues (children and grandchildren)
     const tree = await this.getEpicChildrenTree(repository, epicId);
-    const subtasks = this.flattenDependencyTree(tree);
+    const subtasks = this.statusCalculator.flattenDependencyTree(tree);
+
+    return { epic, subtasks };
+  }
+
+  /**
+   * Get epic status across all repositories for issues with the same external ref
+   */
+  async getEpicWithSubtasks(repository: string, epicId: string): Promise<{
+    epic: BeadsIssue;
+    subtasks: BeadsIssue[];
+  }> {
+    const epic = await this.getIssue(repository, epicId);
+
+    // Get all descendant issues (children and grandchildren)
+    const tree = await this.getEpicChildrenTree(repository, epicId);
+    const subtasks = this.statusCalculator.flattenDependencyTree(tree);
 
     return { epic, subtasks };
   }

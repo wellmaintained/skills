@@ -2,7 +2,7 @@
  * Tests for MappingStore
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { MappingStore } from '../src/store/mapping-store.js';
@@ -82,7 +82,12 @@ describe('MappingStore', () => {
 
       await store.create(params);
 
-      await expect(store.create(params)).rejects.toThrow('Mapping already exists');
+      try {
+        await store.create(params);
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain('Mapping already exists');
+      }
     });
 
     it('should save mapping to file', async () => {
@@ -247,8 +252,12 @@ describe('MappingStore', () => {
     });
 
     it('should throw error for non-existent mapping', async () => {
-      await expect(store.update('non-existent', { status: 'active' }))
-        .rejects.toThrow('Mapping not found');
+      try {
+        await store.update('non-existent', { status: 'active' });
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain('Mapping not found');
+      }
     });
   });
 
@@ -281,7 +290,12 @@ describe('MappingStore', () => {
 
       await store.delete(created.id);
 
-      await expect(fs.access(filePath)).rejects.toThrow();
+      try {
+        await fs.access(filePath);
+        expect(true).toBe(false);
+      } catch (e) {
+        // Expected
+      }
     });
   });
 
@@ -410,8 +424,12 @@ describe('MappingStore', () => {
         beadsEpics: [],
       });
 
-      await expect(store.resolveConflict(created.id, 'github_wins', {}))
-        .rejects.toThrow('not in conflict state');
+      try {
+        await store.resolveConflict(created.id, 'github_wins', {});
+        expect(true).toBe(false);
+      } catch (e: any) {
+        expect(e.message).toContain('not in conflict state');
+      }
     });
   });
 });
