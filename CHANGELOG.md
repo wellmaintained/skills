@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/wellmaintained/skills/compare/v1.5.0...v1.6.0) (2025-11-23)
+
+
+### Features
+
+* add multi-platform binary builds and installer ([5c9b840](https://github.com/wellmaintained/skills/commit/5c9b840020a7dde9c0b74220f53d99ba69380aa7))
+
 # [1.5.0](https://github.com/wellmaintained/skills/compare/v1.4.0...v1.5.0) (2025-11-23)
 
 
