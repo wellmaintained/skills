@@ -203,6 +203,58 @@ jobs:
             echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
           fi
 
+  build-binaries:
+    name: Build Binaries
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate-structure, test-plugins]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: macos-13
+            platform: darwin
+            arch: x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies and build binary
+        run: |
+          cd plugins/beads-bridge/skills/beads-bridge
+          bun install
+          bun run build
+
+      - name: Rename binary with platform suffix
+        shell: bash
+        run: |
+          cd plugins/beads-bridge/skills/beads-bridge/dist
+          if [ "${{ matrix.platform }}" = "win32" ]; then
+            mv beads-bridge beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe || mv beads-bridge.exe beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          else
+            mv beads-bridge beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}
+          fi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}
+          path: plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}*
+          retention-days: 1
+
   update-marketplace:
     name: Update Marketplace Catalog
     runs-on: ubuntu-latest
@@ -227,7 +279,7 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
-    needs: [validate-structure, test-plugins, update-marketplace]
+    needs: [build-binaries, update-marketplace]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -252,11 +304,19 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build beads-bridge binary
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: plugins/beads-bridge/skills/beads-bridge/dist/
+
+      - name: Organize binaries
         run: |
-          cd plugins/beads-bridge/skills/beads-bridge
-          bun install
-          bun run build
+          cd plugins/beads-bridge/skills/beads-bridge/dist
+          # Move binaries from artifact subdirectories to dist root
+          find . -type f -name "beads-bridge-*" -exec mv {} . \;
+          # Remove empty artifact directories
+          find . -type d -empty -delete
+          ls -la
 
       - name: Pull latest changes
         run: git pull origin main

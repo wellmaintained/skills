@@ -17,8 +17,20 @@
       {
         "assets": [
           {
-            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge",
-            "label": "beads-bridge-cli"
+            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-linux-x64",
+            "label": "beads-bridge-linux-x64"
+          },
+          {
+            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-darwin-arm64",
+            "label": "beads-bridge-darwin-arm64"
+          },
+          {
+            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-darwin-x64",
+            "label": "beads-bridge-darwin-x64"
+          },
+          {
+            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-win32-x64.exe",
+            "label": "beads-bridge-win32-x64.exe"
           }
         ]
       }
