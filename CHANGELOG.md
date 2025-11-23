@@ -1,3 +1,24 @@
+# [1.4.0](https://github.com/wellmaintained/skills/compare/v1.3.0...v1.4.0) (2025-11-23)
+
+
+### Bug Fixes
+
+* **beads-bridge:** enable drag-and-drop reparenting functionality ([de72616](https://github.com/wellmaintained/skills/commit/de72616e26ff8f964803591b6310dc3e81c44ed4))
+* **beads-bridge:** prevent status flicker by deferring optimistic update removal ([808891d](https://github.com/wellmaintained/skills/commit/808891d535e4d3c0b403c9032fc0f3c45bd48f7b))
+* **beads-bridge:** update header metrics in real-time on status/task changes ([d42119f](https://github.com/wellmaintained/skills/commit/d42119f36e5225bd1906c9b5754423faa307d3e1))
+* correct parent-child relationship for wms-2zy ([9c099cf](https://github.com/wellmaintained/skills/commit/9c099cf9ed19292076bca28de3646d04e3a885c3))
+* Resolve bd doctor issues ([20a2d2c](https://github.com/wellmaintained/skills/commit/20a2d2ca139ef64b4699191416e65acccbd264f5))
+
+
+### Features
+
+* add just command runner for dev scripts ([e691199](https://github.com/wellmaintained/skills/commit/e6911996a38eec61c207dd139ac0a1852f3386e7))
+* add new bead card design task to wms-ztf ([1d28caf](https://github.com/wellmaintained/skills/commit/1d28caf87e1c7a1f6b8b2d6f0b671723633f6fba))
+* **beads-bridge:** implement structured logging system with configurable levels ([17f7421](https://github.com/wellmaintained/skills/commit/17f74219a4d7343dbae3c17e4dfc074e1c017c7a))
+* Enhance LiveWebBackend and UI for subtask creation ([af78e41](https://github.com/wellmaintained/skills/commit/af78e41cf19cc4b40d98d7f06b23f11a7952e0d1))
+* migrate toolchain to Bun and refactor for maintainability ([e506d0c](https://github.com/wellmaintained/skills/commit/e506d0cafaebdaf4099dfaf8debe0ddf2b91c1be))
+* **wms-pb3:** add task to fix favicon 404 error ([8028c3c](https://github.com/wellmaintained/skills/commit/8028c3cf9ad6924901288ef2844cb2c751145ef3))
+
 # [1.3.0](https://github.com/wellmaintained/skills/compare/v1.2.1...v1.3.0) (2025-11-22)
 
 
