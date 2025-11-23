@@ -12,9 +12,9 @@
     "build:client": "vite build --config src/client/vite.config.ts",
     "dev": "tsc --watch",
     "dev:client": "vite dev --config src/client/vite.config.ts",
-    "test": "vitest run",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
     "lint": "eslint src tests",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "type-check": "tsc --noEmit && bun run type-check:client",
@@ -40,7 +40,6 @@
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^4.0.9",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.1",
     "postcss": "^8.4.49",
@@ -49,8 +48,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.46.4",
-    "vite": "^5.4.11",
-    "vitest": "^4.0.9"
+    "vite": "^5.4.11"
   },
   "dependencies": {
     "@shortcut/client": "^2.3.1",

@@ -30,8 +30,13 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Install ajv-cli for schema validation
-        run: npm install -g ajv-cli ajv-formats
+        run: bun install -g ajv-cli ajv-formats
 
       - name: Validate marketplace.json syntax
         run: |
@@ -161,6 +166,11 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Test installation script
         run: |
           cd plugins/${{ matrix.plugin }}
@@ -177,9 +187,9 @@ jobs:
           cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
           if [ -f "package.json" ]; then
             echo "Installing dependencies for ${{ matrix.plugin }}..."
-            npm install
+            bun install
             echo "Building ${{ matrix.plugin }}..."
-            npm run build
+            bun run build
           fi
 
       - name: Run plugin tests (if available)
@@ -187,7 +197,7 @@ jobs:
           cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
           if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
             echo "Running tests for ${{ matrix.plugin }}..."
-            npm test
+            bun run test
             echo "✅ Tests passed"
           else
             echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
@@ -234,8 +244,19 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Install dependencies
-        run: npm ci
+        run: bun install
+
+      - name: Build beads-bridge binary
+        run: |
+          cd plugins/beads-bridge/skills/beads-bridge
+          bun install
+          bun run build
 
       - name: Pull latest changes
         run: git pull origin main
@@ -243,4 +264,4 @@ jobs:
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: bun x semantic-release

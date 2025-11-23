@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, mock } from 'bun:test';
 import { LiveWebBackend } from '../src/backends/liveweb.js';
 import { NotSupportedError } from '../src/types/errors.js';
 
@@ -48,7 +48,13 @@ describe('LiveWebBackend', () => {
   it('should throw NotFoundError for non-existent issue', async () => {
     const backend = new LiveWebBackend();
 
-    await expect(backend.getIssue('nonexistent')).rejects.toThrow('Issue not found');
+    // expect(...).rejects.toThrow() syntax in Bun
+    try {
+      await backend.getIssue('nonexistent');
+      expect(true).toBe(false); // Should not reach here
+    } catch (e: any) {
+      expect(e.message).toContain('Issue not found');
+    }
   });
 
   it('should search cached issues', async () => {
@@ -77,15 +83,38 @@ describe('LiveWebBackend', () => {
   it('should throw NotSupportedError for generic write operations', async () => {
     const backend = new LiveWebBackend();
 
-    await expect(backend.createIssue({ title: 'Test', body: '' })).rejects.toThrow(NotSupportedError);
-    await expect(backend.updateIssue('test', {})).rejects.toThrow(NotSupportedError);
-    await expect(backend.addComment('test', 'comment')).rejects.toThrow(NotSupportedError);
-    await expect(backend.linkIssues('a', 'b', 'blocks')).rejects.toThrow(NotSupportedError);
+    try {
+      await backend.createIssue({ title: 'Test', body: '' });
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotSupportedError);
+    }
+
+    try {
+      await backend.updateIssue('test', {});
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotSupportedError);
+    }
+
+    try {
+      await backend.addComment('test', 'comment');
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotSupportedError);
+    }
+
+    try {
+      await backend.linkIssues('a', 'b', 'blocks');
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotSupportedError);
+    }
   });
 
   it('should execute bd update when updating issue status', async () => {
-    const runCommand = vi.fn().mockResolvedValue('');
-    const backend = new LiveWebBackend(runCommand);
+    const runCommand = mock(async () => '');
+    const backend = new LiveWebBackend(undefined, runCommand);
 
     await backend.updateIssueStatus('issue-1', 'in_progress');
 
@@ -98,12 +127,11 @@ describe('LiveWebBackend', () => {
       title: 'Child',
       status: 'open',
     };
-    const runCommand = vi
-      .fn()
-      .mockResolvedValueOnce(JSON.stringify(createdIssue))
-      .mockResolvedValue('');
+    const runCommand = mock(async () => '');
+    runCommand.mockResolvedValueOnce(JSON.stringify(createdIssue));
+    runCommand.mockResolvedValueOnce('');
 
-    const backend = new LiveWebBackend(runCommand);
+    const backend = new LiveWebBackend(undefined, runCommand);
 
     const issue = await backend.createSubtask('parent-1', {
       title: 'Child',
@@ -132,9 +160,9 @@ describe('LiveWebBackend', () => {
   });
 
   it('should reparent issues by removing old deps first', async () => {
-    const runCommand = vi.fn().mockResolvedValue('');
+    const runCommand = mock(async () => '');
 
-    const backend = new LiveWebBackend(runCommand);
+    const backend = new LiveWebBackend(undefined, runCommand);
     backend.updateState('root-issue', {
       diagram: 'graph TD',
       metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
@@ -169,13 +197,12 @@ describe('LiveWebBackend', () => {
   });
 
   it('should tolerate missing dependency during reparent', async () => {
-    const runCommand = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('dependency from child-1 to old-parent does not exist'))
-      .mockResolvedValueOnce('')
-      .mockResolvedValue('');
+    const runCommand = mock(async () => '');
+    runCommand.mockRejectedValueOnce(new Error('dependency from child-1 to old-parent does not exist'));
+    runCommand.mockResolvedValueOnce('');
+    runCommand.mockResolvedValueOnce('');
 
-    const backend = new LiveWebBackend(runCommand);
+    const backend = new LiveWebBackend(undefined, runCommand);
     backend.updateState('root', {
       diagram: '',
       metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },

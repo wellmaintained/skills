@@ -1,5 +1,5 @@
 // tests/auth/credential-store.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { CredentialStore } from '../../src/auth/credential-store.js';
 import { mkdtemp, rm } from 'fs/promises';
 import { join } from 'path';

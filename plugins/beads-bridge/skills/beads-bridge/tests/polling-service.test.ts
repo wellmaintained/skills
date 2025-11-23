@@ -1,74 +1,74 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, spyOn, beforeEach, afterEach, mock } from 'bun:test';
 import { PollingService } from '../src/server/polling-service.js';
 
 describe('PollingService', () => {
+  let setTimeoutSpy: ReturnType<typeof spyOn>;
+  let clearTimeoutSpy: ReturnType<typeof spyOn>;
+  let timeoutCallback: Function | undefined;
+  let timeoutDelay: number | undefined;
+
   beforeEach(() => {
-    vi.useFakeTimers();
+    timeoutCallback = undefined;
+    timeoutDelay = undefined;
+    setTimeoutSpy = spyOn(global, 'setTimeout').mockImplementation((cb: Function, ms: number) => {
+      timeoutCallback = cb;
+      timeoutDelay = ms;
+      return 123 as any;
+    });
+    clearTimeoutSpy = spyOn(global, 'clearTimeout').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
   });
 
-  it('should call onUpdate when hash changes', async () => {
-    const diagrams = ['diagram1', 'diagram1', 'diagram2'];
-    let callCount = 0;
-
-    const fetchDiagram = vi.fn(async () => diagrams[callCount++]);
-    const onUpdate = vi.fn();
-
-    const service = new PollingService(fetchDiagram, onUpdate, 5);
+  it('should call onUpdate and schedule next poll', async () => {
+    const onUpdate = mock(async () => {});
+    const service = new PollingService(onUpdate, 5);
 
     service.start();
-    await vi.runOnlyPendingTimersAsync(); // Initial poll
 
-    expect(onUpdate).toHaveBeenCalledTimes(1); // First poll always triggers update
-    expect(fetchDiagram).toHaveBeenCalledTimes(1);
+    // Should schedule immediate poll
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(timeoutDelay).toBe(0);
 
-    await vi.advanceTimersByTimeAsync(5000); // Second poll (same diagram)
+    // Execute poll
+    if (timeoutCallback) {
+      await timeoutCallback();
+    }
 
-    expect(onUpdate).toHaveBeenCalledTimes(1); // No change, no update
-    expect(fetchDiagram).toHaveBeenCalledTimes(2);
-
-    await vi.advanceTimersByTimeAsync(5000); // Third poll (changed diagram)
-
-    expect(onUpdate).toHaveBeenCalledTimes(2); // Changed, trigger update
-    expect(fetchDiagram).toHaveBeenCalledTimes(3);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    
+    // Should schedule next poll
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
+    expect(timeoutDelay).toBe(5000); // 5 seconds * 1000
 
     service.stop();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
   });
 
   it('should handle errors gracefully', async () => {
-    const fetchDiagram = vi.fn(async () => {
-      throw new Error('bd command failed');
+    const onUpdate = mock(async () => {
+      throw new Error('Update failed');
     });
-    const onUpdate = vi.fn();
-    const onError = vi.fn();
+    const onError = mock();
 
-    const service = new PollingService(fetchDiagram, onUpdate, 5, onError);
+    const service = new PollingService(onUpdate, 5, onError);
 
     service.start();
-    await vi.runOnlyPendingTimersAsync();
+    
+    // Execute poll
+    if (timeoutCallback) {
+      await timeoutCallback();
+    }
 
+    expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
-    expect(onUpdate).not.toHaveBeenCalled();
+    
+    // Should still schedule next poll
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
 
     service.stop();
-  });
-
-  it('should stop polling when stop is called', async () => {
-    const fetchDiagram = vi.fn(async () => 'diagram');
-    const onUpdate = vi.fn();
-
-    const service = new PollingService(fetchDiagram, onUpdate, 5);
-
-    service.start();
-    await vi.runOnlyPendingTimersAsync();
-
-    service.stop();
-
-    await vi.advanceTimersByTimeAsync(10000);
-
-    expect(fetchDiagram).toHaveBeenCalledTimes(1); // Only initial call
   });
 });

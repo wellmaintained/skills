@@ -1,5 +1,5 @@
 // tests/skill.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { BeadsSkill, createSkill } from '../src/skill.js';
 import { ConfigManager } from '../src/config/config-manager.js';
 import type { SkillContext } from '../src/types/skill.js';
@@ -11,18 +11,117 @@ import type { SkillContext } from '../src/types/skill.js';
  */
 
 // Mock all dependencies
-vi.mock('../src/clients/beads-client.js');
-vi.mock('../src/backends/github.js');
-vi.mock('../src/backends/shortcut.js');
-vi.mock('../src/store/mapping-store.js');
-vi.mock('../src/synthesis/progress-synthesizer.js');
-vi.mock('../src/diagrams/mermaid-generator.js');
-vi.mock('../src/diagrams/diagram-placer.js');
-vi.mock('../src/discovery/scope-discovery-detector.js');
-vi.mock('../src/decomposition/epic-decomposer.js');
-vi.mock('../src/orchestration/shortcut-sync-orchestrator.js');
-vi.mock('../src/monitoring/logger.js');
-vi.mock('../src/auth/credential-store.js');
+mock.module('../src/clients/beads-client.ts', () => ({
+  BeadsClient: mock()
+}));
+mock.module('../src/backends/github.ts', () => ({
+  GitHubBackend: mock(() => ({
+    authenticate: mock().mockResolvedValue(undefined)
+  }))
+}));
+mock.module('../src/backends/shortcut.ts', () => ({
+  ShortcutBackend: mock(() => ({
+    authenticate: mock().mockResolvedValue(undefined)
+  }))
+}));
+mock.module('../src/store/mapping-store.ts', () => ({
+  MappingStore: mock()
+}));
+mock.module('../src/synthesis/progress-synthesizer.ts', () => ({
+  ProgressSynthesizer: mock()
+}));
+mock.module('../src/diagrams/mermaid-generator.ts', () => ({
+  MermaidGenerator: mock()
+}));
+mock.module('../src/diagrams/diagram-placer.ts', () => ({
+  DiagramPlacer: mock()
+}));
+mock.module('../src/discovery/scope-discovery-detector.ts', () => ({
+  ScopeDiscoveryDetector: mock()
+}));
+mock.module('../src/decomposition/epic-decomposer.ts', () => ({
+  EpicDecomposer: mock()
+}));
+mock.module('../src/orchestration/shortcut-sync-orchestrator.js', () => {
+  return {
+    ShortcutSyncOrchestrator: class {
+      constructor() {
+        return {};
+      }
+    }
+  };
+});
+mock.module('../src/monitoring/logger.ts', () => ({
+  Logger: mock(() => ({
+    info: mock(),
+    debug: mock(),
+    warn: mock(),
+    error: mock(),
+    withScope: mock().mockReturnThis()
+  }))
+}));
+mock.module('../src/auth/credential-store.ts', () => ({
+  CredentialStore: mock(() => ({
+    load: mock().mockResolvedValue({
+      github: { token: 'test_token' }
+    })
+  }))
+}));
+mock.module('../src/backends/github.js', () => ({
+  GitHubBackend: mock(() => ({
+    authenticate: mock().mockResolvedValue(undefined)
+  }))
+}));
+mock.module('../src/backends/shortcut.js', () => ({
+  ShortcutBackend: mock(() => ({
+    authenticate: mock().mockResolvedValue(undefined)
+  }))
+}));
+mock.module('../src/orchestration/shortcut-sync-orchestrator.js', () => ({
+  ShortcutSyncOrchestrator: mock(() => {
+    return {};
+  })
+}));
+mock.module('../src/backends/shortcut.js', () => ({
+  ShortcutBackend: mock()
+}));
+mock.module('../src/store/mapping-store.js', () => ({
+  MappingStore: mock()
+}));
+mock.module('../src/synthesis/progress-synthesizer.js', () => ({
+  ProgressSynthesizer: mock()
+}));
+mock.module('../src/diagrams/mermaid-generator.js', () => ({
+  MermaidGenerator: mock()
+}));
+mock.module('../src/diagrams/diagram-placer.js', () => ({
+  DiagramPlacer: mock()
+}));
+mock.module('../src/discovery/scope-discovery-detector.js', () => ({
+  ScopeDiscoveryDetector: mock()
+}));
+mock.module('../src/decomposition/epic-decomposer.js', () => ({
+  EpicDecomposer: mock()
+}));
+mock.module('../src/orchestration/shortcut-sync-orchestrator.js', () => ({
+  ShortcutSyncOrchestrator: mock()
+}));
+mock.module('../src/monitoring/logger.js', () => ({
+  Logger: mock(() => ({
+    info: mock(),
+    debug: mock(),
+    warn: mock(),
+    error: mock(),
+    withScope: mock().mockReturnThis()
+  }))
+}));
+mock.module('../src/auth/credential-store.js', () => ({
+  CredentialStore: mock(() => ({
+    load: mock().mockResolvedValue({
+      github: { token: 'test_token' }
+    })
+  }))
+}));
 
 describe('BeadsSkill', () => {
   let skill: BeadsSkill;
@@ -31,7 +130,7 @@ describe('BeadsSkill', () => {
   beforeEach(() => {
     // Create mock config
     mockConfig = {
-      getConfig: vi.fn().mockReturnValue({
+      getConfig: mock().mockReturnValue({
         version: '2.0',
         backend: 'github',
         github: {
@@ -59,7 +158,7 @@ describe('BeadsSkill', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   describe('Constructor', () => {
@@ -71,7 +170,7 @@ describe('BeadsSkill', () => {
     it('should instantiate ShortcutSyncOrchestrator when backend is shortcut', () => {
       // Create mock config with shortcut backend
       const shortcutConfig = {
-        getConfig: vi.fn().mockReturnValue({
+        getConfig: mock().mockReturnValue({
           version: '2.0',
           backend: 'shortcut',
           repositories: [
@@ -155,7 +254,7 @@ describe('BeadsSkill', () => {
     it('should route to ShortcutSyncOrchestrator when backend is shortcut', async () => {
       // Create mock config with shortcut backend
       const shortcutConfig = {
-        getConfig: vi.fn().mockReturnValue({
+        getConfig: mock().mockReturnValue({
           version: '2.0',
           backend: 'shortcut',
           repositories: [
@@ -179,7 +278,7 @@ describe('BeadsSkill', () => {
       const shortcutSkill = new BeadsSkill(shortcutConfig, credentials);
 
       // Mock the orchestrator's syncStory method
-      const mockSyncStory = vi.fn().mockResolvedValue({
+      const mockSyncStory = mock().mockResolvedValue({
         success: true,
         storyId: 123,
         storyUrl: 'https://shortcut.com/story/123',
@@ -219,7 +318,7 @@ describe('BeadsSkill', () => {
       };
 
       // Mock the progressSynthesizer's updateIssueProgress method
-      const mockUpdateIssueProgress = vi.fn().mockResolvedValue({
+      const mockUpdateIssueProgress = mock().mockResolvedValue({
         success: true,
         commentUrl: 'https://github.com/test/test/issues/123#issuecomment-456'
       });
@@ -246,7 +345,7 @@ describe('BeadsSkill', () => {
     it('should pass userNarrative to orchestrator', async () => {
       // Create mock config with shortcut backend
       const shortcutConfig = {
-        getConfig: vi.fn().mockReturnValue({
+        getConfig: mock().mockReturnValue({
           version: '2.0',
           backend: 'shortcut',
           repositories: [
@@ -270,7 +369,7 @@ describe('BeadsSkill', () => {
       const shortcutSkill = new BeadsSkill(shortcutConfig, credentials);
 
       // Mock the orchestrator's syncStory method
-      const mockSyncStory = vi.fn().mockResolvedValue({
+      const mockSyncStory = mock().mockResolvedValue({
         success: true,
         storyId: 123,
         storyUrl: 'https://shortcut.com/story/123',
@@ -392,28 +491,24 @@ describe('BeadsSkill', () => {
 
 describe('createSkill()', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it('should create skill instance', async () => {
-    vi.mock('../src/config/config-manager.js', async () => {
-      const actual = await vi.importActual('../src/config/config-manager.js');
-      return {
-        ...actual,
-        ConfigManager: {
-          load: vi.fn().mockResolvedValue({
-            getConfig: vi.fn().mockReturnValue({
-              version: '2.0',
-              backend: 'github',
-              github: { repository: 'test/test' },
-              repositories: [{ name: 'test', path: '/path', prefix: 'TEST' }],
-              mappingStoragePath: '/path',
-              logging: { level: 'info' }
-            })
+    mock.module('../src/config/config-manager.js', () => ({
+      ConfigManager: {
+        load: mock().mockResolvedValue({
+          getConfig: mock().mockReturnValue({
+            version: '2.0',
+            backend: 'github',
+            github: { repository: 'test/test' },
+            repositories: [{ name: 'test', path: '/path', prefix: 'TEST' }],
+            mappingStoragePath: '/path',
+            logging: { level: 'info' }
           })
-        }
-      };
-    });
+        })
+      }
+    }));
 
     const skill = await createSkill();
 

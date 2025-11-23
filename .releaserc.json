@@ -12,7 +12,17 @@
         "npmPublish": false
       }
     ],
-    "@semantic-release/github",
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge",
+            "label": "beads-bridge-cli"
+          }
+        ]
+      }
+    ],
     [
       "@semantic-release/git",
       {
