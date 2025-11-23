@@ -229,7 +229,7 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
         zoomOnPinch={true}
         minZoom={0.2}
         maxZoom={2.5}
-        panOnDrag={isSpacePressed ? [0, 1, 2] : [2]}
+        panOnDrag={isSpacePressed ? [0, 1, 2] : [1]}
         panOnScroll={false}
         nodesDraggable={true}
         className="bg-slate-50"
