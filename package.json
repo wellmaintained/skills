@@ -3,6 +3,9 @@
   "version": "1.6.0",
   "description": "Well-maintained plugins for Claude Code",
   "private": true,
+  "workspaces": [
+    "src/beads-bridge"
+  ],
   "scripts": {
     "validate": "bash scripts/validate-schemas.sh",
     "validate:marketplace": "ajv validate -s schemas/marketplace.schema.json -d .claude-plugin/marketplace.json --spec=draft7 --strict=false -c ajv-formats",
