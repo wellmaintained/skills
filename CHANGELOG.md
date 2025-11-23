@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/wellmaintained/skills/compare/v1.4.0...v1.5.0) (2025-11-23)
+
+
+### Features
+
+* **wms-2zy:** implement new bead card design with improved UX ([54f8553](https://github.com/wellmaintained/skills/commit/54f8553fec2a2fc6c35440e5b15dfbbc37618b77))
+
 # [1.4.0](https://github.com/wellmaintained/skills/compare/v1.3.0...v1.4.0) (2025-11-23)
 
 
