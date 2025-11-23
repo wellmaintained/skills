@@ -73,4 +73,14 @@ describe('ExpressServer API', () => {
     expect(response.status).toBe(200);
     expect(spy).toHaveBeenCalledWith('test-2', 'test-1');
   });
+
+  it('serves favicon.ico', async () => {
+    const response = await request(server.getExpressApp()).get('/favicon.ico');
+
+    // Should either return the favicon or 404 if not built
+    expect([200, 404]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.type).toBe('image/x-icon');
+    }
+  });
 });

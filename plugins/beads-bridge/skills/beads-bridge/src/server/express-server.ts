@@ -58,6 +58,17 @@ export class ExpressServer {
       });
     }
 
+    // Serve favicon.ico from the frontend directory
+    this.app.get('/favicon.ico', (req: Request, res: Response) => {
+      const asset = this.assetManager.getStaticAsset('favicon.ico');
+      if (asset) {
+        res.type('image/x-icon');
+        res.send(asset.content);
+      } else {
+        res.sendStatus(404);
+      }
+    });
+
     // Health check
     this.app.get('/api/health', (_req: Request, res: Response) => {
       res.json({ status: 'ok' });

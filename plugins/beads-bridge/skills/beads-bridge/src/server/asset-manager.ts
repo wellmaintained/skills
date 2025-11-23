@@ -46,8 +46,23 @@ export class FileSystemAssetManager implements AssetManager {
     return html;
   }
 
-  getStaticAsset(_filename: string): { content: Buffer | string, contentType: string } | null {
-    // Not used if getStaticPath returns a string
+  getStaticAsset(filename: string): { content: Buffer | string, contentType: string } | null {
+    // Handle favicon.ico specifically
+    const filePath = path.join(this.frontendPath, filename);
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath);
+      let contentType = 'application/octet-stream';
+
+      if (filename.endsWith('.ico')) {
+        contentType = 'image/x-icon';
+      } else if (filename.endsWith('.css')) {
+        contentType = 'text/css';
+      } else if (filename.endsWith('.js')) {
+        contentType = 'application/javascript';
+      }
+
+      return { content, contentType };
+    }
     return null;
   }
 

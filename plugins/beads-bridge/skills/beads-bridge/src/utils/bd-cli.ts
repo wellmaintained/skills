@@ -13,6 +13,31 @@ import type { Logger } from '../monitoring/logger.js';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Check if we're currently in a git worktree
+ * Worktrees have git directories like .git/worktrees/<name>
+ */
+async function isGitWorktree(): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--git-dir'], {
+      timeout: 5000,
+    });
+    return stdout.trim().includes('/worktrees/');
+  } catch {
+    // Not in a git repo or git not available
+    return false;
+  }
+}
+
+// Cache the worktree detection result for performance
+let isWorktreeCache: boolean | null = null;
+async function shouldUseAllowStale(): Promise<boolean> {
+  if (isWorktreeCache === null) {
+    isWorktreeCache = await isGitWorktree();
+  }
+  return isWorktreeCache;
+}
+
 function logBdCommand(args: string[], logger?: Logger, cwd?: string): void {
   if (logger) {
     const commandStr = args.join(' ');
@@ -29,8 +54,14 @@ function logBdCommand(args: string[], logger?: Logger, cwd?: string): void {
  */
 export async function execBdCommand(args: string[], logger?: Logger): Promise<string> {
   try {
-    logBdCommand(args, logger);
-    const { stdout } = await execFileAsync('bd', args, {
+    // Add --allow-stale flag to work around staleness issues in git worktrees
+    const finalArgs = [...args];
+    if (await shouldUseAllowStale() && !finalArgs.includes('--allow-stale')) {
+      finalArgs.push('--allow-stale');
+    }
+
+    logBdCommand(finalArgs, logger);
+    const { stdout } = await execFileAsync('bd', finalArgs, {
       timeout: 30000,
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer
     });
@@ -94,8 +125,14 @@ export class BdCli {
     }
 
     try {
-      logBdCommand(args, this.logger, this.cwd);
-      const { stdout, stderr } = await execFileAsync('bd', args, {
+      // Add --allow-stale flag to work around staleness issues in git worktrees
+      const finalArgs = [...args];
+      if (await shouldUseAllowStale() && !finalArgs.includes('--allow-stale')) {
+        finalArgs.push('--allow-stale');
+      }
+
+      logBdCommand(finalArgs, this.logger, this.cwd);
+      const { stdout, stderr } = await execFileAsync('bd', finalArgs, {
         timeout: this.timeout,
         cwd: this.cwd,
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large responses
