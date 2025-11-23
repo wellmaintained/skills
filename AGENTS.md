@@ -71,15 +71,20 @@ bd automatically syncs with git:
 **IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents.
 
 **Why daemon is disabled:**
-- Git worktrees share the same `.beads/beads.db` file and `.git` directory
+- Git worktrees share the same `.git` directory
 - The daemon cannot track which branch each worktree has checked out
 - This could cause commits to go to the wrong branch
+- Daemon is disabled repo-wide in `.beads/config.yaml` (`no-daemon: true`)
 
-**Configuration via `.envrc`:**
-The project uses direnv to automatically configure bd for worktree usage. Each worktree inherits:
-- `BEADS_NO_DAEMON=1` - Forces direct database access (required for worktrees)
-- `BD_ACTOR` - Unique identity per worktree for audit trail
-- `BD_DB` - Explicit database path
+**Configuration via bd wrapper:**
+The setup script creates a symlink at `node_modules/.bin/bd` pointing to `scripts/bd`.
+Since `node_modules/.bin` is automatically in PATH, this wrapper intercepts all bd calls
+and automatically sets:
+- `--actor <worktree-name>` - Unique identity for audit trail
+- `--db <worktree>/.beads/beads.db` - Isolated database per worktree
+
+This works in all shell types (interactive, login, subprocess) without requiring
+environment variables or direnv configuration.
 
 **What this means:**
 - Auto-sync still works, but requires manual `bd sync` calls
@@ -87,11 +92,31 @@ The project uses direnv to automatically configure bd for worktree usage. Each w
 - No background daemon interference
 - Audit trail shows which worktree made which changes
 
-**If creating new worktrees:**
-1. The `.envrc` file automatically applies to all worktrees
-2. Ensure direnv is installed and enabled: `eval "$(direnv hook zsh)"`
-3. Allow direnv in new worktree: `direnv allow`
-4. Verify configuration: `echo $BD_ACTOR` should show worktree name
+**Setting up beads in new worktrees:**
+
+The project includes a setup script to properly initialize beads for worktree usage:
+
+```bash
+./scripts/setup-beads-worktree.sh
+```
+
+This script:
+1. Creates symlink: node_modules/.bin/bd → scripts/bd (auto-detects worktree context)
+2. Initializes the beads database with the correct issue prefix
+3. Installs git hooks (main repo only; worktrees inherit)
+4. Syncs issues from git into the worktree's isolated database
+5. Displays the configuration and ready work
+
+**Manual setup (if needed):**
+If you prefer to set up manually:
+1. Create wrapper: `mkdir -p node_modules/.bin && ln -sf $PWD/scripts/bd node_modules/.bin/bd`
+2. Initialize: `bd init --prefix wms`
+3. Install hooks: `bd hooks install` (main repo) or skip (worktrees inherit)
+4. Sync: `bd sync`
+
+**Verify configuration:**
+- `which bd` should show `node_modules/.bin/bd` (wrapper, not system bd)
+- `bd ready` should show available work with no daemon warnings
 
 ### GitHub Copilot Integration
 

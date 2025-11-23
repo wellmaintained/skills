@@ -14,7 +14,8 @@ issue-prefix: "wms"
 # no-db: false
 
 # Disable daemon for RPC communication (forces direct database access)
-# no-daemon: false
+# CRITICAL: Required for git worktrees to prevent commits to wrong branch
+no-daemon: true
 
 # Disable auto-flush of database to JSONL after mutations
 # no-auto-flush: false
@@ -32,7 +33,8 @@ issue-prefix: "wms"
 # db: ""
 
 # Auto-start daemon if not running (can also use BEADS_AUTO_START_DAEMON)
-# auto-start-daemon: true
+# Disabled because no-daemon is enabled
+auto-start-daemon: false
 
 # Debounce interval for auto-flush (can also use BEADS_FLUSH_DEBOUNCE)
 # flush-debounce: "5s"
