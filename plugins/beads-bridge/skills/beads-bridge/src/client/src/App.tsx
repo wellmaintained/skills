@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Node } from 'reactflow';
-import { updateIssueStatus, createSubtask, reparentIssue } from './api';
+import { updateIssueStatus, createSubtask, reparentIssue, updateIssue } from './api';
 import { useIssueData } from './hooks/useIssueData';
 import { useTreeLayout, type IssueNodeData } from './hooks/useTreeLayout';
 import type {
@@ -728,10 +728,63 @@ export default function App() {
         onClose={() => setSelectedId(null)}
         onStatusChange={(id, status) => statusMutation.mutate({ targetId: id, status })}
         onReparent={handleReparent}
+        onTitleChange={async (id, title) => {
+          // Cancel any in-flight queries to prevent stale data overwriting our optimistic update
+          await queryClient.cancelQueries({ queryKey: QUERY_KEY(issueId) });
+          
+          // Optimistically update the cache immediately
+          updateCache((current) => {
+            const updatedIssues = current.issues.map((issue) =>
+              issue.id === id ? { ...issue, title } : issue
+            );
+            return {
+              ...current,
+              issues: updatedIssues,
+            };
+          });
+
+          try {
+            await updateIssue(id, { title });
+            // Don't invalidate immediately - let the polling service handle updates
+            // This prevents a refetch with potentially stale data from overwriting our optimistic update
+            // The polling service will pick up the change within 5 seconds
+          } catch (error) {
+            // On error, invalidate to revert to server state
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
+            throw error;
+          }
+        }}
+        onDescriptionChange={async (id, description) => {
+          // Cancel any in-flight queries to prevent stale data overwriting our optimistic update
+          await queryClient.cancelQueries({ queryKey: QUERY_KEY(issueId) });
+          
+          // Optimistically update the cache immediately
+          updateCache((current) => {
+            const updatedIssues = current.issues.map((issue) =>
+              issue.id === id ? { ...issue, body: description } : issue
+            );
+            return {
+              ...current,
+              issues: updatedIssues,
+            };
+          });
+
+          try {
+            await updateIssue(id, { description });
+            // Don't invalidate immediately - let the polling service handle updates
+            // This prevents a refetch with potentially stale data from overwriting our optimistic update
+            // The polling service will pick up the change within 5 seconds
+          } catch (error) {
+            // On error, invalidate to revert to server state
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
+            throw error;
+          }
+        }}
         parentOptions={(optimisticIssues ?? query.data?.issues ?? []).map((issue) => ({
           id: issue.id,
           title: issue.title,
         }))}
+        childCount={selectedIssue ? (layout.childrenMap.get(selectedIssue.id) ?? []).length : 0}
       />
 
       {createParentId && (

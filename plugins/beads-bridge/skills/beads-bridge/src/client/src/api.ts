@@ -50,3 +50,16 @@ export async function reparentIssue(issueId: string, newParentId: string): Promi
     })
   );
 }
+
+export async function updateIssue(
+  issueId: string,
+  updates: { title?: string; description?: string }
+): Promise<void> {
+  await handleResponse(
+    await fetch(`/api/issue/${issueId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+  );
+}

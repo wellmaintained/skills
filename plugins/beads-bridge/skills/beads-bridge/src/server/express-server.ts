@@ -148,6 +148,26 @@ export class ExpressServer {
       }
     });
 
+    this.app.post('/api/issue/:id/update', async (req: Request, res: Response) => {
+      try {
+        const { title, description } = req.body ?? {};
+        const issueId = req.params.id;
+
+        if (title === undefined && description === undefined) {
+          throw new ValidationError('title or description is required');
+        }
+
+        // Map description to body for IssueUpdate interface
+        await this.backend.updateIssue(issueId, {
+          title,
+          body: description,
+        });
+        res.json({ success: true });
+      } catch (error) {
+        this.handleError(res, error);
+      }
+    });
+
     // SSE endpoint
     this.app.get('/api/issue/:id/events', (_req: Request, res: Response) => {
       this.broadcaster.addClient(res);

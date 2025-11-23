@@ -256,8 +256,39 @@ export class LiveWebBackend implements ProjectManagementBackend {
     throw new NotSupportedError('createIssue');
   }
 
-  async updateIssue(_issueId: string, _updates: IssueUpdate): Promise<Issue> {
-    throw new NotSupportedError('updateIssue');
+  async updateIssue(issueId: string, updates: IssueUpdate): Promise<Issue> {
+    if (!issueId) {
+      throw new ValidationError('issueId is required');
+    }
+
+    const args = ['update', issueId];
+
+    if (updates.title !== undefined) {
+      args.push('--title', updates.title);
+    }
+
+    if (updates.body !== undefined) {
+      args.push('--description', updates.body);
+    }
+
+    if (args.length === 2) {
+      throw new ValidationError('At least one field (title or body) must be provided');
+    }
+
+    await this.runBdCommand(args);
+
+    // Return the updated issue by fetching it
+    const state = this.state.get(issueId);
+    if (!state) {
+      throw new NotFoundError(`Issue not found: ${issueId}`);
+    }
+
+    const issue = state.issues.find((i) => i.id === issueId);
+    if (!issue) {
+      throw new NotFoundError(`Issue not found in state: ${issueId}`);
+    }
+
+    return issue;
   }
 
   async addComment(_issueId: string, _comment: string): Promise<Comment> {
