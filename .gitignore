@@ -26,6 +26,7 @@ build/
 # Testing
 coverage/
 .nyc_output/
+.playwright-mcp/
 
 # Logs
 logs/
