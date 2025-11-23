@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Node } from 'reactflow';
 import { updateIssueStatus, createSubtask, reparentIssue } from './api';
@@ -90,6 +90,54 @@ function toDashboardIssue(
   };
 }
 
+function extractErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return error.trim();
+  }
+
+  return undefined;
+}
+
+function buildUserFacingError(action: string, error: unknown): string {
+  const detail = extractErrorMessage(error);
+  const suffix = 'Reverting UI to match the beads backend state.';
+
+  if (detail) {
+    const cleanedDetail = detail.replace(/[.!?\s]+$/, '');
+    return `Failed to ${action}: ${cleanedDetail}. ${suffix}`;
+  }
+
+  return `Failed to ${action}. ${suffix}`;
+}
+
+interface PendingStatusInfo {
+  transitionId: string;
+  targetStatus: IssueStatus;
+  previousStatus?: IssueStatus;
+  requestedAt: number;
+  confirmedAt?: number;
+  serverSettledAt?: number;
+}
+
+function createTransitionId(issueId: string): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).slice(2, 8);
+  return `status-${issueId}-${timestamp}-${randomPart}`;
+}
+
+type StatusMutationVariables = { targetId: string; status: IssueStatus };
+
+interface StatusMutationContext {
+  previous?: IssueResponse;
+  previousStatus?: IssueStatus;
+  transitionId: string;
+  requestedAt: number;
+}
+
 function useCollapsedNodes(issueId: string) {
   const storageKey = `beads-collapsed-${issueId}`;
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
@@ -125,18 +173,70 @@ function useCollapsedNodes(issueId: string) {
 
 export default function App() {
   const issueId = getIssueIdFromPath();
-  const logger = new ClientLogger('App');
+  const logger = useMemo(() => new ClientLogger('App'), []);
+  const logSequenceRef = useRef(0);
+  const nextLogMeta = useCallback(
+    (phase: string, context?: Record<string, unknown>) => {
+      logSequenceRef.current += 1;
+      return {
+        seq: logSequenceRef.current,
+        at: new Date().toISOString(),
+        phase,
+        ...context,
+      };
+    },
+    []
+  );
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [fitViewFn, setFitViewFn] = useState<(() => void) | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [pendingStatuses, setPendingStatuses] = useState<Record<string, PendingStatusInfo>>({});
   const { collapsed, toggle } = useCollapsedNodes(issueId);
   const registerFit = useCallback((fn: () => void) => setFitViewFn(() => fn), []);
 
   const query = useIssueData(issueId, setToast);
 
-  const layout = useTreeLayout(query.data?.issues, query.data?.edges, collapsed);
+  const optimisticIssues = useMemo(() => {
+    if (!query.data?.issues) {
+      return undefined;
+    }
+
+    const pendingEntries = Object.entries(pendingStatuses);
+    if (pendingEntries.length === 0) {
+      return query.data.issues;
+    }
+
+    let changed = false;
+    const updatedIssues = query.data.issues.map((issue) => {
+      const pending = pendingStatuses[issue.id];
+      if (pending && issue.metadata?.beadsStatus !== pending.targetStatus) {
+        changed = true;
+        return {
+          ...issue,
+          metadata: { ...issue.metadata, beadsStatus: pending.targetStatus },
+        };
+      }
+      return issue;
+    });
+
+    return changed ? updatedIssues : query.data.issues;
+  }, [pendingStatuses, query.data?.issues]);
+
+  const optimisticMetrics = useMemo(() => {
+    if (!query.data) {
+      return undefined;
+    }
+
+    if (!optimisticIssues || optimisticIssues === query.data.issues) {
+      return query.data.metrics;
+    }
+
+    return recalculateMetrics(optimisticIssues);
+  }, [optimisticIssues, query.data]);
+
+  const layout = useTreeLayout(optimisticIssues ?? query.data?.issues, query.data?.edges, collapsed);
 
   const updateCache = useCallback(
     (updater: (current: IssueResponse) => IssueResponse) => {
@@ -148,39 +248,253 @@ export default function App() {
     [issueId, queryClient]
   );
 
-  const statusMutation = useMutation({
-    mutationFn: async ({ targetId, status }: { targetId: string; status: IssueStatus }) => {
+  const statusMutation = useMutation<void, unknown, StatusMutationVariables, StatusMutationContext>({
+    mutationFn: async ({ targetId, status }) => {
       await updateIssueStatus(targetId, status);
     },
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEY(issueId) });
       const previous = queryClient.getQueryData<IssueResponse>(QUERY_KEY(issueId));
+      const previousStatus = previous?.issues.find((issue) => issue.id === variables.targetId)?.metadata
+        ?.beadsStatus as IssueStatus | undefined;
+      const requestedAt = Date.now();
+      const transitionId = createTransitionId(variables.targetId);
+      const pendingCountBefore = Object.keys(pendingStatuses).length;
+      const hadExistingPending = Boolean(pendingStatuses[variables.targetId]);
 
-      updateCache((current) => {
-        const updatedIssues = current.issues.map((issue) =>
-          issue.id === variables.targetId
-            ? { ...issue, metadata: { ...issue.metadata, beadsStatus: variables.status } }
-            : issue
-        );
-        return {
-          ...current,
-          issues: updatedIssues,
-          metrics: recalculateMetrics(updatedIssues),
-        };
-      });
+      logger.info(
+        'Status change requested',
+        nextLogMeta('status:request', {
+          rootIssueId: issueId,
+          transitionId,
+          issueId: variables.targetId,
+          previousStatus: previousStatus ?? 'unknown',
+          nextStatus: variables.status,
+          pendingCountBefore,
+        })
+      );
 
-      return { previous };
+      setPendingStatuses((prev) => ({
+        ...prev,
+        [variables.targetId]: {
+          transitionId,
+          targetStatus: variables.status,
+          previousStatus,
+          requestedAt,
+        },
+      }));
+
+      const pendingCountAfter = hadExistingPending ? pendingCountBefore : pendingCountBefore + 1;
+
+      logger.debug(
+        'Recorded pending status transition',
+        nextLogMeta('status:pending-added', {
+          rootIssueId: issueId,
+          transitionId,
+          issueId: variables.targetId,
+          requestedStatus: variables.status,
+          previousStatus: previousStatus ?? 'unknown',
+          pendingCountAfter,
+        })
+      );
+
+      // We do NOT update the cache directly here.
+      // Instead, we rely on pendingStatuses to overlay the optimistic state on the UI.
+      // This ensures that query.data continues to reflect the last known SERVER state.
+      // The useEffect hook then compares query.data (server) vs pendingStatuses (target)
+      // to decide when to remove the pending status.
+      // If we updated the cache here, query.data would match the target immediately,
+      // causing the useEffect to remove the pending status prematurely, leading to a flicker
+      // when the query is invalidated and refetched (returning the old server state).
+
+      return { previous, previousStatus, transitionId, requestedAt };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(QUERY_KEY(issueId), context.previous);
       }
-      setToast('Failed to update status. Please refresh.');
+      const pendingCountBefore = Object.keys(pendingStatuses).length;
+      const hadPending = Boolean(pendingStatuses[variables.targetId]);
+      setPendingStatuses((prev) => {
+        if (!(variables.targetId in prev)) {
+          return prev;
+        }
+        const { [variables.targetId]: _removed, ...rest } = prev;
+        return rest;
+      });
+      const pendingCountAfter = hadPending ? Math.max(0, pendingCountBefore - 1) : pendingCountBefore;
+
+      logger.warn(
+        'Pending status removed due to error',
+        nextLogMeta('status:pending-removed', {
+          rootIssueId: issueId,
+          transitionId: context?.transitionId,
+          issueId: variables.targetId,
+          requestedStatus: variables.status,
+          pendingCountBefore,
+          pendingCountAfter,
+        })
+      );
+
+      const elapsedMs = context?.requestedAt ? Date.now() - context.requestedAt : undefined;
+      const errorForLog = error instanceof Error ? error : undefined;
+      const metaContext: Record<string, unknown> = {
+        rootIssueId: issueId,
+        transitionId: context?.transitionId,
+        issueId: variables.targetId,
+        requestedStatus: variables.status,
+        previousStatus: context?.previousStatus ?? 'unknown',
+        elapsedMs,
+        pendingCountBefore,
+        pendingCountAfter,
+      };
+      if (!(error instanceof Error)) {
+        metaContext.rawError = error;
+      }
+      logger.error('Status update failed', errorForLog, nextLogMeta('status:error', metaContext));
+      setToast(buildUserFacingError('update status', error));
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
+    onSuccess: (_result, variables, context) => {
+      const now = Date.now();
+      const elapsedMs = context?.requestedAt ? now - context.requestedAt : undefined;
+      let serverSettledAtForLog: number | null = null;
+      let serverElapsedMs: number | undefined;
+      let pendingCountBefore: number | undefined;
+      let pendingCountAfter: number | undefined;
+
+      setPendingStatuses((prev) => {
+        pendingCountBefore = Object.keys(prev).length;
+        const current = prev[variables.targetId];
+        if (!current) {
+          logger.debug(
+            'Pending status missing during success',
+            nextLogMeta('status:pending-missing', {
+              rootIssueId: issueId,
+              transitionId: context?.transitionId,
+              issueId: variables.targetId,
+            })
+          );
+          pendingCountAfter = pendingCountBefore;
+          return prev;
+        }
+
+        serverSettledAtForLog = current.serverSettledAt ?? null;
+        if (current.serverSettledAt != null && context?.requestedAt) {
+          serverElapsedMs = current.serverSettledAt - context.requestedAt;
+        }
+
+        logger.debug(
+          'Pending status marked confirmed',
+          nextLogMeta('status:pending-confirmed', {
+            rootIssueId: issueId,
+            transitionId: current.transitionId,
+            issueId: variables.targetId,
+            elapsedMs,
+            serverSettledAt: serverSettledAtForLog,
+            serverElapsedMs,
+          })
+        );
+
+        // Do NOT remove the pending status yet.
+        // We wait for the server state (via polling) to match the target status.
+        // This prevents the UI from flickering back to the old status if the poll happens
+        // before the server has fully settled.
+        return {
+          ...prev,
+          [variables.targetId]: {
+            ...current,
+            confirmedAt: now,
+          },
+        };
+      });
+
+      logger.info(
+        'Status update confirmed (waiting for server settlement)',
+        nextLogMeta('status:confirmed', {
+          rootIssueId: issueId,
+          transitionId: context?.transitionId,
+          issueId: variables.targetId,
+          status: variables.status,
+          previousStatus: context?.previousStatus ?? 'unknown',
+          elapsedMs,
+          serverSettledAt: serverSettledAtForLog,
+          serverElapsedMs,
+          pendingCountBefore,
+          pendingCountAfter: pendingCountBefore, // Count hasn't changed yet
+        })
+      );
+    },
+    onSettled: (_result, error, variables, context) => {
+      logger.debug(
+        'Status mutation settled, invalidating cache',
+        nextLogMeta('status:settled-callback', {
+          rootIssueId: issueId,
+          transitionId: context?.transitionId,
+          issueId: variables?.targetId,
+          hasError: Boolean(error),
+        })
+      );
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
     },
   });
+
+  useEffect(() => {
+    const pendingIds = Object.keys(pendingStatuses);
+    if (!query.data?.issues || pendingIds.length === 0) {
+      return;
+    }
+
+    const snapshot = pendingIds.map((pendingId) => {
+      const info = pendingStatuses[pendingId];
+      const serverStatus = query.data.issues.find((issue) => issue.id === pendingId)?.metadata?.beadsStatus as
+        | IssueStatus
+        | undefined;
+      return {
+        issueId: pendingId,
+        transitionId: info.transitionId,
+        targetStatus: info.targetStatus,
+        serverStatus: serverStatus ?? 'unknown',
+        previousStatus: info.previousStatus ?? 'unknown',
+        requestedAt: info.requestedAt,
+        confirmedAt: info.confirmedAt ?? null,
+        serverSettledAt: info.serverSettledAt ?? null,
+      };
+    });
+
+    logger.debug(
+      'Pending status snapshot',
+      nextLogMeta('status:snapshot', {
+        rootIssueId: issueId,
+        snapshot,
+      })
+    );
+
+    const settled = snapshot.filter((entry) => entry.serverStatus === entry.targetStatus);
+
+    if (settled.length === 0) {
+      return;
+    }
+
+    logger.info(
+      'Server indicates pending statuses reached target value',
+      nextLogMeta('status:server-settled', {
+        rootIssueId: issueId,
+        settled,
+      })
+    );
+
+    setPendingStatuses((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const entry of settled) {
+        if (next[entry.issueId]) {
+          delete next[entry.issueId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [pendingStatuses, query.data?.issues, issueId, logger, nextLogMeta]);
 
   const createMutation = useMutation({
     mutationFn: async ({ parentId, payload }: { parentId: string; payload: CreateSubtaskPayload }) => {
@@ -223,11 +537,17 @@ export default function App() {
 
       return { previous, tempId, parentId };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(QUERY_KEY(issueId), context.previous);
       }
-      setToast('Failed to create subtask. Please refresh.');
+      const errorForLog = error instanceof Error ? error : undefined;
+      const logContext: Record<string, unknown> = variables && variables.parentId ? { parentId: variables.parentId } : {};
+      if (!(error instanceof Error)) {
+        logContext.error = error;
+      }
+      logger.error('Subtask creation failed', errorForLog, logContext);
+      setToast(buildUserFacingError('create subtask', error));
     },
     onSuccess: (result, _variables, context) => {
       if (!context) return;
@@ -248,7 +568,7 @@ export default function App() {
       setCreateParentId(null);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
     },
   });
 
@@ -279,14 +599,26 @@ export default function App() {
 
       return { previous };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(QUERY_KEY(issueId), context.previous);
       }
-      setToast('Failed to reparent issue. Please refresh.');
+      const errorForLog = error instanceof Error ? error : undefined;
+      const logContext: Record<string, unknown> =
+        variables && (variables.targetId || variables.newParentId)
+          ? {
+            targetId: variables.targetId,
+            newParentId: variables.newParentId,
+          }
+          : {};
+      if (!(error instanceof Error)) {
+        logContext.error = error;
+      }
+      logger.error('Issue reparent failed', errorForLog, logContext);
+      setToast(buildUserFacingError('move issue', error));
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY(issueId) });
     },
   });
 
@@ -338,13 +670,13 @@ export default function App() {
   );
 
   const selectedIssue = useMemo(
-    () => query.data?.issues.find((issue) => issue.id === selectedId),
-    [query.data?.issues, selectedId]
+    () => optimisticIssues?.find((issue) => issue.id === selectedId),
+    [optimisticIssues, selectedId]
   );
 
   const parentIssue = useMemo(
-    () => query.data?.issues.find((issue) => issue.id === createParentId),
-    [createParentId, query.data?.issues]
+    () => optimisticIssues?.find((issue) => issue.id === createParentId),
+    [createParentId, optimisticIssues]
   );
 
   if (query.isLoading) {
@@ -374,7 +706,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col bg-slate-100">
       <Toolbar
-        metrics={query.data.metrics}
+        metrics={optimisticMetrics ?? query.data.metrics}
         lastUpdate={query.data.lastUpdate}
         onFitView={() => fitViewFn?.()}
         errorMessage={toolbarError}
@@ -396,7 +728,10 @@ export default function App() {
         onClose={() => setSelectedId(null)}
         onStatusChange={(id, status) => statusMutation.mutate({ targetId: id, status })}
         onReparent={handleReparent}
-        parentOptions={(query.data?.issues ?? []).map((issue) => ({ id: issue.id, title: issue.title }))}
+        parentOptions={(optimisticIssues ?? query.data?.issues ?? []).map((issue) => ({
+          id: issue.id,
+          title: issue.title,
+        }))}
       />
 
       {createParentId && (
