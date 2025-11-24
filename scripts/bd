@@ -25,7 +25,10 @@ if [ -f ".git" ]; then
     WORKTREE_DB="$PWD/.beads/beads.db"
 
     # Call real bd with worktree-specific flags
-    exec "$REAL_BD" --actor "$WORKTREE_NAME" --db "$WORKTREE_DB" "$@"
+    # Add --allow-stale to bypass staleness check issues in worktree contexts
+    # The staleness check can be overly aggressive when working with isolated
+    # worktree databases, even when the database is properly synced
+    exec "$REAL_BD" --actor "$WORKTREE_NAME" --db "$WORKTREE_DB" --allow-stale "$@"
 else
     # We're in main repo, use defaults
     exec "$REAL_BD" "$@"
