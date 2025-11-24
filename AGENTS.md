@@ -83,29 +83,26 @@ This is **expected behavior and can be safely ignored**. It appears when:
 
 ### Git Worktrees and Multi-Agent Configuration
 
-**IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents.
+**IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents using a shared database approach.
+
+**Why a shared database:**
+- Each worktree previously had its own isolated `.beads/beads.db`
+- This caused constant import/export cycles and hash mismatch errors
+- Now all worktrees use the main repo's `.beads/beads.db`
+- This eliminates staleness errors and provides real-time visibility
+
+**How it works:**
+- Main repo has the single source-of-truth database: `.beads/beads.db`
+- Each worktree's `.beads/config.yaml` points to the shared database
+- Actor tracking (`actor: <worktree-name>`) identifies which worktree made changes
+- SQLite WAL mode handles concurrent access safely
+- Worktree config changes are git-ignored via `.git/info/exclude`
 
 **Why daemon is disabled:**
 - Git worktrees share the same `.git` directory
 - The daemon cannot track which branch each worktree has checked out
 - This could cause commits to go to the wrong branch
 - Daemon is disabled repo-wide in `.beads/config.yaml` (`no-daemon: true`)
-
-**Configuration via bd wrapper:**
-The setup script creates a symlink at `node_modules/.bin/bd` pointing to `scripts/bd`.
-Since `node_modules/.bin` is automatically in PATH, this wrapper intercepts all bd calls
-and automatically sets:
-- `--actor <worktree-name>` - Unique identity for audit trail
-- `--db <worktree>/.beads/beads.db` - Isolated database per worktree
-
-This works in all shell types (interactive, login, subprocess) without requiring
-environment variables or direnv configuration.
-
-**What this means:**
-- Auto-sync still works, but requires manual `bd sync` calls
-- Each agent/worktree operates independently
-- No background daemon interference
-- Audit trail shows which worktree made which changes
 
 **Setting up beads in new worktrees:**
 
@@ -116,22 +113,28 @@ The project includes a setup script to properly initialize beads for worktree us
 ```
 
 This script:
-1. Creates symlink: node_modules/.bin/bd → scripts/bd (auto-detects worktree context)
-2. Initializes the beads database with the correct issue prefix
-3. Installs git hooks (main repo only; worktrees inherit)
-4. Syncs issues from git into the worktree's isolated database
-5. Displays the configuration and ready work
-
-**Manual setup (if needed):**
-If you prefer to set up manually:
-1. Create wrapper: `mkdir -p node_modules/.bin && ln -sf $PWD/scripts/bd node_modules/.bin/bd`
-2. Initialize: `bd init --prefix wms`
-3. Install hooks: `bd hooks install` (main repo) or skip (worktrees inherit)
-4. Sync: `bd sync`
+1. Creates symlink: node_modules/.bin/bd → scripts/bd (optional logging wrapper)
+2. Detects if running in worktree or main repo
+3. For worktrees:
+   - Configures `.beads/config.yaml` to use shared database from main repo
+   - Sets `actor: <worktree-name>` for audit trail
+   - Adds `config.yaml` to `.git/info/exclude` to prevent commits
+4. For main repo:
+   - Initializes the beads database with the correct issue prefix
+5. Installs git hooks (main repo only; worktrees inherit)
+6. Syncs issues from git
+7. Displays the configuration and ready work
 
 **Verify configuration:**
-- `which bd` should show `node_modules/.bin/bd` (wrapper, not system bd)
-- `bd ready` should show available work with no daemon warnings
+- In worktree: `cat .beads/config.yaml` should show `db:` pointing to main repo
+- In worktree: `git status` should not show `.beads/config.yaml` as modified
+- `bd ready` should show available work with no staleness errors
+
+**Benefits:**
+- No more staleness errors or `--allow-stale` workarounds
+- Real-time visibility across all worktrees
+- Simpler mental model - one source of truth
+- Works with all agents (codex, claude-code, opencode, cursor-agent)
 
 ### GitHub Copilot Integration
 
