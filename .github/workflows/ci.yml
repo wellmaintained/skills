@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
+      - 'src/**'  # Trigger on source changes (beads-bridge CLI)
       - '.claude-plugin/marketplace.json'
       - 'schemas/**'  # Trigger on schema changes
       - '.github/workflows/**'  # Also trigger on workflow changes
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - 'plugins/**'
+      - 'src/**'  # Trigger on source changes (beads-bridge CLI)
       - '.claude-plugin/marketplace.json'
       - 'schemas/**'  # Trigger on schema changes
       - '.github/workflows/**'  # Also trigger on workflow changes
@@ -184,7 +186,16 @@ jobs:
 
       - name: Install dependencies and build
         run: |
-          cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          # Check if beads-bridge is extracted to src/
+          if [ "${{ matrix.plugin }}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then
+            cd src/beads-bridge
+          elif [ -d "plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}" ]; then
+            cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          else
+            echo "⚠️  No build needed for ${{ matrix.plugin }}"
+            exit 0
+          fi
+
           if [ -f "package.json" ]; then
             echo "Installing dependencies for ${{ matrix.plugin }}..."
             bun install
@@ -194,7 +205,16 @@ jobs:
 
       - name: Run plugin tests (if available)
         run: |
-          cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          # Check if beads-bridge is extracted to src/
+          if [ "${{ matrix.plugin }}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then
+            cd src/beads-bridge
+          elif [ -d "plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}" ]; then
+            cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
+          else
+            echo "ℹ️  No tests available for ${{ matrix.plugin }}"
+            exit 0
+          fi
+
           if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
             echo "Running tests for ${{ matrix.plugin }}..."
             bun run test
@@ -234,14 +254,14 @@ jobs:
 
       - name: Install dependencies and build binary
         run: |
-          cd plugins/beads-bridge/skills/beads-bridge
+          cd src/beads-bridge
           bun install
           bun run build
 
       - name: Rename binary with platform suffix
         shell: bash
         run: |
-          cd plugins/beads-bridge/skills/beads-bridge/dist
+          cd src/beads-bridge/dist
           if [ "${{ matrix.platform }}" = "win32" ]; then
             mv beads-bridge beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe || mv beads-bridge.exe beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe
           else
@@ -252,7 +272,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}
-          path: plugins/beads-bridge/skills/beads-bridge/dist/beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}*
+          path: src/beads-bridge/dist/beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}*
           retention-days: 1
 
   update-marketplace:
@@ -307,11 +327,11 @@ jobs:
       - name: Download all binary artifacts
         uses: actions/download-artifact@v4
         with:
-          path: plugins/beads-bridge/skills/beads-bridge/dist/
+          path: src/beads-bridge/dist/
 
       - name: Organize binaries
         run: |
-          cd plugins/beads-bridge/skills/beads-bridge/dist
+          cd src/beads-bridge/dist
           # Move binaries from artifact subdirectories to dist root
           find . -type f -name "beads-bridge-*" -exec mv {} . \;
           # Remove empty artifact directories
