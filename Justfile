@@ -29,6 +29,31 @@ check-versions:
     @echo "🔍 Checking version consistency..."
     bash scripts/check-version-consistency.sh
 
+# Validate marketplace.json JSON syntax
+validate-marketplace-syntax:
+    @echo "🔍 Validating marketplace.json JSON syntax..."
+    @jq empty .claude-plugin/marketplace.json 2>/dev/null || (echo "❌ .claude-plugin/marketplace.json is not valid JSON" && exit 1)
+    @echo "✅ .claude-plugin/marketplace.json has valid JSON syntax"
+
+# Validate all plugin.json files JSON syntax
+validate-plugins-syntax:
+    @echo "🔍 Validating plugin.json files JSON syntax..."
+    @bash scripts/validate-plugins-syntax.sh
+
+# Check required files for all plugins
+check-required-files:
+    @echo "🔍 Checking required files for each plugin..."
+    @bash scripts/check-required-files.sh
+
+# Validate plugin directory structure
+check-directory-structure:
+    @echo "🔍 Validating plugin directory structure..."
+    @bash scripts/check-directory-structure.sh
+
+# Full structural validation (syntax + schema + files + structure + versions)
+validate-structure: validate-marketplace-syntax validate-marketplace validate-plugins-syntax validate-plugins check-required-files check-directory-structure check-versions
+    @echo "✅ All structural validations passed!"
+
 # Run all root-level checks (validation + version check)
 check: validate check-versions
     @echo "✅ All checks passed!"
@@ -46,6 +71,19 @@ build-bridge:
 build-bridge-binary:
     @echo "🔨 Building beads-bridge binary..."
     cd src/beads-bridge && bun run build
+
+# Build beads-bridge binary for specific platform (note: cross-compilation requires running on that platform)
+build-binary platform arch:
+    @echo "🔨 Building beads-bridge for {{platform}}-{{arch}}..."
+    @cd src/beads-bridge && bun install && bun run build
+    @echo "📦 Renaming binary with platform suffix..."
+    @cd src/beads-bridge/dist && \
+        if [ "{{platform}}" = "win32" ]; then \
+            mv beads-bridge beads-bridge-{{platform}}-{{arch}}.exe || mv beads-bridge.exe beads-bridge-{{platform}}-{{arch}}.exe; \
+        else \
+            mv beads-bridge beads-bridge-{{platform}}-{{arch}}; \
+        fi
+    @echo "✅ Binary built: src/beads-bridge/dist/beads-bridge-{{platform}}-{{arch}}"
 
 # Run TypeScript type checking for beads-bridge
 type-check-bridge:
@@ -93,6 +131,54 @@ serve-bridge issue-id="wms-yun" log-level="INFO":
 # Full quality check for beads-bridge (lint + type-check + test)
 qa-bridge: lint-bridge type-check-bridge test-bridge
     @echo "✅ Beads-bridge quality checks passed!"
+
+# Test plugin installation script (if it exists)
+test-plugin-install plugin:
+    @echo "🧪 Testing installation for {{plugin}}..."
+    @cd plugins/{{plugin}} && \
+        if [ -f ".claude-plugin/install.sh" ]; then \
+            echo "Running installation script..."; \
+            bash .claude-plugin/install.sh || true; \
+            echo "✅ Installation script executed"; \
+        else \
+            echo "ℹ️  No installation script for {{plugin}}"; \
+        fi
+
+# Build and test a plugin (used by CI)
+test-plugin plugin:
+    @echo "🧪 Building and testing {{plugin}}..."
+    @if [ "{{plugin}}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then \
+        cd src/beads-bridge; \
+    elif [ -d "plugins/{{plugin}}/skills/{{plugin}}" ]; then \
+        cd plugins/{{plugin}}/skills/{{plugin}}; \
+    else \
+        echo "⚠️  No build needed for {{plugin}}"; \
+        exit 0; \
+    fi && \
+    if [ -f "package.json" ]; then \
+        echo "Installing dependencies for {{plugin}}..."; \
+        bun install; \
+        echo "Building {{plugin}}..."; \
+        bun run build; \
+        if jq -e '.scripts.test' package.json > /dev/null; then \
+            echo "Running tests for {{plugin}}..."; \
+            bun run test; \
+            echo "✅ Tests completed"; \
+        else \
+            echo "ℹ️  No tests defined for {{plugin}}"; \
+        fi; \
+    fi
+
+# ============================================================================
+# Marketplace Management
+# ============================================================================
+
+# Update marketplace.json timestamp
+update-marketplace-timestamp:
+    @echo "📋 Updating marketplace.json lastUpdated timestamp..."
+    @jq '.metadata.lastUpdated = (now | todate)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp
+    @mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
+    @echo "✅ Marketplace timestamp updated"
 
 # ============================================================================
 # Combined Workflows

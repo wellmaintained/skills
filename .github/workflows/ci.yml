@@ -40,117 +40,11 @@ jobs:
       - name: Install ajv-cli for schema validation
         run: bun install -g ajv-cli ajv-formats
 
-      - name: Validate marketplace.json syntax
-        run: |
-          echo "Validating marketplace.json JSON syntax..."
-          if ! jq empty .claude-plugin/marketplace.json 2>/dev/null; then
-            echo "❌ .claude-plugin/marketplace.json is not valid JSON"
-            exit 1
-          fi
-          echo "✅ .claude-plugin/marketplace.json has valid JSON syntax"
+      - name: Setup Just
+        uses: extractions/setup-just@v2
 
-      - name: Validate marketplace.json schema
-        run: |
-          echo "Validating marketplace.json against schema..."
-          if ! ajv validate -s schemas/marketplace.schema.json -d .claude-plugin/marketplace.json --spec=draft7 --strict=false -c ajv-formats; then
-            echo "❌ .claude-plugin/marketplace.json does not conform to schema"
-            exit 1
-          fi
-          echo "✅ .claude-plugin/marketplace.json conforms to schema"
-
-      - name: Validate plugin.json files syntax
-        run: |
-          echo "Validating JSON syntax for all plugin.json files..."
-          find plugins -name "plugin.json" -type f | while read plugin_file; do
-            echo "Checking syntax: $plugin_file..."
-            if ! jq empty "$plugin_file" 2>/dev/null; then
-              echo "❌ $plugin_file is not valid JSON"
-              exit 1
-            fi
-            echo "✅ $plugin_file has valid JSON syntax"
-          done
-
-      - name: Validate plugin.json files schema
-        run: |
-          echo "Validating all plugin.json files against schema..."
-          find plugins -name "plugin.json" -type f | while read plugin_file; do
-            echo "Validating schema: $plugin_file..."
-            if ! ajv validate -s schemas/plugin.schema.json -d "$plugin_file" --spec=draft7 --strict=false -c ajv-formats; then
-              echo "❌ $plugin_file does not conform to schema"
-              exit 1
-            fi
-            echo "✅ $plugin_file conforms to schema"
-          done
-
-      - name: Check required files
-        run: |
-          echo "Checking required files for each plugin..."
-          for plugin_dir in plugins/*/; do
-            plugin_name=$(basename "$plugin_dir")
-            echo "Checking plugin: $plugin_name"
-
-            # Check for required files
-            required_files=(
-              ".claude-plugin/plugin.json"
-              "README.md"
-              "QUICKSTART.md"
-              "LICENSE"
-            )
-
-            for file in "${required_files[@]}"; do
-              if [ ! -f "$plugin_dir$file" ]; then
-                echo "❌ Missing required file: $plugin_dir$file"
-                exit 1
-              fi
-            done
-
-            echo "✅ All required files present for $plugin_name"
-          done
-
-      - name: Validate directory structure
-        run: |
-          echo "Validating plugin directory structure..."
-          for plugin_dir in plugins/*/; do
-            plugin_name=$(basename "$plugin_dir")
-            echo "Checking structure for: $plugin_name"
-
-            # Check .claude-plugin is at root
-            if [ ! -d "$plugin_dir.claude-plugin" ]; then
-              echo "❌ Missing .claude-plugin directory at plugin root: $plugin_dir"
-              exit 1
-            fi
-
-            # Check skills directory structure
-            if [ -d "$plugin_dir/skills" ]; then
-              # Skills should be at skills/skill-name/SKILL.md, not skills/SKILL.md
-              if [ -f "$plugin_dir/skills/SKILL.md" ]; then
-                echo "❌ Found SKILL.md at wrong level: $plugin_dir/skills/SKILL.md"
-                echo "   Skills should be at skills/<skill-name>/SKILL.md"
-                exit 1
-              fi
-
-              # Check for source files at wrong level
-              if [ -d "$plugin_dir/skills/src" ] || [ -d "$plugin_dir/skills/tests" ]; then
-                echo "❌ Found src/tests directories at wrong level in $plugin_dir/skills/"
-                echo "   Source files should be at skills/<skill-name>/src/"
-                exit 1
-              fi
-
-              # Check for package.json at wrong level
-              if [ -f "$plugin_dir/skills/package.json" ]; then
-                echo "❌ Found package.json at wrong level: $plugin_dir/skills/package.json"
-                echo "   package.json should be at skills/<skill-name>/package.json"
-                exit 1
-              fi
-            fi
-
-            echo "✅ Directory structure is correct for $plugin_name"
-          done
-
-      - name: Check version consistency
-        run: |
-          echo "Checking version consistency across plugins..."
-          bash scripts/check-version-consistency.sh
+      - name: Validate plugin structure
+        run: just validate-structure
 
   test-plugins:
     name: Test Plugin Installation
@@ -173,55 +67,14 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Just
+        uses: extractions/setup-just@v2
+
       - name: Test installation script
-        run: |
-          cd plugins/${{ matrix.plugin }}
-          if [ -f ".claude-plugin/install.sh" ]; then
-            echo "Testing installation script for ${{ matrix.plugin }}..."
-            bash .claude-plugin/install.sh || true  # Allow to fail if dependencies not available
-            echo "✅ Installation script executed"
-          else
-            echo "ℹ️  No installation script for ${{ matrix.plugin }}"
-          fi
+        run: just test-plugin-install ${{ matrix.plugin }}
 
-      - name: Install dependencies and build
-        run: |
-          # Check if beads-bridge is extracted to src/
-          if [ "${{ matrix.plugin }}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then
-            cd src/beads-bridge
-          elif [ -d "plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}" ]; then
-            cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
-          else
-            echo "⚠️  No build needed for ${{ matrix.plugin }}"
-            exit 0
-          fi
-
-          if [ -f "package.json" ]; then
-            echo "Installing dependencies for ${{ matrix.plugin }}..."
-            bun install
-            echo "Building ${{ matrix.plugin }}..."
-            bun run build
-          fi
-
-      - name: Run plugin tests (if available)
-        run: |
-          # Check if beads-bridge is extracted to src/
-          if [ "${{ matrix.plugin }}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then
-            cd src/beads-bridge
-          elif [ -d "plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}" ]; then
-            cd plugins/${{ matrix.plugin }}/skills/${{ matrix.plugin }}
-          else
-            echo "ℹ️  No tests available for ${{ matrix.plugin }}"
-            exit 0
-          fi
-
-          if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
-            echo "Running tests for ${{ matrix.plugin }}..."
-            bun run test
-            echo "✅ Tests completed"
-          else
-            echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
-          fi
+      - name: Build and test plugin
+        run: just test-plugin ${{ matrix.plugin }}
 
   build-binaries:
     name: Build Binaries
@@ -252,21 +105,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies and build binary
-        run: |
-          cd src/beads-bridge
-          bun install
-          bun run build
+      - name: Setup Just
+        uses: extractions/setup-just@v2
 
-      - name: Rename binary with platform suffix
-        shell: bash
-        run: |
-          cd src/beads-bridge/dist
-          if [ "${{ matrix.platform }}" = "win32" ]; then
-            mv beads-bridge beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe || mv beads-bridge.exe beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}.exe
-          else
-            mv beads-bridge beads-bridge-${{ matrix.platform }}-${{ matrix.arch }}
-          fi
+      - name: Build binary for platform
+        run: just build-binary ${{ matrix.platform }} ${{ matrix.arch }}
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -284,11 +127,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Just
+        uses: extractions/setup-just@v2
+
       - name: Update marketplace.json timestamp
-        run: |
-          echo "Updating marketplace.json lastUpdated timestamp..."
-          jq '.metadata.lastUpdated = (now | todate)' .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp
-          mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
+        run: just update-marketplace-timestamp
 
       - name: Commit updated marketplace.json
         uses: stefanzweifel/git-auto-commit-action@v5
