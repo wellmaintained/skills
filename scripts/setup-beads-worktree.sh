@@ -68,10 +68,15 @@ else
     fi
 fi
 
-# Step 3: Sync beads database
-echo "3️⃣  Syncing issues from git..."
+# Step 3: Import JSONL to populate last_import_time (prevents staleness errors)
+echo "3️⃣  Importing JSONL to database..."
+bd import -i .beads/issues.jsonl 2>/dev/null || bd sync --import-only 2>/dev/null || true
+echo "   ✓ JSONL imported"
+
+# Step 4: Full sync to ensure everything is up to date
+echo "4️⃣  Syncing with remote..."
 bd sync 2>/dev/null || true
-echo "   ✓ Issues synced"
+echo "   ✓ Sync complete"
 
 # Step 5: Display configuration
 echo ""
