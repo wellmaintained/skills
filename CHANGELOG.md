@@ -1,3 +1,20 @@
+# [1.7.0](https://github.com/wellmaintained/skills/compare/v1.6.0...v1.7.0) (2025-11-24)
+
+
+### Bug Fixes
+
+* **ci:** allow test failures temporarily for extraction verification ([50b59b9](https://github.com/wellmaintained/skills/commit/50b59b9465f5bb4da99da02a71378cca27d97c95))
+* **justfile:** update paths for beads-bridge extraction ([cdf7d2f](https://github.com/wellmaintained/skills/commit/cdf7d2f4e928f86f034f95245cf26638c640c1df))
+* **justfile:** update remaining paths for beads-bridge extraction ([9883f09](https://github.com/wellmaintained/skills/commit/9883f0903895c651baf3438dfc11a532c7b57723))
+
+
+### Features
+
+* **beads-bridge:** extract into standalone CLI with workspace structure ([3fb7e2b](https://github.com/wellmaintained/skills/commit/3fb7e2beb1aba88a1f34c4b59f71dfdfd88ba957))
+* **beads:** add extraction epic and update task statuses ([7ec3f92](https://github.com/wellmaintained/skills/commit/7ec3f92b72fde05b3c2c90a909332c2700ee4f0e))
+* **ci:** update CI/CD for beads-bridge workspace extraction ([b502725](https://github.com/wellmaintained/skills/commit/b502725f4f405a9c6f601dc2a8a62a68886f7589))
+* **install:** add smart installer for beads-bridge CLI ([4adbaf5](https://github.com/wellmaintained/skills/commit/4adbaf5b99687868e7c818b5f734acaf156bc9ea))
+
 # [1.6.0](https://github.com/wellmaintained/skills/compare/v1.5.0...v1.6.0) (2025-11-23)
 
 
