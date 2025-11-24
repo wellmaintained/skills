@@ -34,53 +34,53 @@ check: validate check-versions
     @echo "✅ All checks passed!"
 
 # ============================================================================
-# Beads-Bridge Plugin Commands
+# Beads-Bridge CLI Commands
 # ============================================================================
 
-# Build the beads-bridge plugin
+# Build the beads-bridge CLI
 build-bridge:
     @echo "🔨 Building beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run build
+    cd src/beads-bridge && bun run build
 
 # Build beads-bridge binary
 build-bridge-binary:
     @echo "🔨 Building beads-bridge binary..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run build:binary
+    cd src/beads-bridge && bun run build
 
 # Run TypeScript type checking for beads-bridge
 type-check-bridge:
     @echo "🔍 Type checking beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run type-check
+    cd src/beads-bridge && bun run type-check
 
-# Run tests for beads-bridge (using Vitest)
+# Run tests for beads-bridge (using Bun)
 test-bridge:
     @echo "🧪 Running beads-bridge tests..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run test
+    cd src/beads-bridge && bun run test
 
-# Run tests in watch mode for beads-bridge (using Vitest)
+# Run tests in watch mode for beads-bridge
 test-bridge-watch:
     @echo "🧪 Running beads-bridge tests (watch mode)..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run test:watch
+    cd src/beads-bridge && bun run test:watch
 
-# Run tests with coverage for beads-bridge (using Vitest)
+# Run tests with coverage for beads-bridge
 test-bridge-coverage:
     @echo "🧪 Running beads-bridge tests with coverage..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run test:coverage
+    cd src/beads-bridge && bun run test:coverage
 
 # Lint beads-bridge code
 lint-bridge:
     @echo "🔍 Linting beads-bridge..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run lint
+    cd src/beads-bridge && bun run lint
 
 # Format beads-bridge code
 format-bridge:
     @echo "✨ Formatting beads-bridge code..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run format
+    cd src/beads-bridge && bun run format
 
 # Watch client development server for beads-bridge
 dev-bridge-client:
     @echo "👀 Starting beads-bridge client dev server..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun run dev:client
+    cd src/beads-bridge && bun run dev:client
 
 # Start beads-bridge serve in dev watch mode (installs deps, watches client, serves issue)
 # Usage: just serve-bridge [issue-id] [log-level]
@@ -126,7 +126,7 @@ install:
 # Install dependencies for beads-bridge
 install-bridge:
     @echo "📦 Installing beads-bridge dependencies..."
-    cd plugins/beads-bridge/skills/beads-bridge && bun install
+    cd src/beads-bridge && bun install
 
 # Install all dependencies
 install-all: install install-bridge
@@ -135,8 +135,8 @@ install-all: install install-bridge
 # Clean build artifacts
 clean:
     @echo "🧹 Cleaning build artifacts..."
-    -rm -rf plugins/*/skills/*/dist
-    -rm -rf plugins/*/skills/*/node_modules/.vite
+    -rm -rf src/*/dist
+    -rm -rf src/*/node_modules/.vite
     @echo "✅ Clean complete!"
 
 # Show project structure
