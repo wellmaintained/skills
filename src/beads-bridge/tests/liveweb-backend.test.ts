@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from 'bun:test';
 import { LiveWebBackend } from '../src/backends/liveweb.js';
-import { NotSupportedError } from '../src/types/errors.js';
+import { NotSupportedError, ValidationError } from '../src/types/errors.js';
 
 describe('LiveWebBackend', () => {
   it('should have correct metadata', () => {
@@ -94,7 +94,10 @@ describe('LiveWebBackend', () => {
       await backend.updateIssue('test', {});
       expect(true).toBe(false);
     } catch (e) {
-      expect(e).toBeInstanceOf(NotSupportedError);
+      expect(e).toBeInstanceOf(ValidationError);
+      if (e instanceof ValidationError) {
+        expect(e.message).toContain('At least one field');
+      }
     }
 
     try {

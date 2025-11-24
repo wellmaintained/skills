@@ -217,7 +217,7 @@ jobs:
 
           if [ -f "package.json" ] && jq -e '.scripts.test' package.json > /dev/null; then
             echo "Running tests for ${{ matrix.plugin }}..."
-            bun run test || echo "⚠️ Some tests failed (allowing for now)"
+            bun run test
             echo "✅ Tests completed"
           else
             echo "ℹ️  No tests defined for ${{ matrix.plugin }}"
