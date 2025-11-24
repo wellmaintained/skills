@@ -24,6 +24,10 @@ if [ -f ".git" ]; then
     WORKTREE_NAME=$(basename "$PWD")
     WORKTREE_DB="$PWD/.beads/beads.db"
 
+    # Log wrapper activity to stderr (won't interfere with JSON output)
+    echo "🔧 BD Worktree Wrapper: Using isolated database for '$WORKTREE_NAME'" >&2
+    echo "   Flags: --actor '$WORKTREE_NAME' --db '$WORKTREE_DB' --allow-stale" >&2
+
     # Call real bd with worktree-specific flags
     # Add --allow-stale to bypass staleness check issues in worktree contexts
     # The staleness check can be overly aggressive when working with isolated
