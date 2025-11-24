@@ -44,28 +44,21 @@ fi
 
 # Step 2: Verify git hooks are configured (critical for auto-sync)
 echo "2️⃣  Verifying git hooks..."
-if [ -d ".git/hooks" ]; then
-    # We're in the main repo, install hooks if needed
-    if [ ! -x ".git/hooks/pre-commit" ] || ! grep -q "bd sync" ".git/hooks/pre-commit" 2>/dev/null; then
-        echo "   Installing git hooks..."
-        bd hooks install 2>/dev/null || true
-    fi
-    echo "   ✓ Git hooks configured"
-else
-    # We're in a worktree, check that main repo has hooks
-    # .git file contains: gitdir: /path/to/main/.git/worktrees/worktree-name
-    # We need: /path/to/main/.git/hooks
-    MAIN_REPO_GIT_DIR=$(cat .git | sed 's/gitdir: //')
-    MAIN_GIT_DIR=$(dirname "$(dirname "$MAIN_REPO_GIT_DIR")")
-    HOOKS_DIR="$MAIN_GIT_DIR/hooks"
 
-    if [ -x "$HOOKS_DIR/pre-commit" ] && grep -q "bd sync" "$HOOKS_DIR/pre-commit" 2>/dev/null; then
-        echo "   ✓ Using hooks from main repository (worktree)"
+# Configure git to use custom hooks directory (fixes staleness issues)
+git config core.hooksPath .githooks 2>/dev/null || true
+
+if [ -d ".git/hooks" ]; then
+    # We're in the main repo
+    if [ -d ".githooks" ] && [ -x ".githooks/pre-commit" ]; then
+        echo "   ✓ Using custom git hooks from .githooks/"
     else
-        echo "   ⚠️  WARNING: Git hooks not found in main repository!"
-        echo "      Run 'bd hooks install' in the main repo to enable auto-sync"
-        echo "      Without hooks, you must manually run 'bd sync' before commits"
+        echo "   ⚠️  WARNING: Custom git hooks not found in .githooks/"
+        echo "      Falling back to standard hooks, may have staleness issues"
     fi
+else
+    # We're in a worktree, hooks are inherited from main repo config
+    echo "   ✓ Using hooks from main repository (worktree)"
 fi
 
 # Step 3: Import JSONL to populate last_import_time (prevents staleness errors)
