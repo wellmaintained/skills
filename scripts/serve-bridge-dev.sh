@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-BRIDGE_DIR="$REPO_ROOT/plugins/beads-bridge/skills/beads-bridge"
+BRIDGE_DIR="$REPO_ROOT/src/beads-bridge"
 ISSUE_ID="${1:-wms-yun}"
 LOG_LEVEL="${2:-INFO}"
 
