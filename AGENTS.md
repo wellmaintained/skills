@@ -66,6 +66,21 @@ bd automatically syncs with git:
 - Imports from JSONL when newer (e.g., after `git pull`)
 - No manual export/import needed!
 
+**Known harmless warning:**
+You may see warnings like:
+```
+⚠️  WARNING: JSONL file hash mismatch detected (bd-160)
+  This indicates JSONL and export_hashes are out of sync.
+  Clearing export_hashes to force full re-export.
+```
+
+This is **expected behavior and can be safely ignored**. It appears when:
+- JSONL changes via import/sync from git
+- Next operation triggers export validation
+- The `export_hashes` table feature is deprecated (intentionally unused since bd v0.19.0)
+- The warning is cosmetic - bd auto-recovers by doing a full export to be safe
+- Your data is protected; no action needed
+
 ### Git Worktrees and Multi-Agent Configuration
 
 **IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents.
