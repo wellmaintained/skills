@@ -138,14 +138,14 @@ The project includes a setup script to properly initialize beads for worktree us
 ```
 
 This script:
-1. Creates symlink: node_modules/.bin/bd → scripts/bd (optional logging wrapper)
-2. Detects if running in worktree or main repo
-3. For worktrees:
+1. Detects if running in worktree or main repo
+2. For worktrees:
    - Configures `.beads/config.yaml` to use shared database from main repo
    - Sets `actor: <worktree-name>` for audit trail
    - Adds `config.yaml` to `.git/info/exclude` to prevent commits
-4. For main repo:
+3. For main repo:
    - Initializes the beads database with the correct issue prefix
+4. Forces a metadata-syncing import so all worktrees start clean
 5. Installs git hooks (main repo only; worktrees inherit)
 6. Syncs issues from git
 7. Displays the configuration and ready work
