@@ -43,6 +43,7 @@ configure_shared_database() {
     local WORKTREE_NAME="$2"
     local CONFIG_FILE=".beads/config.yaml"
     local SHARED_DB="$MAIN_REPO/.beads/beads.db"
+    local CANONICAL_JSONL="issues.jsonl"
 
     # Remove old symlink approach if it exists
     if [ -L "$PWD/.beads/beads.db" ]; then
@@ -97,11 +98,35 @@ configure_shared_database() {
         echo "   ✓ Removed local beads.db (using shared database)"
     fi
 
-    # Remove metadata.json (references local JSONL that we deleted)
-    if [ -f ".beads/metadata.json" ]; then
-        rm .beads/metadata.json
-        echo "   ✓ Removed local metadata.json (using shared database)"
+    ensure_canonical_jsonl_metadata "$CANONICAL_JSONL"
+}
+
+# Ensure metadata.json exists and continues to reference the canonical JSONL filename.
+# This prevents bd from silently switching to beads.jsonl defaults.
+ensure_canonical_jsonl_metadata() {
+    local CANONICAL_JSONL="$1"
+    local METADATA_FILE=".beads/metadata.json"
+
+    if [ ! -f "$METADATA_FILE" ]; then
+        echo "   ❌ Error: Missing $METADATA_FILE. Run setup in main repo first to create it."
+        exit 1
     fi
+
+    local CURRENT_JSONL=""
+    CURRENT_JSONL=$(grep -o '"jsonl_export":[[:space:]]*"[^"]*"' "$METADATA_FILE" | head -1 | sed 's/.*"jsonl_export":[[:space:]]*"\([^"]*\)".*/\1/')
+
+    if [ -z "$CURRENT_JSONL" ]; then
+        echo "   ❌ Error: Could not determine jsonl_export from $METADATA_FILE"
+        exit 1
+    fi
+
+    if [ "$CURRENT_JSONL" != "$CANONICAL_JSONL" ]; then
+        echo "   ❌ Error: $METADATA_FILE jsonl_export=$CURRENT_JSONL (expected $CANONICAL_JSONL)"
+        echo "      Fix metadata.json in the main repo, commit it, then rerun this script."
+        exit 1
+    fi
+
+    echo "   ✓ Verified metadata.json uses canonical JSONL export ($CANONICAL_JSONL)"
 }
 
 # Mark config.yaml with skip-worktree to prevent commits
