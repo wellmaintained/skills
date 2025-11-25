@@ -1,3 +1,19 @@
+# [1.8.0](https://github.com/wellmaintained/skills/compare/v1.7.0...v1.8.0) (2025-11-25)
+
+
+### Bug Fixes
+
+* **bd-wrapper:** add --allow-stale flag for worktree contexts ([7b6e2ec](https://github.com/wellmaintained/skills/commit/7b6e2ec411ee5f1c1ed05154ff2b49c2d08a8dc5))
+* **beads:** restore issues.jsonl as canonical JSONL filename ([4f2f7f5](https://github.com/wellmaintained/skills/commit/4f2f7f5402b20a3ae8967bab55b658f45eaf7753))
+* **hooks:** add custom git hooks to prevent staleness errors ([bc2cbdd](https://github.com/wellmaintained/skills/commit/bc2cbddabfea16421802d26af8afcd319491864b))
+* **setup:** explicitly import JSONL to prevent staleness errors ([5523f0a](https://github.com/wellmaintained/skills/commit/5523f0a8311dd93fd2ca3cbf7abafe563866d4c4))
+
+
+### Features
+
+* **bd-wrapper:** add logging to show worktree flags ([c689ae1](https://github.com/wellmaintained/skills/commit/c689ae1a5aa346835f217e0fed0985c47e6ad0e1))
+* **worktrees:** implement shared database for git worktrees ([368d2d2](https://github.com/wellmaintained/skills/commit/368d2d21bbeed0f5457b6bd643643c1aa5a39ca7))
+
 # [1.7.0](https://github.com/wellmaintained/skills/compare/v1.6.0...v1.7.0) (2025-11-24)
 
 
