@@ -62,6 +62,14 @@ check: validate check-versions
 # Beads-Bridge CLI Commands
 # ============================================================================
 
+# Internal: detect current platform
+_detect-platform:
+    @uname -s | sed 's/Darwin/darwin/; s/Linux/linux/; s/MINGW.*/win32/; s/MSYS.*/win32/'
+
+# Internal: detect current architecture
+_detect-arch:
+    @uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/'
+
 # Build the beads-bridge CLI
 build-bridge:
     @echo "🔨 Building beads-bridge..."
@@ -72,8 +80,9 @@ build-bridge-binary:
     @echo "🔨 Building beads-bridge binary..."
     cd src/beads-bridge && bun run build
 
-# Build beads-bridge binary for specific platform (note: cross-compilation requires running on that platform)
-build-binary platform arch:
+# Build beads-bridge binary for specific platform (defaults to current platform)
+# Note: cross-compilation requires running on that platform
+build-binary platform=`just _detect-platform` arch=`just _detect-arch`:
     @echo "🔨 Building beads-bridge for {{platform}}-{{arch}}..."
     @cd src/beads-bridge && bun install && bun run build
     @echo "📦 Renaming binary with platform suffix..."
@@ -84,6 +93,23 @@ build-binary platform arch:
             mv beads-bridge beads-bridge-{{platform}}-{{arch}}; \
         fi
     @echo "✅ Binary built: src/beads-bridge/dist/beads-bridge-{{platform}}-{{arch}}"
+
+# Build and install beads-bridge binary to ~/.local/bin
+install-binary: build-binary
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "📦 Installing beads-bridge to ~/.local/bin..."
+    mkdir -p ~/.local/bin
+    PLATFORM=$(just _detect-platform)
+    ARCH=$(just _detect-arch)
+    if [ "$PLATFORM" = "win32" ]; then
+        cp src/beads-bridge/dist/beads-bridge-$PLATFORM-$ARCH.exe ~/.local/bin/beads-bridge.exe
+        echo "✅ Installed to ~/.local/bin/beads-bridge.exe"
+    else
+        cp src/beads-bridge/dist/beads-bridge-$PLATFORM-$ARCH ~/.local/bin/beads-bridge
+        chmod +x ~/.local/bin/beads-bridge
+        echo "✅ Installed to ~/.local/bin/beads-bridge"
+    fi
 
 # Run TypeScript type checking for beads-bridge
 type-check-bridge:
