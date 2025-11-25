@@ -81,6 +81,31 @@ This is **expected behavior and can be safely ignored**. It appears when:
 - The warning is cosmetic - bd auto-recovers by doing a full export to be safe
 - Your data is protected; no action needed
 
+### Troubleshooting Staleness Errors
+
+If you see "Database out of sync with JSONL" errors even after running `bd sync --import-only`:
+
+**Root cause:** The staleness check compares `issues.jsonl` mtime against `metadata.last_import_time`. When content hasn't changed, `bd import` skips DB writes as an optimization, which means `last_import_time` doesn't get updated even though the file's mtime may have changed.
+
+**Fix:**
+```bash
+bd import -i .beads/issues.jsonl --force
+```
+
+The `--force` flag forces the metadata update even when content is unchanged.
+
+**Other troubleshooting steps:**
+```bash
+# Check for configuration issues
+bd doctor
+
+# Auto-fix detected issues (interactive)
+echo "Y" | bd doctor --fix
+
+# Verify metadata matches actual files
+cat .beads/metadata.json
+```
+
 ### Git Worktrees and Multi-Agent Configuration
 
 **IMPORTANT**: This project is configured for git worktrees and multiple concurrent agents using a shared database approach.

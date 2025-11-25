@@ -328,6 +328,20 @@ bd gc
 bd reindex
 ```
 
+## Beads Core Issues
+
+### "Database out of sync with JSONL" error
+
+**Problem**: `bd ready` or other commands fail with "Database out of sync with JSONL" even after running `bd sync --import-only`.
+
+**Cause**: `bd` detects that `issues.jsonl` has a newer timestamp than the last import in the database, but `bd sync` skips updating the database metadata because the file content (hashes) hasn't changed. This leaves the database thinking it's stale.
+
+**Solution**:
+Force a metadata update by re-importing with the `--force` flag:
+```bash
+bd import -i .beads/issues.jsonl --force
+```
+
 ## Getting Help
 
 If none of these solutions work:
