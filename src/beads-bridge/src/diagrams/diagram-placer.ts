@@ -7,8 +7,8 @@
  */
 
 import type { ProjectManagementBackend } from '../types/backend.js';
-import type { MappingStore } from '../store/mapping-store.js';
 import type { MermaidGenerator } from './mermaid-generator.js';
+import type { ExternalRefResolver } from '../utils/external-ref-resolver.js';
 import type {
   PlacementOptions,
   PlacementResult,
@@ -25,7 +25,7 @@ export class DiagramPlacer {
   constructor(
     private readonly backend: ProjectManagementBackend,
     private readonly generator: MermaidGenerator,
-    private readonly mappings: MappingStore
+    private readonly resolver: ExternalRefResolver
   ) {}
 
   /**
@@ -47,14 +47,18 @@ export class DiagramPlacer {
       // Get the GitHub issue
       const issue = await this.backend.getIssue(`${githubRepository}#${githubIssueNumber}`);
 
-      // Find mapping to get Beads epics
-      const mapping = await this.mappings.findByGitHubIssue(githubRepository, githubIssueNumber);
-      if (!mapping) {
-        throw new NotFoundError(`No mapping found for ${githubRepository}#${githubIssueNumber}`);
+      // Resolve external reference to discover Beads epics
+      const resolution = await this.resolver.resolve({
+        repository: githubRepository,
+        issueNumber: githubIssueNumber
+      });
+
+      if (resolution.epics.length === 0) {
+        throw new NotFoundError(`No external_ref found for ${githubRepository}#${githubIssueNumber}`);
       }
 
       // Generate diagram from all repository epics
-      const diagram = await this.generateCombinedDiagram(mapping.beadsEpics);
+      const diagram = await this.generateCombinedDiagram(resolution.epics);
       const mermaidMarkdown = this.generator.render(diagram.mermaid);
 
       let descriptionUpdated = false;

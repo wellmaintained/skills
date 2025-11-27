@@ -7,8 +7,8 @@
 
 import type { BeadsClient } from '../clients/beads-client.js';
 import type { ProjectManagementBackend } from '../types/backend.js';
-import type { MappingStore } from '../store/mapping-store.js';
 import type { MermaidGenerator } from '../diagrams/mermaid-generator.js';
+import type { ExternalRefResolver } from '../utils/external-ref-resolver.js';
 import type {
   ProgressMetrics,
   EpicProgress,
@@ -26,7 +26,7 @@ export class ProgressSynthesizer {
   constructor(
     private readonly beads: BeadsClient,
     private readonly backend: ProjectManagementBackend,
-    private readonly mappings: MappingStore,
+    private readonly resolver: ExternalRefResolver,
     private readonly mermaid?: MermaidGenerator
   ) {}
 
@@ -82,20 +82,22 @@ export class ProgressSynthesizer {
    * Get aggregated progress across all repository epics for a GitHub issue
    */
   async getAggregatedProgress(githubRepository: string, githubIssueNumber: number): Promise<AggregatedProgress> {
-    // Find mapping
-    const mapping = await this.mappings.findByGitHubIssue(githubRepository, githubIssueNumber);
-    if (!mapping) {
-      throw new NotFoundError(`No mapping found for ${githubRepository}#${githubIssueNumber}`);
+    const resolution = await this.resolver.resolve({
+      repository: githubRepository,
+      issueNumber: githubIssueNumber
+    });
+
+    if (resolution.epics.length === 0) {
+      throw new NotFoundError(`No external_ref found for ${githubRepository}#${githubIssueNumber}`);
     }
 
     // Get progress for each repository epic
     const epics: EpicProgress[] = [];
-    for (const repoEpic of mapping.beadsEpics) {
+    for (const repoEpic of resolution.epics) {
       try {
         const progress = await this.getEpicProgress(repoEpic.repository, repoEpic.epicId);
         epics.push(progress);
       } catch (error) {
-        // Log error and skip epics that can't be fetched
         console.error(`Failed to get progress for ${repoEpic.repository}/${repoEpic.epicId}:`, error);
         continue;
       }
@@ -278,21 +280,6 @@ export class ProgressSynthesizer {
         : `${repository}#${issueNumber}`;
       const issue = await this.backend.getIssue(issueId);
       const comment = await this.backend.addComment(issue.id, commentBody);
-
-      // Update mapping with latest sync
-      const mapping = await this.mappings.findByGitHubIssue(repository, issueNumber);
-      if (mapping) {
-        await this.mappings.update(mapping.id, {
-          aggregatedMetrics: {
-            totalCompleted: progress.totalMetrics.completed,
-            totalInProgress: progress.totalMetrics.inProgress,
-            totalBlocked: progress.totalMetrics.blocked,
-            totalNotStarted: progress.totalMetrics.open,
-            percentComplete: progress.totalMetrics.percentComplete,
-            lastCalculatedAt: new Date().toISOString()
-          }
-        });
-      }
 
       return {
         success: true,

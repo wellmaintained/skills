@@ -13,6 +13,7 @@ import { MappingStore } from './store/mapping-store.js';
 import { ProgressSynthesizer } from './synthesis/progress-synthesizer.js';
 import { MermaidGenerator } from './diagrams/mermaid-generator.js';
 import { DiagramPlacer } from './diagrams/diagram-placer.js';
+import { ExternalRefResolver } from './utils/external-ref-resolver.js';
 import { EpicDecomposer } from './decomposition/epic-decomposer.js';
 import { ShortcutSyncOrchestrator } from './orchestration/shortcut-sync-orchestrator.js';
 import { ConfigManager } from './config/config-manager.js';
@@ -40,6 +41,7 @@ export class BeadsSkill {
   private beads: BeadsClient;
   private backend: ProjectManagementBackend;
   private mappings: MappingStore;
+  private resolver: ExternalRefResolver;
   private progressSynthesizer: ProgressSynthesizer;
   private mermaidGenerator: MermaidGenerator;
   private diagramPlacer: DiagramPlacer;
@@ -91,13 +93,14 @@ export class BeadsSkill {
     }
 
     this.mappings = new MappingStore({ storagePath: config.mappingStoragePath });
+    this.resolver = new ExternalRefResolver(this.beads, { configDir: config.mappingStoragePath });
 
     this.mermaidGenerator = new MermaidGenerator(this.beads);
 
     this.progressSynthesizer = new ProgressSynthesizer(
       this.beads,
       this.backend,
-      this.mappings,
+      this.resolver,
       this.mermaidGenerator
     );
 
@@ -105,7 +108,7 @@ export class BeadsSkill {
     this.diagramPlacer = new DiagramPlacer(
       this.backend,
       this.mermaidGenerator,
-      this.mappings
+      this.resolver
     );
 
     // EpicDecomposer is only available for GitHub backend
@@ -136,7 +139,7 @@ export class BeadsSkill {
       this.shortcutSyncOrchestrator
     );
     this.diagramGeneratorHandler = new DiagramGeneratorHandler(
-      this.mappings,
+      this.resolver,
       this.beads,
       this.diagramPlacer
     );

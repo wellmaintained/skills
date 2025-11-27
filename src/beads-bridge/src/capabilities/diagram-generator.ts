@@ -1,12 +1,12 @@
 import type { CapabilityHandler } from './types.js';
 import type { SkillContext, SkillResult } from '../types/skill.js';
-import type { MappingStore } from '../store/mapping-store.js';
+import type { ExternalRefResolver } from '../utils/external-ref-resolver.js';
 import type { BeadsClient } from '../clients/beads-client.js';
 import type { DiagramPlacer } from '../diagrams/diagram-placer.js';
 
 export class DiagramGeneratorHandler implements CapabilityHandler {
   constructor(
-    private readonly mappings: MappingStore,
+    private readonly resolver: ExternalRefResolver,
     private readonly beads: BeadsClient,
     private readonly diagramPlacer: DiagramPlacer
   ) {}
@@ -24,22 +24,20 @@ export class DiagramGeneratorHandler implements CapabilityHandler {
       };
     }
 
-    const mapping = await this.mappings.findByGitHubIssue(repository, issueNumber);
-    if (!mapping) {
+    const resolution = await this.resolver.resolve({ repository, issueNumber });
+    if (resolution.epics.length === 0) {
       return {
         success: false,
         error: {
           code: 'NOT_FOUND',
-          message: `No mapping found for ${repository}#${issueNumber}`
+          message: `No external_ref found for ${repository}#${issueNumber}`
         }
       };
     }
 
     // Get dependency tree
-    const tree = await this.beads.getDependencyTree(
-      mapping.beadsEpics[0].repository,
-      mapping.beadsEpics[0].epicId
-    );
+    const primaryEpic = resolution.epics[0];
+    const tree = await this.beads.getDependencyTree(primaryEpic.repository, primaryEpic.epicId);
 
     // Place diagram
     const result = await this.diagramPlacer.updateDiagram(
