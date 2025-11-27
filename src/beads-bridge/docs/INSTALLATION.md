@@ -259,25 +259,16 @@ beads-bridge config validate
 beads-bridge config test
 ```
 
-### 3. Create First Mapping
+### 3. Link Epics via `external_ref`
 
 For GitHub:
 ```bash
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 123 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e42","repositoryPath":"/absolute/path/to/frontend"}
-  ]'
+bd update frontend-e42 --external-ref "github:owner/repo#123"
 ```
 
 For Shortcut:
 ```bash
-beads-bridge shortcut-mapping create \
-  --story 89216 \
-  --epics '[
-    {"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/absolute/path/to/pensive"}
-  ]'
+bd update pensive-8e2d --external-ref "shortcut:89216"
 ```
 
 ### 4. Test Status Query

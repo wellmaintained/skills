@@ -90,17 +90,8 @@ beads-bridge diagram --repository owner/repo --issue 123
 # Detect new discoveries
 beads-bridge discover --repository owner/repo --issue 123
 
-# Create mapping between GitHub issue and Beads epics
-beads-bridge mapping create -r owner/repo -i 123 -e '[{"repository":"repo-name","epicId":"epic-id","repositoryPath":"/path/to/repo"}]'
-
-# Query existing mapping
-beads-bridge mapping query -r owner/repo -i 123
-
 # Decompose GitHub issue task list into Beads epics
 beads-bridge decompose --repository owner/repo --issue 123
-
-# Force sync multiple operations
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram,discovery
 ```
 
 ### Shortcut Commands
@@ -108,15 +99,6 @@ beads-bridge force-sync --repository owner/repo --issue 123 --operations progres
 ```bash
 # Get status for a Shortcut story
 beads-bridge shortcut-status --story 89216
-
-# Sync progress to Shortcut
-beads-bridge shortcut-sync --story 89216
-
-# Create mapping between Shortcut story and Beads epics
-beads-bridge shortcut-mapping create -s 89216 -e '[{"repository":"repo-name","epicId":"epic-id","repositoryPath":"/path/to/repo"}]'
-
-# Query existing mapping
-beads-bridge shortcut-mapping query -s 89216
 
 # Decompose Shortcut story task list into Beads epics
 beads-bridge shortcut-decompose --story 89216
@@ -195,13 +177,11 @@ Present any newly discovered work to the user, including:
 
 ### 5. Manage Mappings
 
-**Create mapping:**
+**Link beads issues with external_ref:**
 ```bash
-beads-bridge mapping create -r owner/repo -i 123 -e '[
-  {"repository":"frontend","epicId":"fe-e42","repositoryPath":"/path/to/frontend"},
-  {"repository":"backend","epicId":"be-e15","repositoryPath":"/path/to/backend"}
-]'
+bd update wms-123 --external-ref "github:owner/repo#123"
 ```
+
 
 **Query mapping:**
 ```bash
@@ -231,7 +211,6 @@ Confirm that task lists were decomposed into Beads epics and tasks.
 ### 8. Force Sync
 
 ```bash
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram,discovery
 ```
 
 Confirm all requested operations completed successfully.
@@ -251,7 +230,7 @@ Always provide helpful guidance based on the error message from the CLI.
 
 ### For Product Managers
 
-1. **Create mappings early** - Link GitHub Issues to Beads epics at initiative start
+1. **Set external_ref early** - Link GitHub Issues or Shortcut stories when creating epics
 2. **Review discoveries weekly** - Check `discover` output during standups
 3. **Use interactive visualization** - Run `beads-bridge serve` for visual progress tracking
 

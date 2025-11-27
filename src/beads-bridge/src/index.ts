@@ -11,9 +11,6 @@ export * from './backends/index.js';
 // Client exports
 export * from './clients/index.js';
 
-// Store exports
-export * from './store/index.js';
-
 // Config exports
 export * from './config/index.js';
 

@@ -9,12 +9,12 @@ import { BeadsClient } from './clients/beads-client.js';
 import { GitHubBackend } from './backends/github.js';
 import { ShortcutBackend } from './backends/shortcut.js';
 import type { ProjectManagementBackend } from './types/backend.js';
-import { MappingStore } from './store/mapping-store.js';
 import { ProgressSynthesizer } from './synthesis/progress-synthesizer.js';
 import { MermaidGenerator } from './diagrams/mermaid-generator.js';
 import { DiagramPlacer } from './diagrams/diagram-placer.js';
 import { EpicDecomposer } from './decomposition/epic-decomposer.js';
-import { ShortcutSyncOrchestrator } from './orchestration/shortcut-sync-orchestrator.js';
+import { ExternalRefResolver } from './utils/external-ref-resolver.js';
+import { LegacyMappingWarning } from './utils/legacy-mapping-warning.js';
 import { ConfigManager } from './config/config-manager.js';
 import { Logger } from './monitoring/logger.js';
 import { CredentialStore, type Credentials } from './auth/credential-store.js';
@@ -28,9 +28,8 @@ import type {
 import { StatusQueryHandler } from './capabilities/status-query.js';
 import { ProgressSyncHandler } from './capabilities/progress-sync.js';
 import { DiagramGeneratorHandler } from './capabilities/diagram-generator.js';
-import { MappingManagerHandler } from './capabilities/mapping-manager.js';
 import { DecomposerHandler } from './capabilities/decomposer.js';
-import { ForceSyncHandler } from './capabilities/force-sync.js';
+
 
 /**
  * Claude Skill for Beads Integration (supports GitHub and Shortcut backends)
@@ -39,21 +38,20 @@ export class BeadsSkill {
   private config: ConfigManager;
   private beads: BeadsClient;
   private backend: ProjectManagementBackend;
-  private mappings: MappingStore;
+  private resolver: ExternalRefResolver;
   private progressSynthesizer: ProgressSynthesizer;
   private mermaidGenerator: MermaidGenerator;
   private diagramPlacer: DiagramPlacer;
   private epicDecomposer?: EpicDecomposer;
-  private shortcutSyncOrchestrator?: ShortcutSyncOrchestrator;
   private logger: Logger;
+  private legacyWarning: LegacyMappingWarning;
+  private warnableCapabilities: Set<SkillCapability>;
 
   // Handlers
   private statusQueryHandler: StatusQueryHandler;
   private progressSyncHandler: ProgressSyncHandler;
   private diagramGeneratorHandler: DiagramGeneratorHandler;
-  private mappingManagerHandler: MappingManagerHandler;
   private decomposerHandler: DecomposerHandler;
-  private forceSyncHandler: ForceSyncHandler;
 
   constructor(configManager: ConfigManager, credentials?: Credentials) {
     this.config = configManager;
@@ -90,22 +88,25 @@ export class BeadsSkill {
       });
     }
 
-    this.mappings = new MappingStore({ storagePath: config.mappingStoragePath });
+    this.legacyWarning = new LegacyMappingWarning(config.mappingStoragePath);
+    this.warnableCapabilities = new Set(['query_status', 'sync_progress', 'generate_diagrams', 'decompose']);
+
+    this.resolver = new ExternalRefResolver(this.beads);
 
     this.mermaidGenerator = new MermaidGenerator(this.beads);
 
     this.progressSynthesizer = new ProgressSynthesizer(
       this.beads,
       this.backend,
-      this.mappings,
+      this.resolver,
       this.mermaidGenerator
     );
 
-    // DiagramPlacer takes 3 arguments: backend, generator, mappings
+    // DiagramPlacer takes 3 arguments: backend, generator, resolver
     this.diagramPlacer = new DiagramPlacer(
       this.backend,
       this.mermaidGenerator,
-      this.mappings
+      this.resolver
     );
 
     // EpicDecomposer is only available for GitHub backend
@@ -113,39 +114,21 @@ export class BeadsSkill {
       this.epicDecomposer = new EpicDecomposer(
         this.config,
         this.backend as GitHubBackend,
-        this.beads,
-        this.mappings
-      );
-    }
-
-    // ShortcutSyncOrchestrator is only available for Shortcut backend
-    if (config.backend === 'shortcut') {
-      this.shortcutSyncOrchestrator = new ShortcutSyncOrchestrator(
-        this.beads,
-        this.backend as ShortcutBackend,
-        this.mermaidGenerator,
-        this.mappings
+        this.beads
       );
     }
 
     // Initialize Handlers
     this.statusQueryHandler = new StatusQueryHandler(this.progressSynthesizer);
     this.progressSyncHandler = new ProgressSyncHandler(
-      this.backend,
-      this.progressSynthesizer,
-      this.shortcutSyncOrchestrator
+      this.progressSynthesizer
     );
     this.diagramGeneratorHandler = new DiagramGeneratorHandler(
-      this.mappings,
+      this.resolver,
       this.beads,
       this.diagramPlacer
     );
-    this.mappingManagerHandler = new MappingManagerHandler(this.mappings);
     this.decomposerHandler = new DecomposerHandler(this.epicDecomposer);
-    this.forceSyncHandler = new ForceSyncHandler(
-      this.progressSyncHandler,
-      this.diagramGeneratorHandler
-    );
   }
 
   /**
@@ -155,6 +138,7 @@ export class BeadsSkill {
     this.logger.info(`Executing ${capability}`, context);
 
     try {
+      await this.warnLegacyMappingsIfNeeded(capability);
       let result: SkillResult;
 
       switch (capability) {
@@ -170,16 +154,8 @@ export class BeadsSkill {
           result = await this.diagramGeneratorHandler.execute(context);
           break;
 
-        case 'manage_mappings':
-          result = await this.mappingManagerHandler.execute(context);
-          break;
-
         case 'decompose':
           result = await this.decomposerHandler.execute(context);
-          break;
-
-        case 'force_sync':
-          result = await this.forceSyncHandler.execute(context);
           break;
 
         default:
@@ -213,11 +189,15 @@ export class BeadsSkill {
         'query_status',
         'sync_progress',
         'generate_diagrams',
-        'manage_mappings',
-        'decompose',
-        'force_sync'
+        'decompose'
       ]
     };
+  }
+
+  private async warnLegacyMappingsIfNeeded(capability: SkillCapability): Promise<void> {
+    if (this.warnableCapabilities.has(capability)) {
+      await this.legacyWarning.maybeWarn();
+    }
   }
 }
 

@@ -399,22 +399,6 @@ export class BeadsClient {
   /**
    * Get epic status across all repositories for issues with the same external ref
    */
-  async getEpicWithSubtasks(repository: string, epicId: string): Promise<{
-    epic: BeadsIssue;
-    subtasks: BeadsIssue[];
-  }> {
-    const epic = await this.getIssue(repository, epicId);
-
-    // Get all descendant issues (children and grandchildren)
-    const tree = await this.getEpicChildrenTree(repository, epicId);
-    const subtasks = this.statusCalculator.flattenDependencyTree(tree);
-
-    return { epic, subtasks };
-  }
-
-  /**
-   * Get epic status across all repositories for issues with the same external ref
-   */
   async getMultiRepoEpicStatus(externalRef: string): Promise<{
     repositories: Map<string, EpicStatus>;
     totalStatus: EpicStatus;

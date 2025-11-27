@@ -21,8 +21,8 @@ Manages Shortcut stories via REST API. Handles:
 - Description updates with "Yak Map" sections
 - Workflow state mapping
 
-### 4. MappingStore
-Persists relationships between GitHub Issues/Shortcut Stories and Beads epics in git-tracked JSON files. Stored in `.beads-bridge/mappings/` directory. Each mapping links one issue/story to multiple Beads epics across repositories.
+### 4. ExternalRefResolver
+Discovers Beads epics by scanning repositories for matching `external_ref` values (e.g., `github:owner/repo#123`, `shortcut:98765`). Provides a normalized view of all epics associated with a GitHub issue or Shortcut story without requiring a separate mappings database.
 
 ### 5. ProgressSynthesizer
 Aggregates metrics across multiple repositories and epics. Calculates:
@@ -59,7 +59,7 @@ Identifies newly discovered work during implementation by analyzing:
 
 ```
 query_status request
-  → Lookup mapping (GitHub #123 → Beads epics)
+  → Resolve external reference (GitHub #123 → Beads epics)
   → For each epic:
       → Get dependency tree from Beads
       → Calculate metrics (completed/blocked/in-progress)
@@ -71,7 +71,7 @@ query_status request
 
 ```
 sync_progress request
-  → Lookup mapping
+  → Resolve external reference
   → For each epic:
       → Query current status from Beads
       → Generate Mermaid diagram
@@ -90,7 +90,6 @@ decompose request
       → Create Beads epic
       → Create child tasks
       → Preserve completion status
-  → Create mapping linking issue/story to all epics
   → Post confirmation comment
 ```
 
@@ -124,33 +123,9 @@ Uses local `bd` CLI commands:
 - `bd status` - Update task status
 - No network calls, all data in git repositories
 
-## Mapping Storage
+## External Reference Storage
 
-Mappings stored in `.beads-bridge/mappings/<backend>/` as JSON files:
-
-```json
-{
-  "id": "uuid-...",
-  "backend": "github",
-  "issueId": "owner/repo#123",
-  "epics": [
-    {
-      "repository": "frontend",
-      "epicId": "frontend-e99",
-      "repositoryPath": "/absolute/path/to/frontend"
-    },
-    {
-      "repository": "backend",
-      "epicId": "backend-e42",
-      "repositoryPath": "/absolute/path/to/backend"
-    }
-  ],
-  "createdAt": "2025-11-10T12:00:00Z",
-  "updatedAt": "2025-11-10T14:30:00Z"
-}
-```
-
-Files are git-tracked to enable collaboration and history tracking.
+Each Beads epic or story stores its upstream linkage via the `external_ref` field, e.g. `github:owner/repo#123` or `shortcut:90123`. The ExternalRefResolver queries every configured repository for issues with matching references, so no additional mapping database is required. History tracking happens naturally through the `.beads/issues.jsonl` file managed by Beads.
 
 ## Scheduling System (Optional)
 

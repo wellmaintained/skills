@@ -37,7 +37,6 @@ export class DecomposerHandler implements CapabilityHandler {
       success: result.success,
       data: result.success ? {
         githubIssue: result.githubIssue,
-        mappingId: result.mappingId,
         epics: result.epics.map(e => ({
           repository: e.repository,
           epicId: e.epicId,

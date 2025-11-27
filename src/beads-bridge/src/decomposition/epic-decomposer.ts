@@ -5,7 +5,6 @@
 import { ConfigManager } from '../config/config-manager.js';
 import { GitHubBackend } from '../backends/github.js';
 import { BeadsClient } from '../clients/beads-client.js';
-import { MappingStore } from '../store/mapping-store.js';
 import { IssueParser } from './issue-parser.js';
 import {
   DecompositionResult,
@@ -23,19 +22,16 @@ export class EpicDecomposer {
   private config: ConfigManager;
   private github: GitHubBackend;
   private beads: BeadsClient;
-  private mappingStore: MappingStore;
   private parser: IssueParser;
 
   constructor(
     config: ConfigManager,
     github: GitHubBackend,
-    beads: BeadsClient,
-    mappingStore: MappingStore
+    beads: BeadsClient
   ) {
     this.config = config;
     this.github = github;
     this.beads = beads;
-    this.mappingStore = mappingStore;
     this.parser = new IssueParser([...config.getRepositories()]);
   }
 
@@ -61,10 +57,7 @@ export class EpicDecomposer {
       // 3. Create epics in each repository
       const epicResults = await this.createEpics(parsed, options);
 
-      // 4. Create mapping
-      const mappingId = await this.createMapping(parsed, epicResults);
-
-      // 5. Generate confirmation comment
+      // 4. Generate confirmation comment
       const confirmationComment = this.generateConfirmationComment(parsed, epicResults);
 
       // 6. Post confirmation comment
@@ -86,7 +79,6 @@ export class EpicDecomposer {
 
       return {
         githubIssue: `${githubRepo}#${issueNumber}`,
-        mappingId,
         epics: epicResults,
         totalTasks,
         confirmationComment,
@@ -95,7 +87,6 @@ export class EpicDecomposer {
     } catch (error) {
       return {
         githubIssue: `${this.config.getGitHub().repository}#${issueNumber}`,
-        mappingId: '',
         epics: [],
         totalTasks: 0,
         confirmationComment: '',
@@ -226,41 +217,10 @@ export class EpicDecomposer {
   }
 
   /**
-   * Create mapping in database
-   */
-  private async createMapping(
-    parsed: ParsedIssue,
-    epicResults: EpicCreationResult[]
-  ): Promise<string> {
-    const mapping = await this.mappingStore.create({
-      githubIssue: `${parsed.githubRepository}#${parsed.number}`,
-      githubIssueNumber: parsed.number,
-      githubRepository: parsed.githubRepository,
-      githubProjectId: parsed.projectId,
-      beadsEpics: epicResults
-        .filter(r => r.success)
-        .map(r => {
-          const repoConfig = this.parser.getRepository(r.repository)!;
-          return {
-            repository: r.repository,
-            epicId: r.epicId,
-            repositoryPath: repoConfig.path,
-            createdAt: new Date().toISOString(),
-            lastUpdatedAt: new Date().toISOString(),
-            status: 'open',
-            completedIssues: 0,
-            totalIssues: r.childIssueIds.length,
-          };
-        }),
-    });
-
-    return mapping.id;
-  }
-
-  /**
    * Generate confirmation comment markdown
    */
   private generateConfirmationComment(
+
     _parsed: ParsedIssue,
     epicResults: EpicCreationResult[]
   ): string {
