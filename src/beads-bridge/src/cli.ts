@@ -13,6 +13,7 @@ import { CredentialStore } from './auth/credential-store.js';
 import { GitHubOAuth } from './auth/github-oauth.js';
 import { withAuth, getBackendFromConfig } from './cli/auth-wrapper.js';
 import { createServeCommand } from './cli/commands/serve.js';
+import { createSyncCommand } from './cli/commands/sync.js';
 
 const program = new Command();
 
@@ -83,24 +84,7 @@ program
 // Sync Command
 // ============================================================================
 
-program
-  .command('sync')
-  .description('Post progress update to GitHub Issue')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('sync_progress', context, program.opts());
-    });
-  });
+program.addCommand(createSyncCommand());
 
 // ============================================================================
 // Diagram Command
