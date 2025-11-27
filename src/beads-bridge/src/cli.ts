@@ -170,23 +170,36 @@ mapping
   });
 
 // ============================================================================
-// Decompose Command
+// Decompose Command (Unified)
 // ============================================================================
 
 program
   .command('decompose')
-  .description('Decompose GitHub issue into Beads epic and tasks')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('--no-comment', 'skip posting confirmation comment to GitHub')
+  .description('Decompose external issue (GitHub or Shortcut) into Beads epic and tasks')
+  .argument('<ref>', 'External reference (URL or shorthand: https://github.com/owner/repo/issues/123, github:owner/repo#123, shortcut:12345)')
+  .option('--no-comment', 'skip posting confirmation comment')
   .option('--priority <number>', 'default priority for created beads', '2')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
+  .action(async (ref, options) => {
+    const externalRef = ref;
 
-    await withAuth(backend, async () => {
+    // Auto-detect backend from reference
+    const { detectBackendFromRef } = await import('./utils/external-ref-parser.js');
+    const detectedBackend = detectBackendFromRef(externalRef);
+    
+    if (!detectedBackend) {
+      console.error(JSON.stringify({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Cannot determine backend from reference: ${externalRef}`
+        }
+      }, null, 2));
+      process.exit(1);
+    }
+
+    await withAuth(detectedBackend, async () => {
       const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
+        externalRef,
         postComment: options.comment,
         defaultPriority: parseInt(options.priority)
       };
@@ -530,25 +543,6 @@ shortcutMapping
         epicIds
       };
       await executeCapability('manage_mappings', context, program.opts(), 'shortcut');
-    });
-  });
-
-program
-  .command('shortcut-decompose')
-  .description('Decompose Shortcut story into Beads epic and tasks')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('--no-comment', 'skip posting confirmation comment to Shortcut')
-  .option('--priority <number>', 'default priority for created beads', '2')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        postComment: options.comment,
-        defaultPriority: parseInt(options.priority)
-      };
-      await executeCapability('decompose', context, program.opts(), 'shortcut');
     });
   });
 
