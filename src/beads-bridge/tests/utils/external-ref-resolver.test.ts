@@ -38,9 +38,7 @@ describe('ExternalRefResolver', () => {
       discovered: []
     });
 
-    const resolver = new ExternalRefResolver(mockBeads, {
-      configDir: '.beads-bridge'
-    });
+    const resolver = new ExternalRefResolver(mockBeads as any);
 
     const result = await resolver.resolve({ repository: 'org/repo', issueNumber: 123 });
 
@@ -78,9 +76,7 @@ describe('ExternalRefResolver', () => {
       discovered: []
     });
 
-    const resolver = new ExternalRefResolver(mockBeads, {
-      configDir: '.beads-bridge'
-    });
+    const resolver = new ExternalRefResolver(mockBeads as any);
 
     const result = await resolver.resolve({ repository: 'shortcut', issueNumber: 901 });
 

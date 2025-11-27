@@ -1,10 +1,6 @@
 import type { BeadsClient } from '../clients/beads-client.js';
 import type { EpicStatus } from '../types/beads.js';
 
-export interface ExternalRefResolverOptions {
-  configDir: string;
-}
-
 export interface ResolveParams {
   repository?: string;
   issueNumber?: number;
@@ -22,17 +18,14 @@ export interface ResolutionResult {
   metrics: EpicStatus;
 }
 
+/**
+ * Resolve external references (github:owner/repo#123, shortcut:123) to the
+ * underlying Beads epics across all configured repositories.
+ */
 export class ExternalRefResolver {
-  constructor(
-    private readonly beads: BeadsClient,
-    private readonly options: ExternalRefResolverOptions
-  ) {}
+  constructor(private readonly beads: BeadsClient) {}
 
   async resolve(params: ResolveParams): Promise<ResolutionResult> {
-    if (!this.getConfigDir()) {
-      throw new Error('configDir is required for ExternalRefResolver');
-    }
-
     const targetRef = this.buildExternalRef(params);
     const epics = await this.findEpics(targetRef);
 
@@ -51,6 +44,22 @@ export class ExternalRefResolver {
       epics,
       metrics
     };
+  }
+
+  private buildExternalRef(params: ResolveParams): string {
+    if (params.externalRef) {
+      return params.externalRef;
+    }
+
+    if (!params.repository || typeof params.issueNumber !== 'number') {
+      throw new Error('repository and issueNumber are required to resolve external references');
+    }
+
+    if (params.repository.toLowerCase() === 'shortcut' || params.repository.startsWith('shortcut:')) {
+      return `shortcut:${params.issueNumber}`;
+    }
+
+    return `github:${params.repository}#${params.issueNumber}`;
   }
 
   private async findEpics(externalRef: string): Promise<EpicLink[]> {
@@ -89,26 +98,6 @@ export class ExternalRefResolver {
       : 0;
 
     return aggregate;
-  }
-
-  private buildExternalRef(params: ResolveParams): string {
-    if (params.externalRef) {
-      return params.externalRef;
-    }
-
-    if (!params.repository || typeof params.issueNumber !== 'number') {
-      throw new Error('repository and issueNumber are required to resolve external references');
-    }
-
-    if (params.repository.toLowerCase() === 'shortcut' || params.repository.startsWith('shortcut:')) {
-      return `shortcut:${params.issueNumber}`;
-    }
-
-    return `github:${params.repository}#${params.issueNumber}`;
-  }
-
-  private getConfigDir(): string {
-    return this.options.configDir;
   }
 
   private emptyMetrics(): EpicStatus {
