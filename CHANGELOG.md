@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/wellmaintained/skills/compare/v1.10.0...v1.10.1) (2025-11-27)
+
+
+### Bug Fixes
+
+* **client:** resolve TypeScript type-check errors in App.tsx, Canvas, and useIssueData hook ([70ec162](https://github.com/wellmaintained/skills/commit/70ec1623f1273a2bef42252edbe74a19cdd2dd8c))
+
 # [1.10.0](https://github.com/wellmaintained/skills/compare/v1.9.0...v1.10.0) (2025-11-27)
 
 
