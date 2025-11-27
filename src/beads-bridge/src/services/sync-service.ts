@@ -47,87 +47,78 @@ export class SyncService {
     this.logger = logger || new Logger({ level: 'INFO' });
   }
 
-  async getSyncableBeads(beadId?: string): Promise<BeadsIssue[]> {
-    let beads: BeadsIssue[] = [];
-
+  async getBead(beadId: string): Promise<BeadsIssue | null> {
     try {
-      const args = beadId ? ['show', beadId, '--json'] : ['list', '--json'];
-      const output = await execBdCommand(args);
+      const output = await execBdCommand(['show', beadId, '--json']);
       const result = JSON.parse(output);
-      beads = Array.isArray(result) ? result : [result];
+      const bead = Array.isArray(result) ? result[0] : result;
+      return bead?.external_ref ? bead : null;
     } catch (error) {
-      this.logger.error(`Failed to fetch beads`, error as Error);
+      this.logger.error(`Failed to fetch bead ${beadId}`, error as Error);
       throw error;
     }
-
-    // Filter for beads with external_ref
-    return beads.filter(bead => !!bead.external_ref);
   }
 
-  async sync(beadId?: string, options: { dryRun?: boolean } = {}): Promise<SyncReport> {
+  async sync(beadId: string, options: { dryRun?: boolean } = {}): Promise<SyncReport> {
     const report: SyncReport = {
-      total: 0,
+      total: 1,
       synced: 0,
       skipped: 0,
       errors: 0,
       details: []
     };
 
-    let beads: BeadsIssue[] = [];
+    let bead: BeadsIssue | null = null;
     try {
-      beads = await this.getSyncableBeads(beadId);
+      bead = await this.getBead(beadId);
     } catch (error) {
-       this.logger.error('Failed to get syncable beads', error as Error);
-       return report;
+      this.logger.error(`Failed to get bead ${beadId}`, error as Error);
+      report.errors++;
+      report.details.push({ id: beadId, status: 'error', message: (error as Error).message });
+      return report;
     }
-    
-    report.total = beads.length;
 
-    for (const bead of beads) {
-      try {
-        if (!bead.external_ref) {
-            continue;
-        }
+    if (!bead) {
+      report.skipped++;
+      report.details.push({ id: beadId, status: 'skipped', message: 'No external_ref set' });
+      this.logger.warn(`Bead ${beadId} has no external_ref, skipping`);
+      return report;
+    }
 
-        const ref = parseExternalRef(bead.external_ref);
-        
-        let mermaid = '';
-        if (!options.dryRun) {
-             mermaid = await this.generateDiagram(bead.id);
-        }
-        
-        if (options.dryRun) {
-            this.logger.info(`[DRY RUN] Would sync ${bead.id} to ${ref.backend} (${bead.external_ref})`);
+    try {
+      const ref = parseExternalRef(bead.external_ref!);
+
+      if (options.dryRun) {
+        this.logger.info(`[DRY RUN] Would sync ${bead.id} to ${ref.backend} (${bead.external_ref})`);
+      } else {
+        this.logger.info(`Syncing ${bead.id} to ${ref.backend}`);
+        const mermaid = await this.generateDiagram(bead.id);
+
+        if (this.backendResolver) {
+          const backend = await this.backendResolver(ref.backend);
+          let issueId = '';
+          if (ref.backend === 'github' && ref.owner && ref.repo && ref.issueNumber) {
+            issueId = `${ref.owner}/${ref.repo}#${ref.issueNumber}`;
+          } else if (ref.backend === 'shortcut' && ref.storyId) {
+            issueId = ref.storyId.toString();
+          }
+
+          if (issueId) {
+            await this.postUpdate(backend, issueId, mermaid);
+          } else {
+            throw new Error(`Could not determine issue ID from ref: ${bead.external_ref}`);
+          }
         } else {
-            this.logger.info(`Syncing ${bead.id} to ${ref.backend}`);
-            
-            if (this.backendResolver) {
-                 const backend = await this.backendResolver(ref.backend);
-                 // Determine issue ID for backend
-                 let issueId = '';
-                 if (ref.backend === 'github' && ref.owner && ref.repo && ref.issueNumber) {
-                     issueId = `${ref.owner}/${ref.repo}#${ref.issueNumber}`;
-                 } else if (ref.backend === 'shortcut' && ref.storyId) {
-                     issueId = ref.storyId.toString();
-                 }
-                 
-                 if (issueId) {
-                     await this.postUpdate(backend, issueId, mermaid);
-                 } else {
-                     throw new Error(`Could not determine issue ID from ref: ${bead.external_ref}`);
-                 }
-            } else {
-                this.logger.warn('No backend resolver provided, skipping post');
-            }
+          this.logger.warn('No backend resolver provided, skipping post');
         }
-
-        report.synced++;
-        report.details.push({ id: bead.id, status: 'synced' });
-      } catch (error) {
-        report.errors++;
-        report.details.push({ id: bead.id, status: 'error', message: (error as Error).message });
-        this.logger.error(`Error syncing ${bead.id}`, error as Error);
       }
+
+      report.synced++;
+      report.details.push({ id: bead.id, status: 'synced' });
+    } catch (error) {
+      report.errors++;
+      report.details.push({ id: bead.id, status: 'error', message: (error as Error).message });
+      this.logger.error(`Error syncing ${bead.id}`, error as Error);
     }
 
     return report;

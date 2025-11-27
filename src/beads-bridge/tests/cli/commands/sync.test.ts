@@ -9,14 +9,14 @@ describe('SyncCommand', () => {
     expect(cmd.name()).toBe('sync');
   });
 
-  it('should have optional bead-id argument', () => {
+  it('should have required bead-id argument', () => {
     const cmd = createSyncCommand();
     // Commander stores arguments in private fields, but we can check the help output or registered args
     // inspecting internal structure of commander object:
     const args = (cmd as any)._args;
     expect(args.length).toBe(1);
     expect(args[0].name()).toBe('bead-id');
-    expect(args[0].required).toBe(false);
+    expect(args[0].required).toBe(true);
   });
 
   it('should have dry-run option', () => {

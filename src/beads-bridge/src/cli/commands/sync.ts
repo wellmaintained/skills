@@ -7,10 +7,10 @@ import type { ProjectManagementBackend } from '../../types/backend.js';
 
 export function createSyncCommand(): Command {
   return new Command('sync')
-    .description('Sync beads state to external systems')
-    .argument('[bead-id]', 'Specific bead ID to sync')
+    .description('Sync a bead to its external system (GitHub/Shortcut)')
+    .argument('<bead-id>', 'Bead ID to sync')
     .option('--dry-run', 'Show what would be synced without posting')
-    .action(async (beadId, options) => {
+    .action(async (beadId: string, options) => {
       const resolver = async (type: string): Promise<ProjectManagementBackend> => {
           const store = new CredentialStore();
           const creds = await store.load();

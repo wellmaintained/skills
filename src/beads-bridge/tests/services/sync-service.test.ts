@@ -32,29 +32,37 @@ describe('SyncService', () => {
       }
       return JSON.stringify(mockBeads);
     });
-    
+
     (mockBackend.getIssue as any).mockClear();
     (mockBackend.updateIssue as any).mockClear();
     mockResolver.mockClear();
   });
 
-  it('should identify beads with external refs', async () => {
+  it('should get bead with external_ref', async () => {
     const service = new SyncService(mockResolver);
-    const result = await service.getSyncableBeads();
+    const result = await service.getBead('bead-1');
 
-    expect(result).toHaveLength(2);
-    expect(result.map((b: any) => b.id)).toContain('bead-1');
-    expect(result.map((b: any) => b.id)).toContain('bead-3');
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe('bead-1');
+    expect(result?.external_ref).toBe('github:owner/repo#1');
+  });
+
+  it('should return null for bead without external_ref', async () => {
+    const service = new SyncService(mockResolver);
+    const result = await service.getBead('bead-2');
+
+    expect(result).toBeNull();
   });
 
   it('should sync specific bead', async () => {
     const service = new SyncService(mockResolver);
-    
-    // We expect sync() to return a report of what it did
+
     const report = await service.sync('bead-1');
-    
-    expect(report.synced).toBe(1); // Should find 1 bead (bead-1)
-    
+
+    expect(report.synced).toBe(1);
+    expect(report.total).toBe(1);
+    expect(report.errors).toBe(0);
+
     // Verify diagram generation was triggered
     expect(bdCli.execBdCommand).toHaveBeenCalledWith(
       expect.arrayContaining(['dep', 'tree', 'bead-1', '--format', 'mermaid', '--reverse'])
@@ -62,11 +70,31 @@ describe('SyncService', () => {
 
     // Verify backend interaction
     expect(mockResolver).toHaveBeenCalledWith('github');
-    // For github:owner/repo#1, getIssue should be called with owner/repo#1? 
-    // Or depends on how backend handles it. GitHubBackend expects owner/repo#number usually or just ID.
-    // The parser returns owner, repo, issueNumber.
-    // SyncService should construct the ID.
-    expect(mockBackend.getIssue).toHaveBeenCalled(); 
+    expect(mockBackend.getIssue).toHaveBeenCalled();
     expect(mockBackend.updateIssue).toHaveBeenCalled();
+  });
+
+  it('should skip bead without external_ref', async () => {
+    const service = new SyncService(mockResolver);
+
+    const report = await service.sync('bead-2');
+
+    expect(report.synced).toBe(0);
+    expect(report.skipped).toBe(1);
+    expect(report.total).toBe(1);
+    expect(report.details[0].status).toBe('skipped');
+    expect(report.details[0].message).toContain('external_ref');
+  });
+
+  it('should handle dry-run mode', async () => {
+    const service = new SyncService(mockResolver);
+
+    const report = await service.sync('bead-1', { dryRun: true });
+
+    expect(report.synced).toBe(1);
+    // Should NOT call backend in dry-run mode
+    expect(mockResolver).not.toHaveBeenCalled();
+    expect(mockBackend.getIssue).not.toHaveBeenCalled();
+    expect(mockBackend.updateIssue).not.toHaveBeenCalled();
   });
 });
