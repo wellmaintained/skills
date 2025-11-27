@@ -1,5 +1,6 @@
 import { describe, it, expect, mock, spyOn, beforeEach } from 'bun:test';
 import { SyncService } from '../../src/services/sync-service.js';
+import { MissingExternalRefError } from '../../src/types/errors.js';
 import * as bdCli from '../../src/utils/bd-cli.js';
 import type { ProjectManagementBackend } from '../../src/types/index.js';
 
@@ -47,11 +48,12 @@ describe('SyncService', () => {
     expect(result?.external_ref).toBe('github:owner/repo#1');
   });
 
-  it('should return null for bead without external_ref', async () => {
+  it('should return bead even without external_ref', async () => {
     const service = new SyncService(mockResolver);
     const result = await service.getBead('bead-2');
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe('bead-2');
   });
 
   it('should sync specific bead', async () => {
@@ -74,16 +76,16 @@ describe('SyncService', () => {
     expect(mockBackend.updateIssue).toHaveBeenCalled();
   });
 
-  it('should skip bead without external_ref', async () => {
+  it('should throw MissingExternalRefError for bead without external_ref', async () => {
     const service = new SyncService(mockResolver);
 
-    const report = await service.sync('bead-2');
-
-    expect(report.synced).toBe(0);
-    expect(report.skipped).toBe(1);
-    expect(report.total).toBe(1);
-    expect(report.details[0].status).toBe('skipped');
-    expect(report.details[0].message).toContain('external_ref');
+    try {
+      await service.sync('bead-2');
+      expect(true).toBe(false); // Should not reach here
+    } catch (error: any) {
+      expect(error.name).toBe('MissingExternalRefError');
+      expect(error.beadId).toBe('bead-2');
+    }
   });
 
   it('should handle dry-run mode', async () => {

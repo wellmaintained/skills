@@ -3,6 +3,7 @@ import type { BeadsIssue } from '../types/beads.js';
 import { Logger } from '../monitoring/logger.js';
 import { parseExternalRef } from '../utils/external-ref-parser.js';
 import type { ProjectManagementBackend } from '../types/index.js';
+import { MissingExternalRefError } from '../types/errors.js';
 
 export interface SyncReport {
   total: number;
@@ -52,7 +53,8 @@ export class SyncService {
       const output = await execBdCommand(['show', beadId, '--json']);
       const result = JSON.parse(output);
       const bead = Array.isArray(result) ? result[0] : result;
-      return bead?.external_ref ? bead : null;
+      // Return bead regardless of external_ref presence
+      return bead || null;
     } catch (error) {
       this.logger.error(`Failed to fetch bead ${beadId}`, error as Error);
       throw error;
@@ -79,10 +81,14 @@ export class SyncService {
     }
 
     if (!bead) {
-      report.skipped++;
-      report.details.push({ id: beadId, status: 'skipped', message: 'No external_ref set' });
-      this.logger.warn(`Bead ${beadId} has no external_ref, skipping`);
+      report.errors++;
+      report.details.push({ id: beadId, status: 'error', message: `Bead ${beadId} not found` });
+      this.logger.error(`Bead ${beadId} not found`);
       return report;
+    }
+
+    if (!bead.external_ref) {
+      throw new MissingExternalRefError(bead.id);
     }
 
     try {

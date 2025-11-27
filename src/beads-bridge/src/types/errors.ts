@@ -100,3 +100,27 @@ export class NotSupportedError extends Error {
   }
 }
 
+/**
+ * Missing external_ref error
+ */
+export class MissingExternalRefError extends Error {
+  public readonly helpText: string;
+
+  constructor(public readonly beadId: string) {
+    super(`Bead '${beadId}' has no external_ref set`);
+    this.name = 'MissingExternalRefError';
+    
+    this.helpText = `
+To set an external_ref:
+  bd update ${beadId} --external-ref "github:owner/repo#123"
+  bd update ${beadId} --external-ref "shortcut:12345"
+
+Supported formats:
+  - github:owner/repo#123
+  - https://github.com/owner/repo/issues/123
+  - shortcut:12345
+  - https://app.shortcut.com/org/story/12345
+`.trim();
+  }
+}
+
