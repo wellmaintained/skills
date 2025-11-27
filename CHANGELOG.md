@@ -1,3 +1,15 @@
+# [1.9.0](https://github.com/wellmaintained/skills/compare/v1.8.0...v1.9.0) (2025-11-27)
+
+
+### Bug Fixes
+
+* **parser:** handle Shortcut URLs with story slug ([9325476](https://github.com/wellmaintained/skills/commit/9325476c3198ece5407053f8a99462244e17155c))
+
+
+### Features
+
+* **sync:** implement simplified sync command (POC B) ([3c85146](https://github.com/wellmaintained/skills/commit/3c85146695ca290bbd8cea6611838f09b33c9d7d))
+
 # [1.8.0](https://github.com/wellmaintained/skills/compare/v1.7.0...v1.8.0) (2025-11-25)
 
 
