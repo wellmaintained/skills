@@ -4,6 +4,7 @@ import { CredentialStore } from '../../auth/credential-store.js';
 import { GitHubBackend } from '../../backends/github.js';
 import { ShortcutBackend } from '../../backends/shortcut.js';
 import type { ProjectManagementBackend } from '../../types/backend.js';
+import { MissingExternalRefError } from '../../types/errors.js';
 
 export function createSyncCommand(): Command {
   return new Command('sync')
@@ -41,6 +42,12 @@ export function createSyncCommand(): Command {
               process.exit(1);
           }
       } catch (error) {
+          if (error instanceof MissingExternalRefError) {
+              console.error(`Error: ${error.message}`);
+              console.error('');
+              console.error(error.helpText);
+              process.exit(1);
+          }
           console.error('Sync failed:', error);
           process.exit(1);
       }
