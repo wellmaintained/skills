@@ -1,3 +1,15 @@
+# [1.11.0](https://github.com/wellmaintained/skills/compare/v1.10.1...v1.11.0) (2025-11-27)
+
+
+### Bug Fixes
+
+* **wms-8kb:** consolidate external reference parsers ([4206784](https://github.com/wellmaintained/skills/commit/4206784e43bcc7be728608db9977bb03f64bb763))
+
+
+### Features
+
+* **wms-8kb:** unify decompose command with external_ref support ([56054bc](https://github.com/wellmaintained/skills/commit/56054bc7055c9973bfb684ee4a6f2e8c4074362f)), closes [owner/repo#123](https://github.com/owner/repo/issues/123)
+
 ## [1.10.1](https://github.com/wellmaintained/skills/compare/v1.10.0...v1.10.1) (2025-11-27)
 
 
