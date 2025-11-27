@@ -3,3 +3,7 @@
 {"id":"wms-k9o","ts":"2025-11-27T09:04:31.11926Z","by":"bd-doctor-hydrate","reason":"Hydrated from git history"}
 {"id":"wms-k9o.1","ts":"2025-11-27T09:04:31.11926Z","by":"bd-doctor-hydrate","reason":"Hydrated from git history"}
 {"id":"wms-hrd.1","ts":"2025-11-27T09:04:31.11926Z","by":"bd-doctor-hydrate","reason":"Hydrated from git history"}
+{"id":"wms-8kb","ts":"2025-11-27T22:32:03.441881Z","by":"git-history-backfill","reason":"recovered from git history (pruned from manifest)"}
+{"id":"wms-10a","ts":"2025-11-27T22:32:03.453789Z","by":"git-history-backfill","reason":"recovered from git history (pruned from manifest)"}
+{"id":"wms-alq","ts":"2025-11-27T22:32:03.459823Z","by":"git-history-backfill","reason":"recovered from git history (pruned from manifest)"}
+{"id":"wms-plp","ts":"2025-11-27T22:32:03.466638Z","by":"git-history-backfill","reason":"recovered from git history (pruned from manifest)"}

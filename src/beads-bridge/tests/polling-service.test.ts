@@ -4,17 +4,17 @@ import { PollingService } from '../src/server/polling-service.js';
 describe('PollingService', () => {
   let setTimeoutSpy: ReturnType<typeof spyOn>;
   let clearTimeoutSpy: ReturnType<typeof spyOn>;
-  let timeoutCallback: Function | undefined;
+  let timeoutCallback: (() => Promise<unknown> | unknown) | undefined;
   let timeoutDelay: number | undefined;
 
   beforeEach(() => {
     timeoutCallback = undefined;
     timeoutDelay = undefined;
-    setTimeoutSpy = spyOn(global, 'setTimeout').mockImplementation((cb: Function, ms: number) => {
-      timeoutCallback = cb;
+    setTimeoutSpy = spyOn(global, 'setTimeout').mockImplementation(((cb: (...args: any[]) => unknown, ms?: number) => {
+      timeoutCallback = () => cb();
       timeoutDelay = ms;
-      return 123 as any;
-    });
+      return 123 as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout);
     clearTimeoutSpy = spyOn(global, 'clearTimeout').mockImplementation(() => {});
   });
 

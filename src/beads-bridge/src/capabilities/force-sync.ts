@@ -31,15 +31,17 @@ export class ForceSyncHandler implements CapabilityHandler {
     for (const op of operations) {
       try {
         switch (op) {
-          case 'progress':
+          case 'progress': {
             const progressResult = await this.progressSyncHandler.execute({ repository, issueNumber });
             results.progress = progressResult.success;
             break;
+          }
 
-          case 'diagram':
+          case 'diagram': {
             const diagramResult = await this.diagramGeneratorHandler.execute({ repository, issueNumber });
             results.diagram = diagramResult.success;
             break;
+          }
         }
       } catch (error) {
         results[op] = false;

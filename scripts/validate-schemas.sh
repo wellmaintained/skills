@@ -16,9 +16,9 @@ if ! command -v npx &> /dev/null; then
 fi
 
 # Check if ajv-cli is installed
-if ! npx ajv --help &> /dev/null; then
-    echo "⚠️  ajv-cli not found. Installing locally..."
-    npm install --save-dev ajv-cli ajv-formats
+if ! npx ajv help &> /dev/null; then
+    echo "❌ ajv-cli not found. Run 'npm install' to install dev dependencies first."
+    exit 1
 fi
 
 # Validate marketplace.json

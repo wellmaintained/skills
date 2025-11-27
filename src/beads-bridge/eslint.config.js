@@ -8,7 +8,7 @@ export default tseslint.config(
 
   {
     // Ignore patterns
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/client/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/client/**', '**/*.bundled.ts'],
   },
 
   {
