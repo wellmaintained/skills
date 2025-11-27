@@ -1,3 +1,11 @@
+# [1.10.0](https://github.com/wellmaintained/skills/compare/v1.9.0...v1.10.0) (2025-11-27)
+
+
+### Features
+
+* add MissingExternalRefError class ([fa8f5bf](https://github.com/wellmaintained/skills/commit/fa8f5bf8f578804425f2c52ec02efa9ee889a4be))
+* implement helpful error message for missing external_ref ([c948830](https://github.com/wellmaintained/skills/commit/c9488305edbceed06d00ebd0d8a1ea2bc7ec1d6b))
+
 # [1.9.0](https://github.com/wellmaintained/skills/compare/v1.8.0...v1.9.0) (2025-11-27)
 
 
