@@ -93,7 +93,7 @@ gh api /user
 
 4. **Review CLI output for errors**:
 ```bash
-beads-bridge diagram --repository owner/repo --issue 123 --verbose
+beads-bridge sync <bead-id> --dry-run
 # Look for error messages about API failures
 ```
 
@@ -156,11 +156,11 @@ beads-bridge auth status
 # Verify token permissions via Shortcut web UI:
 # Settings → API Tokens → Check token has "Write" access
 
-# Check story status
-beads-bridge shortcut-status --story 89216
+# Check story status using bd show
+bd show <bead-id> --json | jq '.external_ref'
 
-# Retry with exponential backoff
-beads-bridge sync --repository shortcut --issue 89216 --retry
+# Sync the bead
+beads-bridge sync <bead-id>
 ```
 
 ## Metrics and Velocity
@@ -261,13 +261,13 @@ echo $PATH | grep npm
 **Solution**:
 ```bash
 # Redirect stderr to separate file
-beads-bridge status --repository owner/repo --issue 123 2>error.log
+beads-bridge sync <bead-id> 2>error.log
 
 # Check error.log for underlying issues
 cat error.log
 
 # Validate JSON output
-beads-bridge status --repository owner/repo --issue 123 | jq .
+beads-bridge sync <bead-id> --dry-run | jq .
 # Should parse cleanly, shows where JSON is malformed
 ```
 
@@ -339,7 +339,7 @@ If none of these solutions work:
 
 2. **Capture full command output**:
 ```bash
-beads-bridge status --repository owner/repo --issue 123 --verbose &> debug.txt
+beads-bridge sync <bead-id> --dry-run &> debug.txt
 ```
 
 3. **Check system requirements**:

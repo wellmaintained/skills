@@ -13,6 +13,7 @@ import { CredentialStore } from './auth/credential-store.js';
 import { GitHubOAuth } from './auth/github-oauth.js';
 import { withAuth, getBackendFromConfig } from './cli/auth-wrapper.js';
 import { createServeCommand } from './cli/commands/serve.js';
+import { createSyncCommand } from './cli/commands/sync.js';
 
 const program = new Command();
 
@@ -57,100 +58,48 @@ async function executeCapability(
 }
 
 // ============================================================================
-// Status Command
-// ============================================================================
-
-program
-  .command('status')
-  .description('Query aggregated status across GitHub Issue and Beads epics')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('query_status', context, program.opts());
-    });
-  });
-
-// ============================================================================
 // Sync Command
 // ============================================================================
 
-program
-  .command('sync')
-  .description('Post progress update to GitHub Issue')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('sync_progress', context, program.opts());
-    });
-  });
+program.addCommand(createSyncCommand());
 
 // ============================================================================
-// Diagram Command
-// ============================================================================
-
-program
-  .command('diagram')
-  .description('Generate and place Mermaid dependency diagram')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-p, --placement <mode>', 'where to place diagram (description|comment)', 'comment')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        placement: options.placement as 'description' | 'comment'
-      };
-      await executeCapability('generate_diagrams', context, program.opts());
-    });
-  });
-
-
-// ============================================================================
-// Decompose Command
+// Decompose Command (Unified)
 // ============================================================================
 
 program
   .command('decompose')
-  .description('Decompose GitHub issue into Beads epic and tasks')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('--no-comment', 'skip posting confirmation comment to GitHub')
+  .description('Decompose external issue (GitHub or Shortcut) into Beads epic and tasks')
+  .argument('<ref>', 'External reference (URL or shorthand: https://github.com/owner/repo/issues/123, github:owner/repo#123, shortcut:12345)')
+  .option('--no-comment', 'skip posting confirmation comment')
   .option('--priority <number>', 'default priority for created beads', '2')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
+  .action(async (ref, options) => {
+    const externalRef = ref;
 
-    await withAuth(backend, async () => {
+    // Auto-detect backend from reference
+    const { detectBackendFromRef } = await import('./utils/external-ref-parser.js');
+    const detectedBackend = detectBackendFromRef(externalRef);
+    
+    if (!detectedBackend) {
+      console.error(JSON.stringify({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Cannot determine backend from reference: ${externalRef}`
+        }
+      }, null, 2));
+      process.exit(1);
+    }
+
+    await withAuth(detectedBackend, async () => {
       const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
+        externalRef,
         postComment: options.comment,
         defaultPriority: parseInt(options.priority)
       };
       await executeCapability('decompose', context, program.opts());
     });
   });
-
 
 // ============================================================================
 // Authentication Commands
@@ -378,7 +327,7 @@ program
       console.log(`   Repository: ${dirName} (${currentDir})`);
       console.log(`\nNext steps:`);
       console.log(`1. Authenticate: beads-bridge auth ${options.backend}`);
-      console.log(`2. Test status:   beads-bridge status -r ${repository} -i 1`);
+      console.log(`2. Test sync:    beads-bridge sync <bead-id>`);
       console.log(`\nConfig location: ${path.resolve(configPath)}`);
 
       process.exit(0);
@@ -386,71 +335,6 @@ program
       console.error(`Error: ${(error as Error).message}`);
       process.exit(1);
     }
-  });
-
-// ============================================================================
-// Shortcut Commands
-// ============================================================================
-
-program
-  .command('shortcut-status')
-  .description('Query aggregated status for Shortcut story and Beads epics')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',  // Use 'shortcut' as identifier
-        issueNumber: parseInt(options.story),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('query_status', context, program.opts(), 'shortcut');
-    });
-  });
-
-// Shortcut mapping commands
-
-program
-  .command('shortcut-decompose')
-  .description('Decompose Shortcut story into Beads epic and tasks')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('--no-comment', 'skip posting confirmation comment to Shortcut')
-  .option('--priority <number>', 'default priority for created beads', '2')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        postComment: options.comment,
-        defaultPriority: parseInt(options.priority)
-      };
-      await executeCapability('decompose', context, program.opts(), 'shortcut');
-    });
-  });
-
-
-
-// ============================================================================
-// Shortcut Diagram Command
-// ============================================================================
-
-program
-  .command('shortcut-diagram')
-  .description('Generate and place Mermaid dependency diagram for Shortcut story')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('-p, --placement <mode>', 'where to place diagram (description|comment)', 'comment')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        placement: options.placement as 'description' | 'comment'
-      };
-      await executeCapability('generate_diagrams', context, program.opts(), 'shortcut');
-    });
   });
 
 // ============================================================================
