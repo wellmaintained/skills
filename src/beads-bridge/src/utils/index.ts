@@ -8,4 +8,4 @@ export {
   detectBackendFromRef,
   isValidExternalRefFormat,
   type ParsedExternalRef,
-} from './external-ref.js';
+} from './external-ref-parser.js';

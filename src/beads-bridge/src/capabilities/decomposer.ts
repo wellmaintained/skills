@@ -1,7 +1,7 @@
 import type { CapabilityHandler } from './types.js';
 import type { SkillContext, SkillResult } from '../types/skill.js';
 import type { EpicDecomposer } from '../decomposition/epic-decomposer.js';
-import { parseExternalRef } from '../utils/external-ref.js';
+import { parseExternalRef } from '../utils/external-ref-parser.js';
 
 export class DecomposerHandler implements CapabilityHandler {
   constructor(private readonly epicDecomposer?: EpicDecomposer) {}

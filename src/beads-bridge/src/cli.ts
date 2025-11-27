@@ -183,7 +183,7 @@ program
     const externalRef = ref;
 
     // Auto-detect backend from reference
-    const { detectBackendFromRef } = await import('./utils/external-ref.js');
+    const { detectBackendFromRef } = await import('./utils/external-ref-parser.js');
     const detectedBackend = detectBackendFromRef(externalRef);
     
     if (!detectedBackend) {
