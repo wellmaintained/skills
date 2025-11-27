@@ -37,6 +37,9 @@ tmp/
 temp/
 *.tmp
 
+# Git worktrees
+.worktrees/
+
 # OS
 Thumbs.db
 .DS_Store
