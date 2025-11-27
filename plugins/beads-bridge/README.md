@@ -100,19 +100,14 @@ beads-bridge init --repository owner/repo
 
 This creates `.beads-bridge/config.yaml` with your settings.
 
-### 3. Create a Mapping
-
-Link a GitHub issue to Beads epics:
+### 3. Link Beads Epics via `external_ref`
 
 ```bash
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 123 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e42","repositoryPath":"../frontend"},
-    {"repository":"backend","epicId":"backend-e15","repositoryPath":"../backend"}
-  ]'
+# When creating or updating an epic, set the upstream reference
+bd update wms-frontend-e42 --external-ref "github:owner/repo#123"
 ```
+
+This removes the need for manual mapping commands—the ExternalRefResolver automatically locates all epics with matching references.
 
 ### 4. Use in Claude Conversations
 
@@ -249,12 +244,12 @@ ls ~/.claude/plugins/beads-bridge@wellmaintained/skills/beads-bridge/dist/cli.js
 node ~/.claude/plugins/beads-bridge@wellmaintained/skills/beads-bridge/dist/cli.js --version
 ```
 
-### "No mapping found for repository#issue"
+### "No external reference found for repository#issue"
 
-You need to create a mapping first:
+Set the `external_ref` on the relevant Beads epic(s):
 
 ```bash
-beads-bridge mapping create --repository owner/repo --issue 123 --epics '[...]'
+bd update wms-123 --external-ref "github:owner/repo#123"
 ```
 
 ### "Authentication error"

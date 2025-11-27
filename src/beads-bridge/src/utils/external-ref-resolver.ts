@@ -33,7 +33,7 @@ export class ExternalRefResolver {
       throw new Error('configDir is required for ExternalRefResolver');
     }
 
-    const targetRef = params.externalRef ?? this.getGitHubExternalRef(params);
+    const targetRef = this.buildExternalRef(params);
     const epics = await this.findEpics(targetRef);
 
     if (epics.length === 0) {
@@ -91,10 +91,19 @@ export class ExternalRefResolver {
     return aggregate;
   }
 
-  private getGitHubExternalRef(params: ResolveParams): string {
-    if (!params.repository || typeof params.issueNumber !== 'number') {
-      throw new Error('repository and issueNumber are required for GitHub external references');
+  private buildExternalRef(params: ResolveParams): string {
+    if (params.externalRef) {
+      return params.externalRef;
     }
+
+    if (!params.repository || typeof params.issueNumber !== 'number') {
+      throw new Error('repository and issueNumber are required to resolve external references');
+    }
+
+    if (params.repository.toLowerCase() === 'shortcut' || params.repository.startsWith('shortcut:')) {
+      return `shortcut:${params.issueNumber}`;
+    }
+
     return `github:${params.repository}#${params.issueNumber}`;
   }
 

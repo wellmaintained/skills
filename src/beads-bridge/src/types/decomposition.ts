@@ -115,9 +115,6 @@ export interface DecompositionResult {
   /** GitHub issue that was decomposed */
   githubIssue: string;
 
-  /** Created mapping ID */
-  mappingId: string;
-
   /** Epic creation results per repository */
   epics: EpicCreationResult[];
 

@@ -9,9 +9,7 @@ export type SkillCapability =
   | 'query_status'
   | 'sync_progress'
   | 'generate_diagrams'
-  | 'manage_mappings'
-  | 'decompose'
-  | 'force_sync';
+  | 'decompose';
 
 /**
  * Context passed to skill execution
@@ -28,19 +26,6 @@ export interface SkillContext {
 
   /** Where to place diagram (generate_diagrams) */
   placement?: 'description' | 'comment';
-
-  /** Action to perform (manage_mappings) */
-  action?: 'get' | 'create';
-
-  /** Epic IDs to link (manage_mappings create action) */
-  epicIds?: Array<{
-    repository: string;
-    epicId: string;
-    repositoryPath: string;
-  }>;
-
-  /** Operations to execute (force_sync) */
-  operations?: Array<'progress' | 'diagram'>;
 
   /** Whether to post confirmation comment (decompose) */
   postComment?: boolean;

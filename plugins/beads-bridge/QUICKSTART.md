@@ -118,16 +118,13 @@ Edit if needed to add more repositories.
 
 ## First Use (30 seconds)
 
-### Create a Mapping
-
-Link a GitHub issue to a Beads epic:
+### Link via `external_ref`
 
 ```bash
-beads-bridge mapping create \
-  --repository your-org/your-repo \
-  --issue 123 \
-  --epics '[{"repository":"myproject","epicId":"myproject-e1","repositoryPath":"/path/to/myproject"}]'
+bd update myproject-e1 --external-ref "github:your-org/your-repo#123"
 ```
+
+This lets the skill discover related epics without additional commands.
 
 ### Query Status
 
@@ -138,7 +135,7 @@ User: "What's the status of GitHub issue #123?"
 ```
 
 Claude will automatically use the beads-bridge skill to:
-1. Look up the mapping
+1. Resolve the external reference
 2. Query all linked Beads epics
 3. Aggregate progress across repositories
 4. Return a summary with blockers and metrics
@@ -187,14 +184,11 @@ beads-bridge serve -r owner/repo -i 123
 # - Blocker highlighting
 ```
 
-### Mappings
+### External References
 
 ```bash
-# View existing mapping
-beads-bridge mapping get -r owner/repo -i 123
-
-# Create new mapping (see example above)
-beads-bridge mapping create ...
+# Ensure each epic or story has the upstream reference
+bd update frontend-e42 --external-ref "github:owner/repo#123"
 ```
 
 ---
@@ -227,17 +221,12 @@ cd ../shared-lib
 bd epic create "shared-e8" "Auth Types"
 ```
 
-### 3. Create a mapping
+### 3. Link via `external_ref`
 
 ```bash
-beads-bridge mapping create \
-  --repository your-org/product-initiatives \
-  --issue 456 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e42","repositoryPath":"../frontend"},
-    {"repository":"backend","epicId":"backend-e15","repositoryPath":"../backend"},
-    {"repository":"shared-lib","epicId":"shared-e8","repositoryPath":"../shared-lib"}
-  ]'
+bd update frontend-e42 --external-ref "github:your-org/product-initiatives#456"
+bd update backend-e15 --external-ref "github:your-org/product-initiatives#456"
+bd update shared-e8 --external-ref "github:your-org/product-initiatives#456"
 ```
 
 ### 4. Let Claude track progress
@@ -270,9 +259,9 @@ ls ~/.claude/plugins/beads-bridge@wellmaintained/
 node ~/.claude/plugins/beads-bridge@wellmaintained/skills/beads-bridge/dist/cli.js --version
 ```
 
-### Issue: "No mapping found for repository#123"
+### Issue: "No external reference found for repository#123"
 
-**Solution:** Create a mapping first (see step 3 in Example Workflow above).
+**Solution:** Ensure each relevant epic has `external_ref` set (see step 3 in Example Workflow above).
 
 ### Issue: "Authentication failed"
 

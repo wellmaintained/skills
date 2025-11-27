@@ -38,31 +38,6 @@ beads-bridge diagram --repository owner/repo --issue 123 --placement description
 beads-bridge discoveries --repository owner/repo --issue 123
 ```
 
-### Manage Mappings
-
-```bash
-# Get existing mapping
-beads-bridge mapping get --repository owner/repo --issue 456
-
-# Create mapping
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 456 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e99","repositoryPath":"../frontend"},
-    {"repository":"backend","epicId":"backend-e42","repositoryPath":"../backend"}
-  ]'
-```
-
-### Force Sync
-
-```bash
-# Force sync all operations
-beads-bridge force-sync --repository owner/repo --issue 123
-
-# Force sync specific operations
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram
-```
 
 ### Decompose Issues
 
@@ -90,20 +65,6 @@ beads-bridge shortcut-status --story 89216
 
 # Query status with blockers
 beads-bridge shortcut-status --story 89216 --blockers
-```
-
-### Manage Mappings
-
-```bash
-# Get existing mapping
-beads-bridge shortcut-mapping get --story 89216
-
-# Create mapping between Shortcut story and Beads epics
-beads-bridge shortcut-mapping create \
-  --story 89216 \
-  --epics '[
-    {"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/Users/you/workspace/pensive"}
-  ]'
 ```
 
 ### Decompose Stories
@@ -153,7 +114,7 @@ Exit codes: `0` for success, `1` for failure.
 ## Error Codes
 
 - `VALIDATION_ERROR` - Invalid input parameters
-- `NOT_FOUND` - Mapping or resource doesn't exist
+- `NOT_FOUND` - External reference or resource doesn't exist
 - `EXECUTION_ERROR` - Operation failed during execution
 - `AUTHENTICATION_ERROR` - Not authenticated with backend (run `beads-bridge auth`)
 - `RATE_LIMIT_ERROR` - API rate limit exceeded
