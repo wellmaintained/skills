@@ -11,37 +11,41 @@ export class DecomposerHandler implements CapabilityHandler {
     let repository: string | undefined;
     let issueNumber: number | undefined;
 
-    // Try to parse externalRef if provided (new unified command)
-    if (externalRef) {
-      try {
-        const parsed = parseExternalRef(externalRef);
-
-        if (parsed.backend === 'github') {
-          repository = parsed.repository;
-          issueNumber = parsed.issueNumber;
-        } else if (parsed.backend === 'shortcut') {
-          // Shortcut decompose not yet supported through new endpoint
-          return {
-            success: false,
-            error: {
-              code: 'NOT_SUPPORTED',
-              message: 'Shortcut decompose is not yet supported'
-            }
-          };
+    if (!externalRef) {
+      return {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'externalRef is required'
         }
-      } catch (error) {
+      };
+    }
+
+    // Try to parse externalRef
+    try {
+      const parsed = parseExternalRef(externalRef);
+
+      if (parsed.backend === 'github') {
+        repository = parsed.repository;
+        issueNumber = parsed.issueNumber;
+      } else if (parsed.backend === 'shortcut') {
+        // Shortcut decompose not yet supported through new endpoint
         return {
           success: false,
           error: {
-            code: 'VALIDATION_ERROR',
-            message: `Invalid external reference: ${(error as Error).message}`
+            code: 'NOT_SUPPORTED',
+            message: 'Shortcut decompose is not yet supported'
           }
         };
       }
-    } else {
-      // Fall back to old-style parameters (GitHub only)
-      repository = context.repository;
-      issueNumber = context.issueNumber;
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Invalid external reference: ${(error as Error).message}`
+        }
+      };
     }
 
     // Validate we have required parameters

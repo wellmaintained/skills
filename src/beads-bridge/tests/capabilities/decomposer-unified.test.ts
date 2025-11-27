@@ -106,26 +106,8 @@ describe('DecomposerHandler', () => {
     });
   });
 
-  describe('Legacy API support (backward compatibility)', () => {
-    it('still accepts repository and issueNumber parameters', async () => {
-      const handler = new DecomposerHandler(mockEpicDecomposer as any);
-      const context: SkillContext = {
-        repository: 'owner/repo',
-        issueNumber: 999,
-        postComment: false,
-        defaultPriority: 1,
-      };
-
-      const result = await handler.execute(context);
-
-      expect(result.success).toBe(true);
-      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith(999, {
-        postComment: false,
-        defaultPriority: 1,
-      });
-    });
-
-    it('returns validation error when neither externalRef nor repository/issue provided', async () => {
+  describe('Validation', () => {
+    it('returns validation error when externalRef is missing', async () => {
       const handler = new DecomposerHandler(mockEpicDecomposer as any);
       const context: SkillContext = {
         postComment: true,
@@ -135,18 +117,7 @@ describe('DecomposerHandler', () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('returns validation error when only repository provided', async () => {
-      const handler = new DecomposerHandler(mockEpicDecomposer as any);
-      const context: SkillContext = {
-        repository: 'owner/repo',
-      };
-
-      const result = await handler.execute(context);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe('VALIDATION_ERROR');
+      expect(result.error?.message).toBe('externalRef is required');
     });
   });
 

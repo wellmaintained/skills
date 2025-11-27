@@ -177,28 +177,10 @@ program
   .command('decompose')
   .description('Decompose external issue (GitHub or Shortcut) into Beads epic and tasks')
   .argument('<ref>', 'External reference (URL or shorthand: https://github.com/owner/repo/issues/123, github:owner/repo#123, shortcut:12345)')
-  .option('-r, --repository <owner/repo>', 'GitHub repository (legacy: use <ref> instead)')
-  .option('-i, --issue <number>', 'GitHub issue number (legacy: use <ref> instead)')
   .option('--no-comment', 'skip posting confirmation comment')
   .option('--priority <number>', 'default priority for created beads', '2')
   .action(async (ref, options) => {
-    // Support legacy command-line format for backward compatibility
-    let externalRef = ref;
-    
-    // If using legacy format with -r and -i options
-    if (options.repository && options.issue) {
-      externalRef = `github:${options.repository}#${options.issue}`;
-    } else if (ref === '-r' || ref === '-i') {
-      // User passed flags after command without ref argument
-      console.error(JSON.stringify({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Please provide a reference. Use: beads-bridge decompose <url|shorthand>'
-        }
-      }, null, 2));
-      process.exit(1);
-    }
+    const externalRef = ref;
 
     // Auto-detect backend from reference
     const { detectBackendFromRef } = await import('./utils/external-ref.js');
