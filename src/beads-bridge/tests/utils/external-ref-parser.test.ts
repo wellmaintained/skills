@@ -72,6 +72,15 @@ describe('parseExternalRef', () => {
         storyId: 67890
       });
     });
+
+    it('should parse Shortcut URL format with slug', () => {
+      const result = parseExternalRef('https://app.shortcut.com/imogen/story/89216/2025-11-05-tessier-release');
+
+      expect(result).toEqual({
+        backend: 'shortcut',
+        storyId: 89216
+      });
+    });
   });
 
   describe('Error handling', () => {

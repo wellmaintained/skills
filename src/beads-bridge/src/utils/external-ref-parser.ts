@@ -55,8 +55,8 @@ export function parseExternalRef(externalRef: string): ParsedExternalRef {
     };
   }
 
-  // Shortcut URL format: "https://app.shortcut.com/story/12345"
-  const shortcutUrlMatch = externalRef.match(/^https:\/\/app\.shortcut\.com\/[^/]+\/story\/(\d+)$/);
+  // Shortcut URL format: "https://app.shortcut.com/org/story/12345" or with slug "https://app.shortcut.com/org/story/12345/story-title"
+  const shortcutUrlMatch = externalRef.match(/^https:\/\/app\.shortcut\.com\/[^/]+\/story\/(\d+)(?:\/[^/]+)?$/);
   if (shortcutUrlMatch) {
     return {
       backend: 'shortcut',
