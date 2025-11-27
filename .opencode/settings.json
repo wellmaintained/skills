@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/settings.schema.json",
+  "lsp": {
+    "typescript": {
+      "command": ["bun", "bun-lsp", "--stdio"]
+    },
+    "typescriptreact": {
+      "command": ["bun", "bun-lsp", "--stdio"]
+    }
+  }
+}
