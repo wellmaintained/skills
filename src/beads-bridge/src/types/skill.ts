@@ -33,6 +33,9 @@ export interface SkillContext {
   /** Default priority for created beads (decompose) */
   defaultPriority?: number;
 
+  /** External reference (URL or shorthand) for unified decompose command */
+  externalRef?: string;
+
   /** Additional context properties */
   [key: string]: any;
 }

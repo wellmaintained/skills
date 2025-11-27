@@ -1,3 +1,42 @@
+# [1.11.0](https://github.com/wellmaintained/skills/compare/v1.10.1...v1.11.0) (2025-11-27)
+
+
+### Bug Fixes
+
+* **wms-8kb:** consolidate external reference parsers ([4206784](https://github.com/wellmaintained/skills/commit/4206784e43bcc7be728608db9977bb03f64bb763))
+
+
+### Features
+
+* **wms-8kb:** unify decompose command with external_ref support ([56054bc](https://github.com/wellmaintained/skills/commit/56054bc7055c9973bfb684ee4a6f2e8c4074362f)), closes [owner/repo#123](https://github.com/owner/repo/issues/123)
+
+## [1.10.1](https://github.com/wellmaintained/skills/compare/v1.10.0...v1.10.1) (2025-11-27)
+
+
+### Bug Fixes
+
+* **client:** resolve TypeScript type-check errors in App.tsx, Canvas, and useIssueData hook ([70ec162](https://github.com/wellmaintained/skills/commit/70ec1623f1273a2bef42252edbe74a19cdd2dd8c))
+
+# [1.10.0](https://github.com/wellmaintained/skills/compare/v1.9.0...v1.10.0) (2025-11-27)
+
+
+### Features
+
+* add MissingExternalRefError class ([fa8f5bf](https://github.com/wellmaintained/skills/commit/fa8f5bf8f578804425f2c52ec02efa9ee889a4be))
+* implement helpful error message for missing external_ref ([c948830](https://github.com/wellmaintained/skills/commit/c9488305edbceed06d00ebd0d8a1ea2bc7ec1d6b))
+
+# [1.9.0](https://github.com/wellmaintained/skills/compare/v1.8.0...v1.9.0) (2025-11-27)
+
+
+### Bug Fixes
+
+* **parser:** handle Shortcut URLs with story slug ([9325476](https://github.com/wellmaintained/skills/commit/9325476c3198ece5407053f8a99462244e17155c))
+
+
+### Features
+
+* **sync:** implement simplified sync command (POC B) ([3c85146](https://github.com/wellmaintained/skills/commit/3c85146695ca290bbd8cea6611838f09b33c9d7d))
+
 # [1.8.0](https://github.com/wellmaintained/skills/compare/v1.7.0...v1.8.0) (2025-11-25)
 
 
