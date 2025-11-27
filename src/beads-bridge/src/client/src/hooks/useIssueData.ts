@@ -26,7 +26,7 @@ export function useIssueData(issueId: string, onEventError?: (message: string) =
     [issueId]
   );
 
-  const query = useQuery({
+  const query = useQuery<IssueResponse, Error>({
     queryKey: ['issue', issueId],
     queryFn: () =>
       fetchIssueState(issueId).then((data) => {
@@ -41,13 +41,18 @@ export function useIssueData(issueId: string, onEventError?: (message: string) =
         return data;
       }),
     enabled: Boolean(issueId),
-    onError: (error) => {
-      const err = error instanceof Error ? error : undefined;
-      const extra: Record<string, unknown> =
-        error instanceof Error ? { error: { name: error.name, message: error.message } } : { rawError: error };
-      logger.error('Issue snapshot fetch failed', err, createMeta('query:error', extra));
-    },
+    retry: false,
   });
+
+  // Handle errors with useEffect instead of onError callback
+  useEffect(() => {
+    if (query.error) {
+      const err = query.error instanceof Error ? query.error : new Error(String(query.error));
+      const extra: Record<string, unknown> =
+        query.error instanceof Error ? { error: { name: query.error.name, message: query.error.message } } : { rawError: query.error };
+      logger.error('Issue snapshot fetch failed', err, createMeta('query:error', extra));
+    }
+  }, [query.error, createMeta, logger]);
 
   useEffect(() => {
     if (!issueId) {

@@ -217,24 +217,23 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
   return (
     <div className="h-full w-full">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        proOptions={{ hideAttribution: true }}
-        nodeDragHandle="[data-handleid='drag-handle']"
-        onNodeDragStart={handleDragStart}
-        onNodeDragStop={handleDragStop}
-        fitView
-        zoomOnScroll={true}
-        zoomOnPinch={true}
-        minZoom={0.2}
-        maxZoom={2.5}
-        panOnDrag={[0, 1, 2]}
-        panOnScroll={false}
-        nodesDraggable={true}
-        className="bg-slate-50"
-        style={{ cursor: isSpacePressed ? 'grab' : 'default' }}
-      >
+         nodes={nodes}
+         edges={edges}
+         nodeTypes={nodeTypes}
+         proOptions={{ hideAttribution: true }}
+         onNodeDragStart={handleDragStart}
+         onNodeDragStop={handleDragStop}
+         fitView
+         zoomOnScroll={true}
+         zoomOnPinch={true}
+         minZoom={0.2}
+         maxZoom={2.5}
+         panOnDrag={[0, 1, 2]}
+         panOnScroll={false}
+         nodesDraggable={true}
+         className="bg-slate-50"
+         style={{ cursor: isSpacePressed ? 'grab' : 'default' }}
+       >
         <Background gap={24} size={1} color="#CBD5F5" />
         <Controls showInteractive={false} />
       </ReactFlow>

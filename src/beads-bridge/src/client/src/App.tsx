@@ -209,7 +209,7 @@ export default function App() {
     }
 
     let changed = false;
-    const updatedIssues = query.data.issues.map((issue) => {
+    const updatedIssues = query.data.issues.map((issue: DashboardIssue) => {
       const pending = pendingStatuses[issue.id];
       if (pending && issue.metadata?.beadsStatus !== pending.targetStatus) {
         changed = true;
@@ -581,9 +581,9 @@ export default function App() {
       const previous = queryClient.getQueryData<IssueResponse>(QUERY_KEY(issueId));
 
       updateCache((current) => {
-        const updatedIssues = current.issues.map((issue) =>
-          issue.id === targetId ? { ...issue, metadata: { ...issue.metadata, parentId: newParentId || null } } : issue
-        );
+         const updatedIssues = current.issues.map((issue: DashboardIssue) =>
+           issue.id === targetId ? { ...issue, metadata: { ...issue.metadata, parentId: newParentId || null } } : issue
+         );
 
         const remainingEdges = current.edges.filter((edge) => edge.target !== targetId);
         const newEdges = newParentId
@@ -734,7 +734,7 @@ export default function App() {
           
           // Optimistically update the cache immediately
           updateCache((current) => {
-            const updatedIssues = current.issues.map((issue) =>
+            const updatedIssues = current.issues.map((issue: DashboardIssue) =>
               issue.id === id ? { ...issue, title } : issue
             );
             return {
@@ -758,11 +758,11 @@ export default function App() {
           // Cancel any in-flight queries to prevent stale data overwriting our optimistic update
           await queryClient.cancelQueries({ queryKey: QUERY_KEY(issueId) });
           
-          // Optimistically update the cache immediately
-          updateCache((current) => {
-            const updatedIssues = current.issues.map((issue) =>
-              issue.id === id ? { ...issue, body: description } : issue
-            );
+           // Optimistically update the cache immediately
+           updateCache((current) => {
+             const updatedIssues = current.issues.map((issue: DashboardIssue) =>
+               issue.id === id ? { ...issue, body: description } : issue
+             );
             return {
               ...current,
               issues: updatedIssues,
@@ -780,10 +780,10 @@ export default function App() {
             throw error;
           }
         }}
-        parentOptions={(optimisticIssues ?? query.data?.issues ?? []).map((issue) => ({
-          id: issue.id,
-          title: issue.title,
-        }))}
+         parentOptions={(optimisticIssues ?? query.data?.issues ?? []).map((issue: DashboardIssue) => ({
+           id: issue.id,
+           title: issue.title,
+         }))}
         childCount={selectedIssue ? (layout.childrenMap.get(selectedIssue.id) ?? []).length : 0}
       />
 
