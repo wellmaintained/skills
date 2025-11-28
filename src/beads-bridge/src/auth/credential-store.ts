@@ -33,8 +33,43 @@ export class CredentialStore {
   private readonly filePath: string;
   private readonly algorithm = 'aes-256-gcm';
 
-  constructor(filePath?: string) {
-    this.filePath = filePath || process.env.CREDENTIAL_STORE_PATH || join(homedir(), '.config', 'beads-bridge', 'credentials.json');
+  constructor(filePath?: string, options?: { skipValidation?: boolean }) {
+    const resolvedPath = filePath || process.env.CREDENTIAL_STORE_PATH || join(homedir(), '.config', 'beads-bridge', 'credentials.json');
+
+    // Validate that the path is not within a plugin directory (unless explicitly skipped for tests)
+    if (!options?.skipValidation) {
+      this.validateCredentialPath(resolvedPath);
+    }
+
+    this.filePath = resolvedPath;
+  }
+
+  /**
+   * Validate that credential path is not in a plugin installation directory
+   */
+  private validateCredentialPath(path: string): void {
+    // Normalize the path to handle relative paths and symlinks
+    const normalizedPath = path.toLowerCase();
+
+    // Patterns that indicate plugin/temporary directories
+    const dangerousPatterns = [
+      '.claude/skills',
+      'node_modules',
+      '/tmp/',
+      '/temp/',
+      'appdata/local/temp',
+      'appdata\\local\\temp',
+    ];
+
+    // Check if path contains any dangerous patterns
+    for (const pattern of dangerousPatterns) {
+      if (normalizedPath.includes(pattern.toLowerCase())) {
+        throw new Error(
+          `Invalid credential path: "${path}" appears to be in a plugin or temporary directory. ` +
+          `Credentials must be stored in a persistent location like ~/.config/beads-bridge/credentials.json`
+        );
+      }
+    }
   }
 
   /**
