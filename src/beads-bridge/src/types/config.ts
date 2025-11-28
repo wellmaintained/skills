@@ -14,23 +14,14 @@ export type BackendType = 'github' | 'shortcut';
 
 
 /**
- * Repository configuration for Beads
+ * Repository path configuration
+ * Can be explicit path or auto-detected from cwd
  */
-export interface RepositoryConfig {
-  /** Repository name (identifier) */
-  name: string;
-
-  /** Absolute path to repository on filesystem */
-  path: string;
-
-  /** GitHub repository (e.g., 'owner/repo') if different from Beads repo */
-  githubRepo?: string;
-
-  /** Beads issue prefix (e.g., 'frontend' for 'frontend-e123') */
+export interface RepositoryPathConfig {
+  /** Path to beads repository (absolute or relative) */
+  path?: string;
+  /** Issue prefix (auto-detected from issues.jsonl if not specified) */
   prefix?: string;
-
-  /** Whether this repository is enabled for syncing */
-  enabled?: boolean;
 }
 
 /**
@@ -122,11 +113,8 @@ export interface Config {
   /** Shortcut configuration (v2.0+) */
   shortcut?: ShortcutConfig;
 
-  /** Beads repositories */
-  repositories: RepositoryConfig[];
-
-  /** Mapping database storage path */
-  mappingStoragePath: string;
+  /** Repository path (auto-detected if not specified) */
+  repository?: RepositoryPathConfig;
 
   /** Logging configuration */
   logging: LoggingConfig;
@@ -144,8 +132,7 @@ export const DEFAULT_CONFIG: Config = {
   github: {
     repository: ''
   },
-  repositories: [],
-  mappingStoragePath: '.beads-bridge',
+  // repository is optional - will be auto-detected
   logging: {
     level: 'info',
     outputs: {
@@ -176,7 +163,6 @@ export const ENV_VARS = {
   CONFIG_PATH: 'BEADS_PM_SYNC_CONFIG',
   GITHUB_REPO: 'BEADS_PM_SYNC_GITHUB_REPO',
   GITHUB_PROJECT_ID: 'BEADS_PM_SYNC_GITHUB_PROJECT_ID',
-  MAPPING_STORAGE_PATH: 'BEADS_PM_SYNC_STORAGE_PATH',
   LOG_LEVEL: 'BEADS_PM_SYNC_LOG_LEVEL',
 } as const;
 

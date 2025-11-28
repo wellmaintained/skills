@@ -215,34 +215,13 @@ export interface EpicStatus {
 }
 
 /**
- * Repository configuration for Beads
- */
-export interface BeadsRepository {
-  /** Repository name (e.g., "auth-service") */
-  name: string;
-
-  /** Absolute path to repository */
-  path: string;
-
-  /** GitHub repository (e.g., "acme-corp/auth-service") */
-  githubRepo?: string;
-
-  /** Beads prefix (e.g., "auth") */
-  prefix?: string;
-}
-
-/**
  * Beads configuration
  */
 export interface BeadsConfig {
-  /** List of repositories to track */
-  repositories: BeadsRepository[];
-
-  /** Default issue type when creating issues */
-  defaultIssueType?: BeadsIssueType;
-
-  /** Default priority when creating issues */
-  defaultPriority?: BeadsPriority;
+  /** Path to beads repository */
+  repositoryPath: string;
+  /** Issue prefix (optional, auto-detected if not provided) */
+  prefix?: string;
 }
 
 /**
