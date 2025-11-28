@@ -1,7 +1,5 @@
 export type IssueStatus = 'open' | 'in_progress' | 'blocked' | 'closed';
 
-export type BeadsDependencyType = 'blocks' | 'related' | 'parent-child' | 'discovered-from';
-
 export interface DashboardMetrics {
   total: number;
   completed: number;
@@ -38,7 +36,6 @@ export interface DashboardEdge {
   id: string;
   source: string;
   target: string;
-  type?: BeadsDependencyType;
 }
 
 export interface IssueResponse {

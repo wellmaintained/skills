@@ -4,7 +4,7 @@ import { LiveWebBackend } from '../../backends/liveweb.js';
 import { ExpressServer } from '../../server/express-server.js';
 import { PollingService } from '../../server/polling-service.js';
 import { BeadsClient } from '../../clients/beads-client.js';
-import type { DependencyTreeNode, BeadsIssue, BeadsRepository, BeadsDependencyType } from '../../types/beads.js';
+import type { DependencyTreeNode, BeadsIssue, BeadsRepository } from '../../types/beads.js';
 import { execBdCommand } from '../../utils/bd-cli.js';
 import { ConfigManager } from '../../config/config-manager.js';
 import { open } from '../../utils/open-browser.js';
@@ -139,11 +139,11 @@ export function createServeCommand(): Command {
           // Get all issues in tree using bd dep tree
           const tree = await beadsClient.getEpicChildrenTree(repoName, issueId);
 
-          type FlattenedNode = { issue: BeadsIssue; parentId?: string; depth: number; dependencyType?: BeadsDependencyType };
-          const flattenTree = (node: DependencyTreeNode, parentId?: string, depth: number = 0, dependencyType?: BeadsDependencyType): FlattenedNode[] => {
-            const current: FlattenedNode = { issue: node.issue, parentId, depth, dependencyType };
+          type FlattenedNode = { issue: BeadsIssue; parentId?: string; depth: number };
+          const flattenTree = (node: DependencyTreeNode, parentId?: string, depth: number = 0): FlattenedNode[] => {
+            const current: FlattenedNode = { issue: node.issue, parentId, depth };
             const children = node.dependencies.flatMap((child) =>
-              flattenTree(child, node.issue.id, depth + 1, child.dependencyType)
+              flattenTree(child, node.issue.id, depth + 1)
             );
             return [current, ...children];
           };
@@ -156,7 +156,6 @@ export function createServeCommand(): Command {
               id: `${entry.parentId}-${entry.issue.id}`,
               source: entry.parentId as string,
               target: entry.issue.id,
-              type: entry.dependencyType || 'parent-child' as const,
             }));
 
           const issues = flattened.map((entry, idx) => ({
