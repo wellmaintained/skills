@@ -51,7 +51,7 @@ export function useTreeLayout(
     const graph = new dagre.graphlib.Graph();
     graph.setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
-      rankdir: 'TB',
+      rankdir: 'LR', // Left-to-right: completed beads on left, active on right
       nodesep: 80,
       ranksep: 160,
     });

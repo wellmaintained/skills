@@ -37,8 +37,8 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
 
   return (
     <div className="relative w-64 cursor-default overflow-visible">
-      <Handle type="target" position={Position.Top} className="!h-3 !w-3 !bg-slate-400" />
-      <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !bg-slate-400" />
+      <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
+      <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />
 
       {/* Top Drag Handle - Protruding */}
       <div
