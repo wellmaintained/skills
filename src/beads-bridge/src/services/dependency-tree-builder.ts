@@ -89,8 +89,8 @@ export class DependencyTreeBuilder {
         // Sort children: completed first (left), then by ID for stability
         children.sort((a, b) => {
           // Closed status comes first (will appear on left)
-          const aIsClosed = a.status === 'closed' ? 0 : 1;
-          const bIsClosed = b.status === 'closed' ? 0 : 1;
+          const aIsClosed = (a.status ?? 'open') === 'closed' ? 0 : 1;
+          const bIsClosed = (b.status ?? 'open') === 'closed' ? 0 : 1;
 
           if (aIsClosed !== bIsClosed) {
             return aIsClosed - bIsClosed;

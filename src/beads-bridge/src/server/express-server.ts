@@ -35,7 +35,10 @@ export class ExpressServer {
       if (rootId) {
         res.redirect(`/issue/${rootId}`);
       } else {
-        res.status(503).send('Server initializing, please refresh in a moment.');
+        res.status(503).send(
+          '<html><head><meta http-equiv="refresh" content="2"></head>' +
+          '<body>Server initializing, please wait...</body></html>'
+        );
       }
     });
 
