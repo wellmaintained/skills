@@ -1,3 +1,11 @@
+## [1.11.1](https://github.com/wellmaintained/skills/compare/v1.11.0...v1.11.1) (2025-11-28)
+
+
+### Bug Fixes
+
+* resolve all TypeScript type-check errors ([b261ae8](https://github.com/wellmaintained/skills/commit/b261ae88100e092d7b4cc09af607b951def26d09))
+* **wms-12v:** clean up all eslint warnings ([0049eae](https://github.com/wellmaintained/skills/commit/0049eaee32933235754e660a3c20ee80f2ef3982))
+
 # [1.11.0](https://github.com/wellmaintained/skills/compare/v1.10.1...v1.11.0) (2025-11-27)
 
 
