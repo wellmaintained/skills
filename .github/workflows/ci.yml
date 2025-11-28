@@ -46,13 +46,9 @@ jobs:
       - name: Validate plugin structure
         run: just validate-structure
 
-  test-plugins:
-    name: Test Plugin Installation
+  test-beads-bridge:
+    name: Test Beads-Bridge
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        plugin:
-          - beads-bridge
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -70,18 +66,27 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v2
 
-      - name: Test installation script
-        run: just test-plugin-install ${{ matrix.plugin }}
+      - name: Install dependencies
+        run: just install-bridge
 
-      - name: Build and test plugin
-        run: just test-plugin ${{ matrix.plugin }}
+      - name: Lint
+        run: just lint-bridge
+
+      - name: Type check
+        run: just type-check-bridge
+
+      - name: Build
+        run: just build-bridge
+
+      - name: Test
+        run: just test-bridge
 
   # Determine version using semantic-release dry-run
   determine-version:
     name: Determine Version
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [validate-structure, test-plugins]
+    needs: [validate-structure, test-beads-bridge]
     outputs:
       version: ${{ steps.get-version.outputs.version }}
       should-release: ${{ steps.get-version.outputs.should-release }}
@@ -180,7 +185,7 @@ jobs:
     name: Update Marketplace Catalog
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [validate-structure, test-plugins]
+    needs: [validate-structure, test-beads-bridge]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
