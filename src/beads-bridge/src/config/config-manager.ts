@@ -11,10 +11,11 @@ import {
   ConfigValidationError,
   LogLevel,
   BackendType,
-  RepositoryConfig,
+  RepositoryPathConfig,
   GitHubConfig,
   ShortcutConfig,
 } from '../types/config.js';
+import { detectRepository, extractPrefixFromIssues } from '../utils/repo-detector.js';
 import { needsMigration, migrateConfig, getMigrationNotes } from './migration.js';
 
 /**
@@ -22,6 +23,8 @@ import { needsMigration, migrateConfig, getMigrationNotes } from './migration.js
  */
 export class ConfigManager {
   private config: Config;
+  private resolvedRepositoryPath: string | null = null;
+  private resolvedPrefix: string | undefined;
 
   constructor(config?: Partial<Config>) {
     this.config = this.mergeWithDefaults(config || {});
@@ -52,7 +55,6 @@ export class ConfigManager {
       }
 
       const manager = new ConfigManager(fileConfig);
-
       return manager;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -68,7 +70,6 @@ export class ConfigManager {
   static fromEnvironment(): ConfigManager {
     const envConfig: Partial<Config> = {};
 
-    // Load GitHub repository
     if (process.env[ENV_VARS.GITHUB_REPO]) {
       envConfig.github = {
         ...DEFAULT_CONFIG.github,
@@ -76,7 +77,6 @@ export class ConfigManager {
       };
     }
 
-    // Load GitHub project ID
     if (process.env[ENV_VARS.GITHUB_PROJECT_ID]) {
       envConfig.github = {
         ...(envConfig.github || DEFAULT_CONFIG.github),
@@ -84,12 +84,6 @@ export class ConfigManager {
       };
     }
 
-    // Load mapping storage path
-    if (process.env[ENV_VARS.MAPPING_STORAGE_PATH]) {
-      envConfig.mappingStoragePath = process.env[ENV_VARS.MAPPING_STORAGE_PATH];
-    }
-
-    // Load log level
     if (process.env[ENV_VARS.LOG_LEVEL]) {
       const logLevel = process.env[ENV_VARS.LOG_LEVEL]!.toLowerCase() as LogLevel;
       envConfig.logging = {
@@ -102,7 +96,8 @@ export class ConfigManager {
   }
 
   /**
-   * Load configuration with precedence: file → env vars → defaults
+   * Load configuration with auto-detection
+   * Priority: file config -> env vars -> auto-detect -> defaults
    */
   static async load(configPath?: string): Promise<ConfigManager> {
     let manager: ConfigManager;
@@ -123,10 +118,35 @@ export class ConfigManager {
     // Override with environment variables
     manager.applyEnvironmentOverrides();
 
+    // Auto-detect repository if not configured
+    await manager.autoDetectRepository();
+
     // Validate configuration
     manager.validate();
 
     return manager;
+  }
+
+  /**
+   * Auto-detect repository path if not explicitly configured
+   */
+  private async autoDetectRepository(): Promise<void> {
+    // If repository path is explicitly configured, use it
+    if (this.config.repository?.path) {
+      this.resolvedRepositoryPath = isAbsolute(this.config.repository.path)
+        ? this.config.repository.path
+        : resolve(this.config.repository.path);
+      this.resolvedPrefix = this.config.repository.prefix;
+      return;
+    }
+
+    // Auto-detect from current working directory
+    const detected = detectRepository();
+    if (detected) {
+      this.resolvedRepositoryPath = detected.path;
+      // Auto-detect prefix if not configured
+      this.resolvedPrefix = this.config.repository?.prefix || extractPrefixFromIssues(detected.path);
+    }
   }
 
   /**
@@ -158,17 +178,17 @@ export class ConfigManager {
   }
 
   /**
-   * Get repositories configuration
+   * Get repository path (resolved, absolute)
    */
-  getRepositories(): ReadonlyArray<RepositoryConfig> {
-    return this.config.repositories.map(repo => Object.freeze({ ...repo }));
+  getRepositoryPath(): string | null {
+    return this.resolvedRepositoryPath;
   }
 
   /**
-   * Get mapping storage path
+   * Get issue prefix
    */
-  getMappingStoragePath(): string {
-    return this.config.mappingStoragePath;
+  getPrefix(): string | undefined {
+    return this.resolvedPrefix;
   }
 
   /**
@@ -233,45 +253,14 @@ export class ConfigManager {
       }
     }
 
-    // Validate repositories
-    if (this.config.repositories.length === 0) {
-      throw new ConfigValidationError('At least one repository must be configured', 'repositories');
-    }
-
-    for (const repo of this.config.repositories) {
-      if (!repo.name) {
-        throw new ConfigValidationError('Repository name is required', 'repositories[].name');
-      }
-
-      if (!repo.path) {
-        throw new ConfigValidationError(
-          `Repository path is required for ${repo.name}`,
-          'repositories[].path'
-        );
-      }
-
-      if (!isAbsolute(repo.path)) {
-        throw new ConfigValidationError(
-          `Repository path must be absolute: ${repo.path}`,
-          'repositories[].path',
-          repo.path
-        );
-      }
-    }
-
-    // Check for duplicate repository names
-    const names = this.config.repositories.map(r => r.name);
-    const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
-    if (duplicates.length > 0) {
+    // Repository path is optional - can be auto-detected
+    // Only validate if explicitly provided
+    if (this.config.repository?.path && !this.resolvedRepositoryPath) {
       throw new ConfigValidationError(
-        `Duplicate repository names: ${duplicates.join(', ')}`,
-        'repositories'
+        `Repository path does not exist or is not a beads repo: ${this.config.repository.path}`,
+        'repository.path',
+        this.config.repository.path
       );
-    }
-
-    // Validate mapping storage path
-    if (!this.config.mappingStoragePath) {
-      throw new ConfigValidationError('Mapping storage path is required', 'mappingStoragePath');
     }
 
     // Validate log level
@@ -283,7 +272,6 @@ export class ConfigManager {
         this.config.logging.level
       );
     }
-
   }
 
   /**
@@ -295,7 +283,6 @@ export class ConfigManager {
       ...config,
       github: { ...DEFAULT_CONFIG.github, ...config.github },
       logging: { ...DEFAULT_CONFIG.logging, ...config.logging },
-      repositories: config.repositories || DEFAULT_CONFIG.repositories
     };
   }
 
@@ -303,25 +290,16 @@ export class ConfigManager {
    * Apply environment variable overrides
    */
   private applyEnvironmentOverrides(): void {
-    // Override GitHub repository
     if (process.env[ENV_VARS.GITHUB_REPO]) {
       this.config.github.repository = process.env[ENV_VARS.GITHUB_REPO]!;
     }
 
-    // Override GitHub project ID
     if (process.env[ENV_VARS.GITHUB_PROJECT_ID]) {
       this.config.github.projectId = process.env[ENV_VARS.GITHUB_PROJECT_ID];
     }
 
-    // Override mapping storage path
-    if (process.env[ENV_VARS.MAPPING_STORAGE_PATH]) {
-      this.config.mappingStoragePath = process.env[ENV_VARS.MAPPING_STORAGE_PATH]!;
-    }
-
-    // Override log level
     if (process.env[ENV_VARS.LOG_LEVEL]) {
       this.config.logging.level = process.env[ENV_VARS.LOG_LEVEL]!.toLowerCase() as LogLevel;
     }
-
   }
 }
