@@ -29,6 +29,16 @@ export class ExpressServer {
   }
 
   private setupRoutes(): void {
+    // Redirect root to the root issue
+    this.app.get('/', (_req: Request, res: Response) => {
+      const rootId = this.backend.getRootIssueId();
+      if (rootId) {
+        res.redirect(`/issue/${rootId}`);
+      } else {
+        res.status(503).send('Server initializing, please refresh in a moment.');
+      }
+    });
+
     // Serve static files (CSS, JS)
     const staticPath = this.assetManager.getStaticPath();
     if (staticPath) {

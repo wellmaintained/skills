@@ -93,6 +93,12 @@ export class LiveWebBackend implements ProjectManagementBackend {
     return this.state.get(issueId);
   }
 
+  getRootIssueId(): string | undefined {
+    // Return the first (and typically only) root issue ID
+    const keys = Array.from(this.state.keys());
+    return keys.length > 0 ? keys[0] : undefined;
+  }
+
   private findIssueEntry(issueId: string): { rootId: string; state: IssueState; issue: Issue } | undefined {
     for (const [rootId, state] of this.state.entries()) {
       const issue = state.issues.find((i) => i.id === issueId);
