@@ -4,9 +4,9 @@
  * Tests the simplified MermaidGenerator that delegates to bd CLI
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MermaidGenerator } from '../src/diagrams/mermaid-generator.js';
-import type { BeadsClient } from '../src/clients/beads-client.js';
+import { describe, it, expect, beforeEach, vi } from 'bun:test';
+import { MermaidGenerator } from '../../src/diagrams/mermaid-generator.js';
+import type { BeadsClient } from '../../src/clients/beads-client.js';
 
 describe('MermaidGenerator', () => {
   let generator: MermaidGenerator;
@@ -34,16 +34,17 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generate('test-repo', 'epic-1');
+      const result = await generator.generate('epic-1');
 
-      expect(mockBeads.getBdCli).toHaveBeenCalledWith('test-repo');
+      expect(mockBeads.getBdCli).toHaveBeenCalled();
       expect(mockBdCli.exec).toHaveBeenCalledWith([
         'dep',
         'tree',
         'epic-1',
         '--format',
         'mermaid',
-        '--reverse'
+        '--direction=up',
+        '--show-all-paths'
       ]);
       expect(result).toContain(mockMermaidOutput);
     });
@@ -56,7 +57,7 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generate('test-repo', 'epic-1');
+      const result = await generator.generate('epic-1');
 
       // Verify init directive with theme variables is present
       expect(result).toContain("%%{init: {");
@@ -74,7 +75,7 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generate('test-repo', 'epic-1');
+      const result = await generator.generate('epic-1');
 
       // Find positions of init directive and flowchart
       const initPos = result.indexOf('%%{init:');
@@ -89,7 +90,7 @@ describe('MermaidGenerator', () => {
     it('should apply max depth when maxNodes is specified', async () => {
       mockBdCli.exec.mockResolvedValue({ stdout: 'flowchart TD\n  node["test"]' });
 
-      await generator.generate('test-repo', 'epic-1', { maxNodes: 10 });
+      await generator.generate('epic-1', { maxNodes: 10 });
 
       expect(mockBdCli.exec).toHaveBeenCalledWith([
         'dep',
@@ -97,7 +98,8 @@ describe('MermaidGenerator', () => {
         'epic-1',
         '--format',
         'mermaid',
-        '--reverse',
+        '--direction=up',
+        '--show-all-paths',
         '--max-depth',
         '2' // log(10) / log(3) ≈ 2.09 -> floor = 2
       ]);
@@ -106,7 +108,7 @@ describe('MermaidGenerator', () => {
     it('should not apply max depth for default maxNodes', async () => {
       mockBdCli.exec.mockResolvedValue({ stdout: 'flowchart TD\n  node["test"]' });
 
-      await generator.generate('test-repo', 'epic-1', { maxNodes: 50 });
+      await generator.generate('epic-1', { maxNodes: 50 });
 
       const callArgs = mockBdCli.exec.mock.calls[0][0];
       expect(callArgs).not.toContain('--max-depth');
@@ -125,7 +127,7 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generateFromTree('test-repo', 'epic-1');
+      const result = await generator.generateFromTree('epic-1');
 
       expect(result.mermaid).toContain(mockMermaidOutput);
       expect(result.nodeCount).toBe(3); // epic-1, task-1, task-2
@@ -139,7 +141,7 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generateFromTree('test-repo', 'epic-1');
+      const result = await generator.generateFromTree('epic-1');
 
       // Verify init directive with theme variables is present
       expect(result.mermaid).toContain("%%{init: {");
@@ -162,7 +164,7 @@ describe('MermaidGenerator', () => {
 
       mockBdCli.exec.mockResolvedValue({ stdout: mockMermaidOutput });
 
-      const result = await generator.generateFromTree('test-repo', 'epic-1');
+      const result = await generator.generateFromTree('epic-1');
 
       expect(result.nodeCount).toBe(5);
     });
