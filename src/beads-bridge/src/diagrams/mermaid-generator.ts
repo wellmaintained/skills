@@ -63,8 +63,8 @@ export class MermaidGenerator {
     // Get the bd CLI instance for this repository
     const bdCli = this.beads['getBdCli'](repository);
 
-    // Build command arguments
-    const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--reverse'];
+     // Build command arguments
+     const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--direction=up', '--show-all-paths'];
 
     // Apply max depth if maxNodes is specified
     if (opts.maxNodes && opts.maxNodes < 50) {

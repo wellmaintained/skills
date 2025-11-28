@@ -200,12 +200,12 @@ export class BdCli {
    *
    * @param issueId - Issue ID to get tree for
    * @param reverse - If true, shows dependents tree (children), otherwise shows dependencies tree
-   * @returns Tree as array of issues with parent_id and depth
+   * @returns Tree as array of issues with parent_id and depth, including all paths for nodes with multiple parents
    */
   async execTreeJson<T = any>(issueId: string, reverse: boolean = true): Promise<T> {
-    const args = ['dep', 'tree', issueId];
+    const args = ['dep', 'tree', issueId, '--show-all-paths'];
     if (reverse) {
-      args.push('--reverse');
+      args.push('--direction=up');
     }
 
     return this.execJson<T>(args);

@@ -158,7 +158,16 @@ export function createServeCommand(): Command {
               target: entry.issue.id,
             }));
 
-          const issues = flattened.map((entry, idx) => ({
+          // Deduplicate issues by ID (with --show-all-paths, same issue may appear multiple times)
+          const issueMap = new Map<string, typeof flattened[0]>();
+          for (const entry of flattened) {
+            if (!issueMap.has(entry.issue.id)) {
+              issueMap.set(entry.issue.id, entry);
+            }
+          }
+          const uniqueIssues = Array.from(issueMap.values());
+
+          const issues = uniqueIssues.map((entry, idx) => ({
             id: entry.issue.id,
             number: idx + 1,
             title: entry.issue.title,
