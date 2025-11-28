@@ -7,8 +7,8 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
 
   {
-    // Ignore patterns
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/client/**'],
+    // Ignore patterns (including generated bundled file)
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/client/**', 'src/server/asset-manager.bundled.ts'],
   },
 
   {

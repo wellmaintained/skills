@@ -161,46 +161,9 @@ dev-bridge-client:
 serve-bridge issue-id="wms-yun" log-level="INFO":
     @bash scripts/serve-bridge-dev.sh {{issue-id}} {{log-level}}
 
-# Full quality check for beads-bridge (lint + type-check + test)
+# Full quality check for beads-bridge (lint + type-check + test) - used by CI
 qa-bridge: lint-bridge type-check-bridge test-bridge
     @echo "✅ Beads-bridge quality checks passed!"
-
-# Test plugin installation script (if it exists)
-test-plugin-install plugin:
-    @echo "🧪 Testing installation for {{plugin}}..."
-    @cd plugins/{{plugin}} && \
-        if [ -f ".claude-plugin/install.sh" ]; then \
-            echo "Running installation script..."; \
-            bash .claude-plugin/install.sh || true; \
-            echo "✅ Installation script executed"; \
-        else \
-            echo "ℹ️  No installation script for {{plugin}}"; \
-        fi
-
-# Build and test a plugin (used by CI)
-test-plugin plugin:
-    @echo "🧪 Building and testing {{plugin}}..."
-    @if [ "{{plugin}}" = "beads-bridge" ] && [ -d "src/beads-bridge" ]; then \
-        cd src/beads-bridge; \
-    elif [ -d "plugins/{{plugin}}/skills/{{plugin}}" ]; then \
-        cd plugins/{{plugin}}/skills/{{plugin}}; \
-    else \
-        echo "⚠️  No build needed for {{plugin}}"; \
-        exit 0; \
-    fi && \
-    if [ -f "package.json" ]; then \
-        echo "Installing dependencies for {{plugin}}..."; \
-        bun install; \
-        echo "Building {{plugin}}..."; \
-        bun run build; \
-        if jq -e '.scripts.test' package.json > /dev/null; then \
-            echo "Running tests for {{plugin}}..."; \
-            bun run test; \
-            echo "✅ Tests completed"; \
-        else \
-            echo "ℹ️  No tests defined for {{plugin}}"; \
-        fi; \
-    fi
 
 # ============================================================================
 # Marketplace Management

@@ -7,8 +7,11 @@ export interface ResolveParams {
   externalRef?: string;
 }
 
+/**
+ * Link to a Beads epic (single-repo mode)
+ * @property epicId - The ID of the epic in the Beads system
+ */
 export interface EpicLink {
-  repository: string;
   epicId: string;
 }
 
@@ -63,17 +66,15 @@ export class ExternalRefResolver {
   }
 
   private async findEpics(externalRef: string): Promise<EpicLink[]> {
-    const repositories = await this.beads.getAllIssues();
+    const issues = await this.beads.getAllIssues();
     const matches: EpicLink[] = [];
 
-    for (const [repositoryName, issues] of repositories.entries()) {
-      const epic = issues.find(
-        issue => issue.issue_type === 'epic' && issue.external_ref === externalRef
-      );
+    const epic = issues.find(
+      (issue) => issue.issue_type === 'epic' && issue.external_ref === externalRef
+    );
 
-      if (epic) {
-        matches.push({ repository: repositoryName, epicId: epic.id });
-      }
+    if (epic) {
+      matches.push({ epicId: epic.id });
     }
 
     return matches;
@@ -83,7 +84,7 @@ export class ExternalRefResolver {
     const aggregate = this.emptyMetrics();
 
     for (const epic of epics) {
-      const status = await this.beads.getEpicStatus(epic.repository, epic.epicId);
+      const status = await this.beads.getEpicStatus(epic.epicId);
       aggregate.total += status.total;
       aggregate.completed += status.completed;
       aggregate.inProgress += status.inProgress;

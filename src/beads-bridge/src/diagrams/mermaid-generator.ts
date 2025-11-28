@@ -42,6 +42,13 @@ const DEFAULT_OPTIONS: Required<MermaidOptions> = {
 };
 
 /**
+ * Average branching factor for dependency trees
+ * Typical beads dependency trees have around 3 children per node
+ * Used to estimate max depth from desired max nodes
+ */
+const AVERAGE_BRANCHING_FACTOR = 3;
+
+/**
  * MermaidGenerator creates visual dependency diagrams using bd CLI
  */
 export class MermaidGenerator {
@@ -54,23 +61,21 @@ export class MermaidGenerator {
    * bd dep tree <issue-id> --format mermaid --reverse
    */
   async generate(
-    repository: string,
     rootIssueId: string,
     options: MermaidOptions = {}
   ): Promise<string> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
-    // Get the bd CLI instance for this repository
-    const bdCli = this.beads['getBdCli'](repository);
+    // Get the bd CLI instance (single repo only)
+    const bdCli = this.beads.getBdCli();
 
      // Build command arguments
      const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--direction=up', '--show-all-paths'];
 
     // Apply max depth if maxNodes is specified
     if (opts.maxNodes && opts.maxNodes < 50) {
-      // Convert maxNodes to a reasonable depth
-      // Assume average branching factor of 3-5
-      const maxDepth = Math.max(1, Math.floor(Math.log(opts.maxNodes) / Math.log(3)));
+      // Convert maxNodes to a reasonable depth using logarithmic estimate
+      const maxDepth = Math.max(1, Math.floor(Math.log(opts.maxNodes) / Math.log(AVERAGE_BRANCHING_FACTOR)));
       args.push('--max-depth', maxDepth.toString());
     }
 
@@ -135,11 +140,10 @@ export class MermaidGenerator {
    * Redirects to generate()
    */
   async generateFromTree(
-    repository: string,
     rootIssueId: string,
     options: MermaidOptions = {}
   ): Promise<{ mermaid: string; nodeCount: number }> {
-    const mermaid = await this.generate(repository, rootIssueId, options);
+    const mermaid = await this.generate(rootIssueId, options);
 
     // Count nodes by counting lines that define nodes
     const nodeCount = (mermaid.match(/^\s+\w+-\w+\[/gm) || []).length;
