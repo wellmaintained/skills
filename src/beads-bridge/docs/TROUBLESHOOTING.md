@@ -2,49 +2,30 @@
 
 Common issues and solutions for beads-bridge.
 
-## Mapping Issues
+## External Reference Issues
 
-### "No mapping found for repository#issue"
+### "No external reference found for repository#issue"
 
-**Problem**: You're trying to query status or sync progress, but no mapping exists linking the GitHub issue/Shortcut story to Beads epics.
+**Problem**: You're trying to query status or sync progress, but no Beads epics have an `external_ref` matching the GitHub issue or Shortcut story.
 
-**Solution**: Create a mapping first:
+**Solution**: Update each relevant epic to include the reference:
 
 ```bash
 # GitHub
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 123 \
-  --epics '[{"repository":"frontend","epicId":"frontend-e99","repositoryPath":"../frontend"}]'
+bd update frontend-e99 --external-ref "github:owner/repo#123"
 
 # Shortcut
-beads-bridge shortcut-mapping create \
-  --story 89216 \
-  --epics '[{"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/path/to/repo"}]'
+bd update pensive-8e2d --external-ref "shortcut:89216"
 ```
 
-### Mapping not persisting
+### External references not sticking
 
-**Problem**: Mappings created but disappear after CLI restart.
+**Problem**: You set `external_ref`, but later runs can't find it.
 
-**Possible causes**:
-1. `.beads-bridge/mappings/` directory not in git
-2. Config file `repositoryPath` is incorrect
-3. Permission issues writing to mappings directory
-
-**Solution**:
-```bash
-# Verify mappings directory exists and is writable
-ls -la .beads-bridge/mappings/
-# Should show github/ or shortcut/ subdirectories
-
-# Check config has correct paths
-cat .beads-bridge/config.json
-
-# Ensure mappings are tracked in git
-git add .beads-bridge/mappings/
-git commit -m "Add beads-bridge mappings"
-```
+**Checklist**:
+1. Run `bd status` in each repository to confirm changes were committed.
+2. Ensure `.beads/issues.jsonl` changes are pushed to the shared branch (e.g., `beads-metadata`).
+3. Verify there isn't a typo in the reference (`github:` vs `shortcut:`).
 
 ## Repository Access
 
@@ -112,7 +93,7 @@ gh api /user
 
 4. **Review CLI output for errors**:
 ```bash
-beads-bridge diagram --repository owner/repo --issue 123 --verbose
+beads-bridge sync <bead-id> --dry-run
 # Look for error messages about API failures
 ```
 
@@ -175,11 +156,11 @@ beads-bridge auth status
 # Verify token permissions via Shortcut web UI:
 # Settings → API Tokens → Check token has "Write" access
 
-# Check story status
-beads-bridge shortcut-status --story 89216
+# Check story status using bd show
+bd show <bead-id> --json | jq '.external_ref'
 
-# Retry with exponential backoff
-beads-bridge sync --repository shortcut --issue 89216 --retry
+# Sync the bead
+beads-bridge sync <bead-id>
 ```
 
 ## Metrics and Velocity
@@ -190,10 +171,10 @@ beads-bridge sync --repository shortcut --issue 89216 --retry
 
 **Verification steps**:
 
-1. **Verify mapping includes all relevant epics**:
+1. **Verify every epic shares the same `external_ref`**:
 ```bash
-beads-bridge mapping get --repository owner/repo --issue 123
-# Should list all epics that contribute to the initiative
+bd list --external-ref "github:owner/repo#123"
+# Should return all epics that contribute to the initiative
 ```
 
 2. **Check epic dependency trees are complete**:
@@ -280,13 +261,13 @@ echo $PATH | grep npm
 **Solution**:
 ```bash
 # Redirect stderr to separate file
-beads-bridge status --repository owner/repo --issue 123 2>error.log
+beads-bridge sync <bead-id> 2>error.log
 
 # Check error.log for underlying issues
 cat error.log
 
 # Validate JSON output
-beads-bridge status --repository owner/repo --issue 123 | jq .
+beads-bridge sync <bead-id> --dry-run | jq .
 # Should parse cleanly, shows where JSON is malformed
 ```
 
@@ -358,7 +339,7 @@ If none of these solutions work:
 
 2. **Capture full command output**:
 ```bash
-beads-bridge status --repository owner/repo --issue 123 --verbose &> debug.txt
+beads-bridge sync <bead-id> --dry-run &> debug.txt
 ```
 
 3. **Check system requirements**:

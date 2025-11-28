@@ -7,7 +7,6 @@
 export * from './core.js';
 export * from './backend.js';
 export * from './beads.js';
-export * from './mapping.js';
 export * from './config.js';
 export * from './decomposition.js';
 export * from './progress.js';

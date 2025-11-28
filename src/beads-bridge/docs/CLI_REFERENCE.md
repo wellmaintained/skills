@@ -2,122 +2,52 @@
 
 Complete command-line interface reference for beads-bridge.
 
-## GitHub Commands
+## Unified Commands
 
-### Status Query
+### Sync
+
+Sync a bead to its external system (GitHub/Shortcut) using the bead's `external_ref`:
 
 ```bash
-# Query status
-beads-bridge status --repository owner/repo --issue 123
+# Sync a bead by ID
+beads-bridge sync <bead-id>
 
-# Query status with blockers
-beads-bridge status --repository owner/repo --issue 123 --blockers
+# Example: Sync epic with external_ref set
+beads-bridge sync wms-123
+
+# Dry run to see what would be synced
+beads-bridge sync wms-123 --dry-run
 ```
 
-### Sync Progress
+The sync command automatically:
+- Reads the bead's `external_ref` field
+- Detects the backend (GitHub or Shortcut)
+- Generates a Mermaid dependency diagram
+- Posts updates to the linked issue/story
+
+### Decompose
+
+Decompose an external issue (GitHub or Shortcut) into Beads epics and tasks:
 
 ```bash
-# Sync progress updates
-beads-bridge sync --repository owner/repo --issue 123
-```
+# Decompose using URL
+beads-bridge decompose https://github.com/owner/repo/issues/123
 
-### Generate Diagrams
-
-```bash
-# Generate diagram (in comment)
-beads-bridge diagram --repository owner/repo --issue 123
-
-# Generate diagram (in description)
-beads-bridge diagram --repository owner/repo --issue 123 --placement description
-```
-
-### Detect Discoveries
-
-```bash
-# Detect scope discoveries
-beads-bridge discoveries --repository owner/repo --issue 123
-```
-
-### Manage Mappings
-
-```bash
-# Get existing mapping
-beads-bridge mapping get --repository owner/repo --issue 456
-
-# Create mapping
-beads-bridge mapping create \
-  --repository owner/repo \
-  --issue 456 \
-  --epics '[
-    {"repository":"frontend","epicId":"frontend-e99","repositoryPath":"../frontend"},
-    {"repository":"backend","epicId":"backend-e42","repositoryPath":"../backend"}
-  ]'
-```
-
-### Force Sync
-
-```bash
-# Force sync all operations
-beads-bridge force-sync --repository owner/repo --issue 123
-
-# Force sync specific operations
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram
-```
-
-### Decompose Issues
-
-```bash
-# Decompose GitHub issue into Beads epics and tasks
-beads-bridge decompose --repository owner/repo --issue 789
+# Decompose using shorthand format
+beads-bridge decompose github:owner/repo#123
+beads-bridge decompose shortcut:12345
 
 # Decompose without posting confirmation comment
-beads-bridge decompose --repository owner/repo --issue 789 --no-comment
+beads-bridge decompose github:owner/repo#123 --no-comment
 
 # Decompose with custom priority for created beads
-beads-bridge decompose --repository owner/repo --issue 789 --priority 1
-
-# Decompose and skip already completed tasks
-beads-bridge decompose --repository owner/repo --issue 789 --skip-completed
+beads-bridge decompose github:owner/repo#123 --priority 1
 ```
 
-## Shortcut Commands
-
-### Status Query
-
-```bash
-# Query status for Shortcut story
-beads-bridge shortcut-status --story 89216
-
-# Query status with blockers
-beads-bridge shortcut-status --story 89216 --blockers
-```
-
-### Manage Mappings
-
-```bash
-# Get existing mapping
-beads-bridge shortcut-mapping get --story 89216
-
-# Create mapping between Shortcut story and Beads epics
-beads-bridge shortcut-mapping create \
-  --story 89216 \
-  --epics '[
-    {"repository":"pensive","epicId":"pensive-8e2d","repositoryPath":"/Users/you/workspace/pensive"}
-  ]'
-```
-
-### Decompose Stories
-
-```bash
-# Decompose Shortcut story into Beads epics and tasks
-beads-bridge shortcut-decompose --story 89216
-
-# Decompose without posting confirmation comment
-beads-bridge shortcut-decompose --story 89216 --no-comment
-
-# Decompose with custom priority for created beads
-beads-bridge shortcut-decompose --story 89216 --priority 1
-```
+The decompose command automatically:
+- Detects the backend from the reference format
+- Creates an epic with `external_ref` set
+- Creates child tasks from the issue/story body
 
 ## Global Options
 
@@ -153,7 +83,7 @@ Exit codes: `0` for success, `1` for failure.
 ## Error Codes
 
 - `VALIDATION_ERROR` - Invalid input parameters
-- `NOT_FOUND` - Mapping or resource doesn't exist
+- `NOT_FOUND` - External reference or resource doesn't exist
 - `EXECUTION_ERROR` - Operation failed during execution
 - `AUTHENTICATION_ERROR` - Not authenticated with backend (run `beads-bridge auth`)
 - `RATE_LIMIT_ERROR` - API rate limit exceeded

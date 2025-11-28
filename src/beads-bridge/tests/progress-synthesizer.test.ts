@@ -1,24 +1,20 @@
-/**
- * Tests for ProgressSynthesizer
- */
-
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { ProgressSynthesizer } from '../src/synthesis/progress-synthesizer.js';
 import type { BeadsClient } from '../src/clients/beads-client.js';
 import type { ProjectManagementBackend } from '../src/types/backend.js';
-import type { MappingStore } from '../src/store/mapping-store.js';
+import type { ExternalRefResolver } from '../src/utils/external-ref-resolver.js';
 import type { BeadsIssue } from '../src/types/beads.js';
-import type { IssueMapping } from '../src/types/mapping.js';
-import type { Issue, Comment } from '../src/types/issue.js';
+import type { Issue, Comment } from '../src/types/core.js';
 
 describe('ProgressSynthesizer', () => {
   let synthesizer: ProgressSynthesizer;
   let mockBeads: Partial<BeadsClient>;
   let mockBackend: Partial<ProjectManagementBackend>;
-  let mockMappings: Partial<MappingStore>;
+  let mockResolver: Partial<ExternalRefResolver>;
 
   const createMockIssue = (overrides: Partial<BeadsIssue> = {}): BeadsIssue => ({
     id: 'test-1',
+    content_hash: 'hash',
     title: 'Test Issue',
     description: '',
     status: 'open',
@@ -26,11 +22,14 @@ describe('ProgressSynthesizer', () => {
     issue_type: 'task',
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
+    labels: [],
     dependencies: [],
     dependents: [],
-    labels: [],
+    notes: '',
+    assignee: undefined,
+    external_ref: undefined,
     ...overrides
-  });
+  } as BeadsIssue);
 
   beforeEach(() => {
     mockBeads = {
@@ -39,18 +38,31 @@ describe('ProgressSynthesizer', () => {
 
     mockBackend = {
       getIssue: mock(),
-      addComment: mock()
+      addComment: mock(),
+      name: 'github'
     };
 
-    mockMappings = {
-      findByGitHubIssue: mock(),
-      update: mock()
+    mockResolver = {
+      resolve: mock().mockResolvedValue({
+        externalRef: 'github:owner/repo#1',
+        epics: [],
+        metrics: {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          blocked: 0,
+          notStarted: 0,
+          percentComplete: 0,
+          blockers: [],
+          discovered: []
+        }
+      })
     };
 
     synthesizer = new ProgressSynthesizer(
       mockBeads as BeadsClient,
       mockBackend as ProjectManagementBackend,
-      mockMappings as MappingStore
+      mockResolver as ExternalRefResolver
     );
   });
 
@@ -82,7 +94,7 @@ describe('ProgressSynthesizer', () => {
       expect(metrics.inProgress).toBe(1);
       expect(metrics.blocked).toBe(1);
       expect(metrics.open).toBe(1);
-      expect(metrics.percentComplete).toBe(40); // 2/5 = 40%
+      expect(metrics.percentComplete).toBe(40);
     });
 
     it('should calculate 100% for all completed', () => {
@@ -148,49 +160,44 @@ describe('ProgressSynthesizer', () => {
   });
 
   describe('getAggregatedProgress', () => {
-    it('should aggregate progress across multiple repos', async () => {
-      const mapping: IssueMapping = {
-        id: 'mapping-1',
-        githubIssue: 'owner/repo#1',
-        githubIssueNumber: 1,
-        githubRepository: 'owner/repo',
-        beadsEpics: [
+    it('aggregates progress using external ref resolver', async () => {
+      (mockResolver.resolve as any).mockResolvedValue({
+        externalRef: 'github:owner/repo#1',
+        epics: [
           { repository: 'repo-1', epicId: 'epic-1' },
           { repository: 'repo-2', epicId: 'epic-2' }
         ],
-        status: 'synced',
-        syncHistory: [],
-        aggregatedMetrics: {
-          totalCompleted: 0,
-          totalInProgress: 0,
-          totalBlocked: 0,
-          totalOpen: 0,
-          percentComplete: 0
+        metrics: {
+          total: 4,
+          completed: 2,
+          inProgress: 1,
+          blocked: 0,
+          notStarted: 1,
+          percentComplete: 50,
+          blockers: [],
+          discovered: []
         }
-      };
-
-      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mapping);
-
-      // Mock epic progress for repo-1
-      (mockBeads.getEpicWithSubtasks as any).mockResolvedValueOnce({
-        epic: createMockIssue({ id: 'epic-1', issue_type: 'epic' }),
-        subtasks: [
-          createMockIssue({ id: 'task-1', status: 'closed' }),
-          createMockIssue({ id: 'task-2', status: 'open' })
-        ]
       });
 
-      // Mock epic progress for repo-2
-      (mockBeads.getEpicWithSubtasks as any).mockResolvedValueOnce({
-        epic: createMockIssue({ id: 'epic-2', issue_type: 'epic' }),
-        subtasks: [
-          createMockIssue({ id: 'task-3', status: 'closed' }),
-          createMockIssue({ id: 'task-4', status: 'in_progress' })
-        ]
-      });
+      (mockBeads.getEpicWithSubtasks as any)
+        .mockResolvedValueOnce({
+          epic: createMockIssue({ id: 'epic-1', issue_type: 'epic' }),
+          subtasks: [
+            createMockIssue({ id: 'task-1', status: 'closed' }),
+            createMockIssue({ id: 'task-2', status: 'open' })
+          ]
+        })
+        .mockResolvedValueOnce({
+          epic: createMockIssue({ id: 'epic-2', issue_type: 'epic' }),
+          subtasks: [
+            createMockIssue({ id: 'task-3', status: 'closed' }),
+            createMockIssue({ id: 'task-4', status: 'in_progress' })
+          ]
+        });
 
       const progress = await synthesizer.getAggregatedProgress('owner/repo', 1);
 
+      expect(mockResolver.resolve).toHaveBeenCalledWith({ repository: 'owner/repo', issueNumber: 1 });
       expect(progress.epics).toHaveLength(2);
       expect(progress.totalMetrics.total).toBe(4);
       expect(progress.totalMetrics.completed).toBe(2);
@@ -334,25 +341,21 @@ describe('ProgressSynthesizer', () => {
   });
 
   describe('updateGitHubProgress', () => {
-    it('should update GitHub issue with progress', async () => {
-      const mapping: IssueMapping = {
-        id: 'mapping-1',
-        githubIssue: 'owner/repo#1',
-        githubIssueNumber: 1,
-        githubRepository: 'owner/repo',
-        beadsEpics: [
-          { repository: 'repo-1', epicId: 'epic-1' }
-        ],
-        status: 'synced',
-        syncHistory: [],
-        aggregatedMetrics: {
-          totalCompleted: 0,
-          totalInProgress: 0,
-          totalBlocked: 0,
-          totalOpen: 0,
-          percentComplete: 0
+    it('updates GitHub issue using resolver epics', async () => {
+      (mockResolver.resolve as any).mockResolvedValue({
+        externalRef: 'github:owner/repo#1',
+        epics: [{ repository: 'repo-1', epicId: 'epic-1' }],
+        metrics: {
+          total: 2,
+          completed: 1,
+          inProgress: 0,
+          blocked: 0,
+          notStarted: 1,
+          percentComplete: 50,
+          blockers: [],
+          discovered: []
         }
-      };
+      });
 
       const issue: Issue = {
         id: 'issue-1',
@@ -364,7 +367,8 @@ describe('ProgressSynthesizer', () => {
         createdAt: new Date('2025-01-01'),
         updatedAt: new Date('2025-01-01'),
         labels: [],
-        assignees: []
+        assignees: [],
+        metadata: {}
       };
 
       const comment: Comment = {
@@ -381,7 +385,6 @@ describe('ProgressSynthesizer', () => {
         url: 'https://github.com/owner/repo/issues/1#comment-1'
       };
 
-      (mockMappings.findByGitHubIssue as any).mockResolvedValue(mapping);
       (mockBeads.getEpicWithSubtasks as any).mockResolvedValue({
         epic: createMockIssue({ id: 'epic-1', issue_type: 'epic' }),
         subtasks: [
@@ -391,14 +394,13 @@ describe('ProgressSynthesizer', () => {
       });
       (mockBackend.getIssue as any).mockResolvedValue(issue);
       (mockBackend.addComment as any).mockResolvedValue(comment);
-      (mockMappings.update as any).mockResolvedValue(mapping);
 
       const result = await synthesizer.updateGitHubProgress('owner/repo', 1);
 
       expect(result.success).toBe(true);
       expect(result.commentUrl).toBe(comment.url);
-      expect(result.fieldsUpdated).toContain('aggregatedMetrics');
-      expect(mockMappings.update).toHaveBeenCalled();
+      expect(mockBackend.addComment).toHaveBeenCalled();
+      expect(mockResolver.resolve).toHaveBeenCalled();
     });
   });
 });

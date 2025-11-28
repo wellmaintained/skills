@@ -36,7 +36,6 @@ Works with both **GitHub Issues/Projects** and **Shortcut Stories**:
 5. **Manage Mappings** - Create/query links between issues/stories and Beads epics
 6. **Interactive Visualization** - Serve interactive web dashboard for beads exploration
 7. **Decompose** - Convert issue/story task lists into Beads epics and tasks
-8. **Force Sync** - Immediate synchronization of multiple operations
 
 ### Use Cases
 
@@ -73,53 +72,20 @@ beads-bridge --version
 
 If this fails, show the installation message above and stop.
 
-### GitHub Commands
+### Unified Commands
 
 All commands should be run from the project root directory:
 
 ```bash
-# Get status for a GitHub issue
-beads-bridge status --repository owner/repo --issue 123
+# Sync a bead to its external system (GitHub/Shortcut)
+beads-bridge sync <bead-id>
 
-# Sync progress to GitHub
-beads-bridge sync --repository owner/repo --issue 123
-
-# Generate dependency diagram
-beads-bridge diagram --repository owner/repo --issue 123
-
-# Detect new discoveries
-beads-bridge discover --repository owner/repo --issue 123
-
-# Create mapping between GitHub issue and Beads epics
-beads-bridge mapping create -r owner/repo -i 123 -e '[{"repository":"repo-name","epicId":"epic-id","repositoryPath":"/path/to/repo"}]'
-
-# Query existing mapping
-beads-bridge mapping query -r owner/repo -i 123
-
-# Decompose GitHub issue task list into Beads epics
-beads-bridge decompose --repository owner/repo --issue 123
-
-# Force sync multiple operations
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram,discovery
-```
-
-### Shortcut Commands
-
-```bash
-# Get status for a Shortcut story
-beads-bridge shortcut-status --story 89216
-
-# Sync progress to Shortcut
-beads-bridge shortcut-sync --story 89216
-
-# Create mapping between Shortcut story and Beads epics
-beads-bridge shortcut-mapping create -s 89216 -e '[{"repository":"repo-name","epicId":"epic-id","repositoryPath":"/path/to/repo"}]'
-
-# Query existing mapping
-beads-bridge shortcut-mapping query -s 89216
-
-# Decompose Shortcut story task list into Beads epics
-beads-bridge shortcut-decompose --story 89216
+# Decompose an external issue into Beads epics and tasks
+beads-bridge decompose <ref>
+# Examples:
+beads-bridge decompose https://github.com/owner/repo/issues/123
+beads-bridge decompose github:owner/repo#123
+beads-bridge decompose shortcut:89216
 ```
 
 ### Interactive Visualization
@@ -142,73 +108,52 @@ This starts a local web server (typically at http://localhost:3000) showing:
 
 When user requests a beads-bridge operation, use the corresponding CLI command:
 
-### 1. Query Status
+### 1. Sync Progress
 
 ```bash
-# For GitHub
-beads-bridge status --repository owner/repo --issue 123 [--include-blockers]
+# Sync a bead by ID (uses external_ref from the bead)
+beads-bridge sync <bead-id>
 
-# For Shortcut
-beads-bridge shortcut-status --story 89216 [--include-blockers]
+# Example:
+beads-bridge sync wms-123
+
+# Dry run to see what would be synced
+beads-bridge sync wms-123 --dry-run
 ```
 
-Parse the JSON output and present key information to the user:
-- Overall completion percentage
-- Number of tasks completed/remaining
-- Epic status breakdown
-- Blockers (if requested)
-
-### 2. Sync Progress
-
-```bash
-# For GitHub
-beads-bridge sync --repository owner/repo --issue 123
-
-# For Shortcut
-beads-bridge shortcut-sync --story 89216
-```
+The sync command automatically:
+- Reads the bead's `external_ref` field
+- Detects the backend (GitHub or Shortcut)
+- Generates a Mermaid dependency diagram
+- Posts updates to the linked issue/story
 
 Confirm to user that progress was synced successfully.
 
-### 3. Generate Diagrams
+### 2. Decompose Issues
 
 ```bash
-# For GitHub
-beads-bridge diagram --repository owner/repo --issue 123 [--placement comment|description]
+# Decompose using URL
+beads-bridge decompose https://github.com/owner/repo/issues/123
 
-# For Shortcut
-beads-bridge shortcut-diagram --story 89216 [--placement comment|description]
+# Decompose using shorthand format
+beads-bridge decompose github:owner/repo#123
+beads-bridge decompose shortcut:89216
+
+# Decompose without posting confirmation comment
+beads-bridge decompose github:owner/repo#123 --no-comment
+
+# Decompose with custom priority for created beads
+beads-bridge decompose github:owner/repo#123 --priority 1
 ```
 
-Inform user where the diagram was posted (comment or description).
+The decompose command automatically:
+- Detects the backend from the reference format
+- Creates an epic with `external_ref` set
+- Creates child tasks from the issue/story body
 
-### 4. Detect Discoveries
+Confirm that task lists were decomposed into Beads epics and tasks.
 
-```bash
-beads-bridge discover --repository owner/repo --issue 123
-```
-
-Present any newly discovered work to the user, including:
-- New tasks/epics found
-- Discovered dependencies
-- Scope changes
-
-### 5. Manage Mappings
-
-**Create mapping:**
-```bash
-beads-bridge mapping create -r owner/repo -i 123 -e '[
-  {"repository":"frontend","epicId":"fe-e42","repositoryPath":"/path/to/frontend"},
-  {"repository":"backend","epicId":"be-e15","repositoryPath":"/path/to/backend"}
-]'
-```
-
-**Query mapping:**
-```bash
-beads-bridge mapping query -r owner/repo -i 123
-```
-
-### 6. Interactive Visualization
+### 3. Interactive Visualization
 
 ```bash
 beads-bridge serve wms-123
@@ -216,25 +161,6 @@ beads-bridge serve wms-123
 
 Inform user that the server is starting and provide the URL to access the visualization.
 
-### 7. Decompose
-
-```bash
-# For GitHub
-beads-bridge decompose --repository owner/repo --issue 123
-
-# For Shortcut
-beads-bridge shortcut-decompose --story 89216
-```
-
-Confirm that task lists were decomposed into Beads epics and tasks.
-
-### 8. Force Sync
-
-```bash
-beads-bridge force-sync --repository owner/repo --issue 123 --operations progress,diagram,discovery
-```
-
-Confirm all requested operations completed successfully.
 
 ## Error Handling
 
@@ -251,15 +177,15 @@ Always provide helpful guidance based on the error message from the CLI.
 
 ### For Product Managers
 
-1. **Create mappings early** - Link GitHub Issues to Beads epics at initiative start
+1. **Set external_ref early** - Link GitHub Issues or Shortcut stories when creating epics
 2. **Review discoveries weekly** - Check `discover` output during standups
 3. **Use interactive visualization** - Run `beads-bridge serve` for visual progress tracking
 
 ### For Tech Leads
 
-1. **Keep diagrams current** - Run `diagram` after major scope changes
-2. **Track blockers actively** - Use `status --include-blockers`
-3. **Verify cross-repo deps** - Discovery detector flags missing coordination
+1. **Keep diagrams current** - Run `sync` after major scope changes to update diagrams
+2. **Track blockers actively** - Use `bd show <bead-id>` to check status
+3. **Verify cross-repo deps** - Use `bd dep tree` to verify dependencies
 
 ### For Engineering Teams
 

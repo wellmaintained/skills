@@ -369,15 +369,9 @@ bd dep add backend-e15 related:frontend-e42 --json
 ### Use Beads-Bridge for Coordination
 
 ```bash
-# Create mapping to GitHub issue
-beads-bridge mapping create \
-  -r owner/repo \
-  -i 123 \
-  -e '[
-    {"repository":"frontend","epicId":"frontend-e42","repositoryPath":"/path/to/frontend"},
-    {"repository":"backend","epicId":"backend-e15","repositoryPath":"/path/to/backend"}
-  ]' \
-  --json
+# Link epics to GitHub issue via external_ref
+bd update frontend-e42 --external-ref "github:owner/repo#123"
+bd update backend-e15 --external-ref "github:owner/repo#123"
 ```
 
 ### Sync Status to GitHub

@@ -58,116 +58,10 @@ async function executeCapability(
 }
 
 // ============================================================================
-// Status Command
-// ============================================================================
-
-program
-  .command('status')
-  .description('Query aggregated status across GitHub Issue and Beads epics')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('query_status', context, program.opts());
-    });
-  });
-
-// ============================================================================
 // Sync Command
 // ============================================================================
 
 program.addCommand(createSyncCommand());
-
-// ============================================================================
-// Diagram Command
-// ============================================================================
-
-program
-  .command('diagram')
-  .description('Generate and place Mermaid dependency diagram')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option('-p, --placement <mode>', 'where to place diagram (description|comment)', 'comment')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        placement: options.placement as 'description' | 'comment'
-      };
-      await executeCapability('generate_diagrams', context, program.opts());
-    });
-  });
-
-// ============================================================================
-// Mapping Commands
-// ============================================================================
-
-const mapping = program
-  .command('mapping')
-  .description('Manage mappings between GitHub Issues and Beads epics');
-
-mapping
-  .command('get')
-  .description('Get existing mapping for GitHub Issue')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        action: 'get'
-      };
-      await executeCapability('manage_mappings', context, program.opts());
-    });
-  });
-
-mapping
-  .command('create')
-  .description('Create mapping linking GitHub Issue to Beads epics')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .requiredOption('-e, --epics <json>', 'JSON array of epic definitions')
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      let epicIds;
-      try {
-        epicIds = JSON.parse(options.epics);
-      } catch (error) {
-        console.error(JSON.stringify({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: `Invalid JSON for --epics: ${(error as Error).message}`
-          }
-        }, null, 2));
-        process.exit(1);
-      }
-
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        action: 'create',
-        epicIds
-      };
-      await executeCapability('manage_mappings', context, program.opts());
-    });
-  });
 
 // ============================================================================
 // Decompose Command (Unified)
@@ -204,35 +98,6 @@ program
         defaultPriority: parseInt(options.priority)
       };
       await executeCapability('decompose', context, program.opts());
-    });
-  });
-
-// ============================================================================
-// Force Sync Command
-// ============================================================================
-
-program
-  .command('force-sync')
-  .description('Force immediate sync of multiple operations')
-  .requiredOption('-r, --repository <owner/repo>', 'GitHub repository')
-  .requiredOption('-i, --issue <number>', 'GitHub issue number')
-  .option(
-    '-o, --operations <ops>',
-    'comma-separated operations (progress,diagram)',
-    'progress,diagram'
-  )
-  .action(async (options) => {
-    const backend = await getBackendFromConfig(program.opts().config);
-
-    await withAuth(backend, async () => {
-      const operations = options.operations.split(',').map((s: string) => s.trim());
-
-      const context: SkillContext = {
-        repository: options.repository,
-        issueNumber: parseInt(options.issue),
-        operations
-      };
-      await executeCapability('force_sync', context, program.opts());
     });
   });
 
@@ -462,7 +327,7 @@ program
       console.log(`   Repository: ${dirName} (${currentDir})`);
       console.log(`\nNext steps:`);
       console.log(`1. Authenticate: beads-bridge auth ${options.backend}`);
-      console.log(`2. Test status:   beads-bridge status -r ${repository} -i 1`);
+      console.log(`2. Test sync:    beads-bridge sync <bead-id>`);
       console.log(`\nConfig location: ${path.resolve(configPath)}`);
 
       process.exit(0);
@@ -470,149 +335,6 @@ program
       console.error(`Error: ${(error as Error).message}`);
       process.exit(1);
     }
-  });
-
-// ============================================================================
-// Shortcut Commands
-// ============================================================================
-
-program
-  .command('shortcut-status')
-  .description('Query aggregated status for Shortcut story and Beads epics')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',  // Use 'shortcut' as identifier
-        issueNumber: parseInt(options.story),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('query_status', context, program.opts(), 'shortcut');
-    });
-  });
-
-// Shortcut mapping commands
-const shortcutMapping = program
-  .command('shortcut-mapping')
-  .description('Manage mappings between Shortcut stories and Beads epics');
-
-shortcutMapping
-  .command('get')
-  .description('Get existing mapping for Shortcut story')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        action: 'get'
-      };
-      await executeCapability('manage_mappings', context, program.opts(), 'shortcut');
-    });
-  });
-
-shortcutMapping
-  .command('create')
-  .description('Create mapping linking Shortcut story to Beads epics')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .requiredOption('-e, --epics <json>', 'JSON array of epic definitions')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      let epicIds;
-      try {
-        epicIds = JSON.parse(options.epics);
-      } catch (error) {
-        console.error(JSON.stringify({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: `Invalid JSON for --epics: ${(error as Error).message}`
-          }
-        }, null, 2));
-        process.exit(1);
-      }
-
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        action: 'create',
-        epicIds
-      };
-      await executeCapability('manage_mappings', context, program.opts(), 'shortcut');
-    });
-  });
-
-// ============================================================================
-// Shortcut Sync Command
-// ============================================================================
-
-program
-  .command('shortcut-sync')
-  .description('Post progress update to Shortcut story')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('-b, --blockers', 'include blocker details', false)
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        includeBlockers: options.blockers
-      };
-      await executeCapability('sync_progress', context, program.opts(), 'shortcut');
-    });
-  });
-
-// ============================================================================
-// Shortcut Force Sync Command
-// ============================================================================
-
-program
-  .command('shortcut-force-sync')
-  .description('Force immediate sync of multiple operations for Shortcut story')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option(
-    '-o, --operations <ops>',
-    'comma-separated operations (progress,diagram)',
-    'progress,diagram'
-  )
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const operations = options.operations.split(',').map((s: string) => s.trim());
-
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        operations
-      };
-      await executeCapability('force_sync', context, program.opts(), 'shortcut');
-    });
-  });
-
-// ============================================================================
-// Shortcut Diagram Command
-// ============================================================================
-
-program
-  .command('shortcut-diagram')
-  .description('Generate and place Mermaid dependency diagram for Shortcut story')
-  .requiredOption('-s, --story <id>', 'Shortcut story ID')
-  .option('-p, --placement <mode>', 'where to place diagram (description|comment)', 'comment')
-  .action(async (options) => {
-    // Shortcut commands always use 'shortcut' backend
-    await withAuth('shortcut', async () => {
-      const context: SkillContext = {
-        repository: 'shortcut',
-        issueNumber: parseInt(options.story),
-        placement: options.placement as 'description' | 'comment'
-      };
-      await executeCapability('generate_diagrams', context, program.opts(), 'shortcut');
-    });
   });
 
 // ============================================================================

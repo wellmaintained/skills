@@ -1,18 +1,14 @@
 import type { CapabilityHandler } from './types.js';
 import type { SkillContext, SkillResult } from '../types/skill.js';
 import type { ProgressSynthesizer } from '../synthesis/progress-synthesizer.js';
-import type { ShortcutSyncOrchestrator } from '../orchestration/shortcut-sync-orchestrator.js';
-import type { ProjectManagementBackend } from '../types/backend.js';
 
 export class ProgressSyncHandler implements CapabilityHandler {
   constructor(
-    private readonly backend: ProjectManagementBackend,
-    private readonly progressSynthesizer: ProgressSynthesizer,
-    private readonly shortcutSyncOrchestrator?: ShortcutSyncOrchestrator
+    private readonly progressSynthesizer: ProgressSynthesizer
   ) {}
 
   async execute(context: SkillContext): Promise<SkillResult> {
-    const { repository, issueNumber, includeBlockers = true, userNarrative } = context;
+    const { repository, issueNumber, includeBlockers = true } = context;
 
     if (!repository || !issueNumber) {
       return {
@@ -24,28 +20,7 @@ export class ProgressSyncHandler implements CapabilityHandler {
       };
     }
 
-    // Route to ShortcutSyncOrchestrator for Shortcut backend
-    if (this.backend.name === 'shortcut' && this.shortcutSyncOrchestrator) {
-      const syncResult = await this.shortcutSyncOrchestrator.syncStory(
-        issueNumber,
-        { userNarrative }
-      );
-
-      return {
-        success: syncResult.success,
-        data: syncResult.success ? {
-          storyUrl: syncResult.storyUrl,
-          commentUrl: syncResult.commentUrl,
-          syncedAt: syncResult.syncedAt
-        } : undefined,
-        error: syncResult.error ? {
-          code: 'SYNC_ERROR',
-          message: syncResult.error
-        } : undefined
-      };
-    }
-
-    // Fall back to ProgressSynthesizer for GitHub backend
+    // Run progress synthesizer for both GitHub and Shortcut backends
     const result = await this.progressSynthesizer.updateIssueProgress(
       repository,
       issueNumber,
