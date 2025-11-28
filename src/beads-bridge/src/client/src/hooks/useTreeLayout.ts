@@ -1,10 +1,24 @@
 import { useMemo } from 'react';
 import dagre from 'dagre';
 import type { Edge, Node } from 'reactflow';
-import type { DashboardEdge, DashboardIssue } from '../types';
+import type { DashboardEdge, DashboardIssue, BeadsDependencyType } from '../types';
 
 const NODE_WIDTH = 260;
 const NODE_HEIGHT = 150;
+
+function getEdgeStyle(type?: BeadsDependencyType): Partial<Edge> {
+  switch (type) {
+    case 'blocks':
+      return { style: { stroke: '#ef4444', strokeWidth: 2 }, animated: true }; // Red, animated
+    case 'related':
+      return { style: { stroke: '#6b7280', strokeDasharray: '5,5' } }; // Gray dashed
+    case 'discovered-from':
+      return { style: { stroke: '#f59e0b', strokeDasharray: '3,3' } }; // Orange dotted
+    case 'parent-child':
+    default:
+      return { style: { stroke: '#3b82f6' } }; // Blue solid
+  }
+}
 
 export interface IssueNodeData {
   issue: DashboardIssue;
@@ -89,6 +103,7 @@ export function useTreeLayout(
       source: edge.source,
       target: edge.target,
       type: 'smoothstep',
+      ...getEdgeStyle(edge.type),
     }));
 
     return { nodes: reactFlowNodes, edges: reactFlowEdges, childrenMap };

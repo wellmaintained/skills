@@ -10,6 +10,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import NodeCard, { type IssueNodeComponentData } from './NodeCard';
+import { EdgeLegend } from './EdgeLegend';
 import { ClientLogger } from '../utils/logger';
 
 const nodeTypes = {
@@ -237,6 +238,7 @@ function CanvasInner({ nodes, edges, onRegisterFit, onDropReparent }: CanvasProp
         <Background gap={24} size={1} color="#CBD5F5" />
         <Controls showInteractive={false} />
       </ReactFlow>
+      <EdgeLegend />
     </div>
   );
 }
