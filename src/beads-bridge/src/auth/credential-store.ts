@@ -33,11 +33,13 @@ export class CredentialStore {
   private readonly filePath: string;
   private readonly algorithm = 'aes-256-gcm';
 
-  constructor(filePath?: string) {
+  constructor(filePath?: string, options?: { skipValidation?: boolean }) {
     const resolvedPath = filePath || process.env.CREDENTIAL_STORE_PATH || join(homedir(), '.config', 'beads-bridge', 'credentials.json');
 
-    // Validate that the path is not within a plugin directory
-    this.validateCredentialPath(resolvedPath);
+    // Validate that the path is not within a plugin directory (unless explicitly skipped for tests)
+    if (!options?.skipValidation) {
+      this.validateCredentialPath(resolvedPath);
+    }
 
     this.filePath = resolvedPath;
   }
