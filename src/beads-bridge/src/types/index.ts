@@ -12,5 +12,4 @@ export * from './progress.js';
 export * from './diagram.js';
 export * from './placement.js';
 export * from './errors.js';
-export * from './skill.js';
 export * from './sync.js';
