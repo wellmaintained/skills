@@ -6,7 +6,7 @@ import { PollingService } from '../../server/polling-service.js';
 import { BeadsClient } from '../../clients/beads-client.js';
 import type { DependencyTreeNode, BeadsIssue } from '../../types/beads.js';
 import { execBdCommand } from '../../utils/bd-cli.js';
-import { ConfigManager } from '../../config/config-manager.js';
+import { detectRepository, extractPrefixFromIssues } from '../../utils/repo-detector.js';
 import { open } from '../../utils/open-browser.js';
 import { Logger, type LogLevel } from '../../monitoring/logger.js';
 
@@ -86,18 +86,19 @@ export function createServeCommand(): Command {
           process.exit(1);
         }
 
-        // Load config with auto-detection
-        const configManager = await ConfigManager.load(process.env.BEADS_GITHUB_CONFIG || '.beads-bridge/config.json');
-        const repositoryPath = configManager.getRepositoryPath();
-
-        if (!repositoryPath) {
-          logger.error('Could not detect beads repository. Run from a directory with .beads/ or configure repository.path in config.json');
+        // Auto-detect repository from current directory
+        const detected = detectRepository();
+        if (!detected) {
+          logger.error('Could not detect beads repository. Run from a directory with .beads/');
           process.exit(1);
         }
 
+        const repositoryPath = detected.path;
+        const prefix = extractPrefixFromIssues(repositoryPath);
+
         const beadsClient = new BeadsClient({
           repositoryPath,
-          prefix: configManager.getPrefix(),
+          prefix,
           logger: baseLogger
         });
 
