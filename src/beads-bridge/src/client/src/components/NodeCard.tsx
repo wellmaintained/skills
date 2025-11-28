@@ -145,8 +145,8 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           <p className="text-base font-bold text-slate-900">{issue.title}</p>
         </div>
 
-        {/* Bottom Footer Pill - Protruding */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
+        {/* Right Side Pill - Protruding */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
           <div className={clsx(
             "flex items-center rounded-md bg-slate-50 border border-slate-200 px-1.5 py-0.5 shadow-md",
             childCount > 0 ? "gap-1.5" : ""
