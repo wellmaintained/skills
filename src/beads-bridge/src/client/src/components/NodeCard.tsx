@@ -37,13 +37,13 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
 
   return (
     <div className="relative w-64 cursor-default overflow-visible">
-      <Handle type="target" position={Position.Top} className="!h-3 !w-3 !bg-slate-400" />
-      <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !bg-slate-400" />
+      <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
+      <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />
 
-      {/* Top Drag Handle - Protruding */}
+      {/* Left Drag Handle - Overlapping card edge slightly */}
       <div
         data-handleid="drag-handle"
-        className="drag-handle absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-slate-500 shadow-md transition hover:border-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-grab active:cursor-grabbing select-none"
+        className="drag-handle absolute left-0 top-1/2 -translate-x-3/4 -translate-y-1/2 z-10 flex items-center justify-center rounded border border-slate-300 bg-slate-100 px-1.5 py-1.5 text-slate-500 shadow-md transition hover:border-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-grab active:cursor-grabbing select-none"
         title="Drag to reparent"
         draggable={false}
       >
@@ -145,20 +145,20 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           <p className="text-base font-bold text-slate-900">{issue.title}</p>
         </div>
 
-        {/* Bottom Footer Pill - Protruding */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
+        {/* Right Side Pill - Overlapping card edge slightly */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3/4 z-10">
           <div className={clsx(
-            "flex items-center rounded-md bg-slate-50 border border-slate-200 px-1.5 py-0.5 shadow-md",
+            "flex items-center rounded bg-slate-50 border border-slate-200 px-1.5 py-1.5 shadow-md",
             childCount > 0 ? "gap-1.5" : ""
           )}>
           {childCount > 0 && (
             <>
               <button
-                className="flex items-center gap-1 text-[10px] font-medium text-slate-600 hover:text-slate-900 transition whitespace-nowrap"
+                className="flex items-center gap-1 text-[10px] font-medium text-slate-600 hover:text-slate-900 transition"
                 onClick={() => onToggleCollapse(issue.id)}
               >
                 <span>{isCollapsed ? '▶' : '▼'}</span>
-                <span className="whitespace-nowrap">subtasks ({childCount})</span>
+                <span>({childCount})</span>
               </button>
               <span className="text-slate-300 text-[10px]">|</span>
             </>

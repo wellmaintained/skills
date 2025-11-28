@@ -83,4 +83,50 @@ describe('ExpressServer API', () => {
       expect(response.type).toBe('image/x-icon');
     }
   });
+
+  it('redirects root to first issue when state exists', async () => {
+    backend.updateState('test-1', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [{ id: 'test-1', title: 'Test', number: 1, body: '', state: 'open', url: '', labels: [] } as any],
+      edges: [],
+      rootId: 'test-1',
+      lastUpdate: new Date(),
+    });
+
+    const response = await request(server.getExpressApp()).get('/');
+
+    expect(response.status).toBe(302);
+    expect(response.header.location).toBe('/issue/test-1');
+  });
+
+  it('returns 503 with auto-refresh when no root issue exists', async () => {
+    const response = await request(server.getExpressApp()).get('/');
+
+    expect(response.status).toBe(503);
+    expect(response.text).toContain('meta http-equiv="refresh"');
+    expect(response.text).toContain('Server initializing');
+  });
+
+  it('redirects to first state when multiple states exist', async () => {
+    backend.updateState('root-1', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [],
+      edges: [],
+      rootId: 'root-1',
+      lastUpdate: new Date(),
+    });
+
+    backend.updateState('root-2', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [],
+      edges: [],
+      rootId: 'root-2',
+      lastUpdate: new Date(),
+    });
+
+    const response = await request(server.getExpressApp()).get('/');
+
+    expect(response.status).toBe(302);
+    expect(response.header.location).toBe('/issue/root-1');
+  });
 });

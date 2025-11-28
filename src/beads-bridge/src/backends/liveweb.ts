@@ -93,6 +93,15 @@ export class LiveWebBackend implements ProjectManagementBackend {
     return this.state.get(issueId);
   }
 
+  getRootIssueId(): string | undefined {
+    // Return the first (and typically only) root issue ID.
+    // Note: The serve command is designed to serve a single issue tree per instance,
+    // so this state Map will only contain one entry in normal operation.
+    // Multi-root support would require architectural changes to the serve command.
+    const keys = Array.from(this.state.keys());
+    return keys.length > 0 ? keys[0] : undefined;
+  }
+
   private findIssueEntry(issueId: string): { rootId: string; state: IssueState; issue: Issue } | undefined {
     for (const [rootId, state] of this.state.entries()) {
       const issue = state.issues.find((i) => i.id === issueId);

@@ -86,8 +86,19 @@ export class DependencyTreeBuilder {
 
       const buildNode = (issue: BeadsIssue, depth: number): DependencyTreeNode => {
         const children = childrenMap.get(issue.id) || [];
-        // Sort children by ID for stability
-        children.sort((a, b) => a.id.localeCompare(b.id));
+        // Sort children: completed first (left), then by ID for stability
+        children.sort((a, b) => {
+          // Closed status comes first (will appear on left)
+          const aIsClosed = (a.status ?? 'open') === 'closed' ? 0 : 1;
+          const bIsClosed = (b.status ?? 'open') === 'closed' ? 0 : 1;
+
+          if (aIsClosed !== bIsClosed) {
+            return aIsClosed - bIsClosed;
+          }
+
+          // Within same status, sort by ID for stability
+          return a.id.localeCompare(b.id);
+        });
 
         const dependencyNodes = children.map(child => buildNode(child, depth + 1));
 

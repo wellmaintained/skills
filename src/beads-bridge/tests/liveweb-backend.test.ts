@@ -238,4 +238,47 @@ describe('LiveWebBackend', () => {
       'parent-child',
     ]);
   });
+
+  it('should return first root issue ID', () => {
+    const backend = new LiveWebBackend();
+
+    backend.updateState('root-1', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [],
+      edges: [],
+      rootId: 'root-1',
+      lastUpdate: new Date(),
+    });
+
+    expect(backend.getRootIssueId()).toBe('root-1');
+  });
+
+  it('should return undefined when no state exists', () => {
+    const backend = new LiveWebBackend();
+
+    expect(backend.getRootIssueId()).toBeUndefined();
+  });
+
+  it('should return first issue ID when multiple states exist', () => {
+    const backend = new LiveWebBackend();
+
+    backend.updateState('root-1', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [],
+      edges: [],
+      rootId: 'root-1',
+      lastUpdate: new Date(),
+    });
+
+    backend.updateState('root-2', {
+      metrics: { total: 1, completed: 0, inProgress: 0, blocked: 0, open: 1 },
+      issues: [],
+      edges: [],
+      rootId: 'root-2',
+      lastUpdate: new Date(),
+    });
+
+    // Should return first key (note: Map iteration order is insertion order)
+    expect(backend.getRootIssueId()).toBe('root-1');
+  });
 });

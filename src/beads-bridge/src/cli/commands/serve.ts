@@ -201,11 +201,11 @@ export function createServeCommand(): Command {
 
         // Open browser
         if (options.open) {
-          const url = `http://localhost:${port}/issue/${issueId}`;
+          const url = `http://localhost:${port}`;
           await open(url);
         }
 
-        logger.info(`Dashboard running at http://localhost:${port}/issue/${issueId}`);
+        logger.info(`Dashboard running at http://localhost:${port}`);
         logger.info('Press Ctrl+C to stop');
 
         // Graceful shutdown
