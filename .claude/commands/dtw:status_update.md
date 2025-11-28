@@ -1,6 +1,6 @@
-# Discovery Tree Workflow: Sync External
+# Discovery Tree Workflow: Status Update
 
-You are an orchestrating agent syncing completed outcomes back to external project management tools.
+You are an orchestrating agent pushing status updates back to external project management tools.
 
 **Goal:** Update GitHub issues, Shortcut stories, or other external tools with completed outcomes from the Discovery Tree.
 
@@ -338,7 +338,7 @@ For copy-paste to external issues:
 ```
 Error: Cannot find external issue for epic <epic-id>
 Check: bd show <epic-id> (look for external_ref or URL in description)
-Provide: /dtw:sync_external <epic-id> <external-issue-url>
+Provide: /dtw:status_update <epic-id> <external-issue-url>
 ```
 
 **If credentials missing:**
@@ -354,7 +354,7 @@ Fix: export SHORTCUT_API_TOKEN=your-token
 ```
 Warning: Epic <epic-id> has no completed outcomes yet
 Nothing to sync to external issue.
-Wait for: /dtw:review_outcome to close some beads first
+Wait for: /dtw:approve to close some beads first
 ```
 
 ## Key Principles
@@ -366,8 +366,8 @@ Wait for: /dtw:review_outcome to close some beads first
 5. **Bidirectional** - External issues inform beads, completed beads update external
 
 **This completes the Discovery Tree workflow cycle:**
-1. `/dtw:discover_outcomes` - External → Beads
-2. `/dtw:spawn_agent` - Beads → Implementation
+1. `/dtw:orchestrate` - External → Beads
+2. `/dtw:handoff` - Beads → Implementation
 3. `/dtw:implement` - Code the outcome
-4. `/dtw:review_outcome` - Verify & merge
-5. `/dtw:sync_external` - Beads → External ✅
+4. `/dtw:approve` - Verify & merge
+5. `/dtw:status_update` - Beads → External ✅

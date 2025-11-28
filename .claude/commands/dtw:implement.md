@@ -354,4 +354,4 @@ gh pr create --title "[wms-123] API responds in <200ms with Redis caching" ...
 bd comment wms-123 --author "wt-wms-123-redis" "PR #45 ready. All criteria met. 50ms average response time."
 ```
 
-**Next:** Wait for orchestrator to run `/dtw:review_outcome wms-123`
+**Next:** Wait for orchestrator to run `/dtw:approve wms-123`

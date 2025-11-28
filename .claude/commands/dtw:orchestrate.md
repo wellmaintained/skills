@@ -1,6 +1,6 @@
-# Discovery Tree Workflow: Discover Outcomes
+# Discovery Tree Workflow: Orchestrate
 
-You are an orchestrating agent helping to discover outcomes from an external issue.
+You are an orchestrating agent helping to discover and plan outcomes from an external issue.
 
 **Goal:** Transform an external issue (GitHub, Shortcut, etc.) into a Discovery Tree of outcome-focused beads.
 
@@ -114,7 +114,7 @@ bd ready
 - What epic was created
 - What outcome beads are ready to implement
 - Which bead(s) to start with
-- How to spawn agents: `/dtw:spawn_agent <bead-id>`
+- How to hand off to agents: `/dtw:handoff <bead-id>`
 
 ## Key Principles
 
@@ -154,4 +154,4 @@ Each bead has:
 - Add rich context and acceptance criteria
 - Link everything properly (parent-child relationships)
 
-**Next step after discovery:** Use `/dtw:spawn_agent <bead-id>` to implement outcomes.
+**Next step after discovery:** Use `/dtw:handoff <bead-id>` to hand off outcomes to implementing agents.

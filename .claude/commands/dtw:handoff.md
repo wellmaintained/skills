@@ -1,8 +1,8 @@
-# Discovery Tree Workflow: Spawn Agent
+# Discovery Tree Workflow: Handoff
 
-You are an orchestrating agent preparing a bead for implementation by a new implementing agent.
+You are an orchestrating agent handing off a bead for implementation by a new implementing agent.
 
-**Goal:** Review the bead, claim it, and prepare for a new implementing agent session.
+**Goal:** Review the bead, claim it, and hand off to a new implementing agent session.
 
 ## Arguments
 
@@ -13,7 +13,7 @@ You are an orchestrating agent preparing a bead for implementation by a new impl
 
 1. **Review the bead** to ensure it's ready for implementation
 2. **Claim the bead** (mark as in_progress)
-3. **Add tracking comment** documenting the spawn
+3. **Add tracking comment** documenting the handoff
 4. **Instruct user** to start new Claude Code session for implementing agent
 
 ## Workflow
@@ -32,7 +32,7 @@ bd show <bead-id>
 
 **If missing critical info:**
 - Update the bead with better context/acceptance criteria
-- Don't spawn until bead is complete
+- Don't hand off until bead is complete
 
 ### Step 2: Claim the Bead
 
@@ -41,7 +41,7 @@ bd show <bead-id>
 bd update <bead-id> --status in_progress
 ```
 
-**Add comment about spawning:**
+**Add comment about handoff:**
 ```bash
 BEAD_ID="<bead-id>"
 APPROACH="${approach:-default}"
@@ -74,26 +74,26 @@ The implementing agent will:
 bd comments ${BEAD_ID}
 
 **When PR is ready, use:**
-/dtw:review_outcome ${BEAD_ID}
+/dtw:approve ${BEAD_ID}
 ```
 
 ## For Competing Implementations
 
-To spawn multiple agents with different approaches:
+To hand off multiple agents with different approaches:
 
 ```bash
-# Claim for first approach
-/dtw:spawn_agent wms-456 --approach redis
+# Hand off for first approach
+/dtw:handoff wms-456 --approach redis
 
 # In separate session: User runs /dtw:implement wms-456 --approach redis
 
-# Claim for second approach (competing implementation)
-/dtw:spawn_agent wms-456 --approach memory
+# Hand off for second approach (competing implementation)
+/dtw:handoff wms-456 --approach memory
 
 # In separate session: User runs /dtw:implement wms-456 --approach memory
 
-# Claim for third approach
-/dtw:spawn_agent wms-456 --approach hybrid
+# Hand off for third approach
+/dtw:handoff wms-456 --approach hybrid
 
 # In separate session: User runs /dtw:implement wms-456 --approach hybrid
 ```
@@ -224,7 +224,7 @@ bd comment wms-123 "Preparing for implementation: worktree wt-wms-123-default"
 bd comments wms-123
 
 # When PR ready
-/dtw:review_outcome wms-123
+/dtw:approve wms-123
 ```
 
 **Next step:** After claiming the bead, tell user to start new implementing agent session.

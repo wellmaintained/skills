@@ -187,7 +187,7 @@ bd show wms-123
 # - Acceptance criteria (how to verify)
 
 # Spawn implementing agent
-/implement_bead wms-123
+/dtw:handoff wms-123
 ```
 
 **The implementing agent:**
@@ -220,9 +220,9 @@ For complex problems, spawn multiple agents with different approaches:
 
 ```bash
 # Same bead, different approaches
-/implement_bead wms-456 --approach redis
-/implement_bead wms-456 --approach memory
-/implement_bead wms-456 --approach hybrid
+/dtw:handoff wms-456 --approach redis
+/dtw:handoff wms-456 --approach memory
+/dtw:handoff wms-456 --approach hybrid
 
 # Three agents work in parallel, each creates PR
 # Review all three, merge best, close bead
@@ -335,7 +335,7 @@ bd create "Response payload is <50KB compressed"
 | Create root bead | `bd create "System delivers [capability]" -t task -p 1 --json` |
 | Link to parent | `bd dep add <child-id> <parent-id> -t parent-child` |
 | Add context to bead | `bd update <bead-id> --description "OUTCOME:\n...\n\nCONTEXT:\n...\n\nACCEPTANCE:\n..."` |
-| Spawn agent | `/implement_bead <bead-id>` |
+| Handoff to agent | `/dtw:handoff <bead-id>` |
 | Agent adds comment | `bd comment <bead-id> --author "agent-name" "message"` |
 | View comments | `bd comments <bead-id>` |
 | Complete bead | `bd close <bead-id> --reason "Merged PR #X"` |

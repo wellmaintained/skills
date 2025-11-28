@@ -1,6 +1,6 @@
-# Discovery Tree Workflow: Review Outcome
+# Discovery Tree Workflow: Approve
 
-You are an orchestrating agent reviewing an implemented outcome against the bead's acceptance criteria.
+You are an orchestrating agent reviewing and approving an implemented outcome against the bead's acceptance criteria.
 
 **Goal:** Review PR(s), verify outcome is achieved, provide feedback or approve, close bead when satisfied.
 
@@ -267,7 +267,7 @@ Progress: [X/Y child outcomes complete]
 Next steps:
 - bd ready  (find more work)
 - bd epic status  (check overall progress)
-- /dtw:sync_external  (push to GitHub/Shortcut when ready)
+- /dtw:status_update  (push to GitHub/Shortcut when ready)
 ```
 
 ## Verification Checklist
@@ -357,4 +357,4 @@ bd comment wms-100 "Completed: wms-123 - Fast API responses. Using hybrid Redis+
 git worktree remove wt-wms-123-redis
 ```
 
-**Next:** Use `bd ready` to find more work, or `/dtw:sync_external` to update external tools.
+**Next:** Use `bd ready` to find more work, or `/dtw:status_update` to update external tools.
