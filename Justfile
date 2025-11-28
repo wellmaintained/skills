@@ -191,6 +191,11 @@ test-plugin plugin:
     if [ -f "package.json" ]; then \
         echo "Installing dependencies for {{plugin}}..."; \
         bun install; \
+        if jq -e '.scripts."type-check"' package.json > /dev/null; then \
+            echo "Running type check for {{plugin}}..."; \
+            bun run type-check; \
+            echo "✅ Type check passed"; \
+        fi; \
         echo "Building {{plugin}}..."; \
         bun run build; \
         if jq -e '.scripts.test' package.json > /dev/null; then \
