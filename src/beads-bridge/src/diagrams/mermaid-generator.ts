@@ -54,14 +54,14 @@ export class MermaidGenerator {
    * bd dep tree <issue-id> --format mermaid --reverse
    */
   async generate(
-    repository: string,
+    _repository: string,
     rootIssueId: string,
     options: MermaidOptions = {}
   ): Promise<string> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
-    // Get the bd CLI instance for this repository
-    const bdCli = this.beads['getBdCli'](repository);
+    // Access the bd CLI instance directly (repository param ignored - single repo only)
+    const bdCli = (this.beads as any).bdCli;
 
      // Build command arguments
      const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--direction=up', '--show-all-paths'];

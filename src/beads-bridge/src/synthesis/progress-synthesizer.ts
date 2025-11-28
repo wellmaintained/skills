@@ -56,7 +56,7 @@ export class ProgressSynthesizer {
    * Get progress for a single repository epic
    */
   async getEpicProgress(repository: string, epicId: string): Promise<EpicProgress> {
-    const { epic, subtasks } = await this.beads.getEpicWithSubtasks(repository, epicId);
+    const { epic, subtasks } = await this.beads.getEpicWithSubtasks(epicId);
 
     const metrics = this.calculateMetrics(subtasks);
 
