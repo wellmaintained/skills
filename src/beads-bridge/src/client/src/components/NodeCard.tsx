@@ -145,8 +145,8 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           <p className="text-base font-bold text-slate-900">{issue.title}</p>
         </div>
 
-        {/* Right Side Pill - Protruding */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
+        {/* Right Side Pill - Protruding further to avoid text overlap */}
+        <div className="absolute -right-2 top-1/2 -translate-y-1/2 translate-x-full z-10">
           <div className={clsx(
             "flex items-center rounded-md bg-slate-50 border border-slate-200 px-1.5 py-0.5 shadow-md",
             childCount > 0 ? "gap-1.5" : ""
@@ -154,11 +154,11 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           {childCount > 0 && (
             <>
               <button
-                className="flex items-center gap-1 text-[10px] font-medium text-slate-600 hover:text-slate-900 transition whitespace-nowrap"
+                className="flex items-center gap-1 text-[10px] font-medium text-slate-600 hover:text-slate-900 transition"
                 onClick={() => onToggleCollapse(issue.id)}
               >
                 <span>{isCollapsed ? '▶' : '▼'}</span>
-                <span className="whitespace-nowrap">subtasks ({childCount})</span>
+                <span>({childCount})</span>
               </button>
               <span className="text-slate-300 text-[10px]">|</span>
             </>
