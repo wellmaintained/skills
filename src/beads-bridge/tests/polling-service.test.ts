@@ -2,19 +2,20 @@ import { describe, it, expect, spyOn, beforeEach, afterEach, mock } from 'bun:te
 import { PollingService } from '../src/server/polling-service.js';
 
 describe('PollingService', () => {
-  let setTimeoutSpy: ReturnType<typeof spyOn>;
-  let clearTimeoutSpy: ReturnType<typeof spyOn>;
-  let timeoutCallback: Function | undefined;
-  let timeoutDelay: number | undefined;
+   let setTimeoutSpy: ReturnType<typeof spyOn>;
+   let clearTimeoutSpy: ReturnType<typeof spyOn>;
+   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+   let timeoutCallback: Function | undefined;
+   let timeoutDelay: number | undefined;
 
-  beforeEach(() => {
-    timeoutCallback = undefined;
-    timeoutDelay = undefined;
-    setTimeoutSpy = spyOn(global, 'setTimeout').mockImplementation((cb: Function, ms: number) => {
-      timeoutCallback = cb;
-      timeoutDelay = ms;
-      return 123 as any;
-    });
+   beforeEach(() => {
+     timeoutCallback = undefined;
+     timeoutDelay = undefined;
+     setTimeoutSpy = spyOn(global, 'setTimeout').mockImplementation(((cb: any, ms: number) => {
+       timeoutCallback = cb;
+       timeoutDelay = ms;
+       return 123 as any;
+     }) as typeof setTimeout);
     clearTimeoutSpy = spyOn(global, 'clearTimeout').mockImplementation(() => {});
   });
 

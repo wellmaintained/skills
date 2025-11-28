@@ -154,7 +154,7 @@ export class GitHubBackend implements ProjectManagementBackend {
     this.ensureAuthenticated();
 
     // Check if issueId is in owner/repo#number format or a node ID
-    const repoIssueMatch = issueId.match(/^([^\/]+\/[^#]+)#(\d+)$/);
+    const repoIssueMatch = issueId.match(/^([^/]+\/[^#]+)#(\d+)$/);
     if (repoIssueMatch) {
       const [, repo, issueNumber] = repoIssueMatch;
       return this.getIssueByNumber(repo, parseInt(issueNumber));
@@ -241,7 +241,7 @@ export class GitHubBackend implements ProjectManagementBackend {
 
     // First get the issue to extract repo and number
     const issue = await this.getIssue(issueId);
-    const repoMatch = issue.url.match(/github\.com\/([^\/]+\/[^\/]+)\//);
+    const repoMatch = issue.url.match(/github\.com\/([^/]+\/[^/]+)\//);
     if (!repoMatch) {
       throw new BackendError('Could not extract repository from issue URL', 'INVALID_URL');
     }
@@ -298,7 +298,7 @@ export class GitHubBackend implements ProjectManagementBackend {
 
     // Get issue to extract repo and number
     const issue = await this.getIssue(issueId);
-    const repoMatch = issue.url.match(/github\.com\/([^\/]+\/[^\/]+)\//);
+    const repoMatch = issue.url.match(/github\.com\/([^/]+\/[^/]+)\//);
     if (!repoMatch) {
       throw new BackendError('Could not extract repository from issue URL', 'INVALID_URL');
     }
@@ -328,7 +328,7 @@ export class GitHubBackend implements ProjectManagementBackend {
     this.ensureAuthenticated();
 
     // Parse issueId as owner/repo#number
-    const match = issueId.match(/^([^\/]+)\/([^#]+)#(\d+)$/);
+    const match = issueId.match(/^([^/]+)\/([^#]+)#(\d+)$/);
     if (!match) {
       throw new ValidationError(`Invalid issueId format: ${issueId}. Expected: owner/repo#number`);
     }
@@ -371,10 +371,11 @@ export class GitHubBackend implements ProjectManagementBackend {
       case LinkType.RELATED:
         linkText = 'Related to';
         break;
-      default:
+      default: {
         // Exhaustive check - this should never happen
         const exhaustiveCheck: never = linkType;
         throw new ValidationError(`Unknown link type: ${exhaustiveCheck}`);
+      }
     }
     const comment = `${linkText} ${childId}`;
 
@@ -390,7 +391,7 @@ export class GitHubBackend implements ProjectManagementBackend {
 
     for (const comment of comments) {
       // Look for "Blocks owner/repo#123", "Related to owner/repo#456", or "Parent of owner/repo#789"
-      const blockMatch = comment.body.match(/Blocks\s+([^\/\s]+\/[^#\s]+#\d+)/);
+      const blockMatch = comment.body.match(/Blocks\s+([^/\s]+\/[^#\s]+#\d+)/);
       if (blockMatch) {
         // Create minimal issue stub - full implementation would fetch the issue
         const linkedIssueId = blockMatch[1];
@@ -412,7 +413,7 @@ export class GitHubBackend implements ProjectManagementBackend {
         });
       }
 
-      const relatedMatch = comment.body.match(/Related to\s+([^\/\s]+\/[^#\s]+#\d+)/);
+      const relatedMatch = comment.body.match(/Related to\s+([^/\s]+\/[^#\s]+#\d+)/);
       if (relatedMatch) {
         const linkedIssueId = relatedMatch[1];
         linkedIssues.push({
@@ -433,7 +434,7 @@ export class GitHubBackend implements ProjectManagementBackend {
         });
       }
 
-      const parentMatch = comment.body.match(/Parent of\s+([^\/\s]+\/[^#\s]+#\d+)/);
+      const parentMatch = comment.body.match(/Parent of\s+([^/\s]+\/[^#\s]+#\d+)/);
       if (parentMatch) {
         const linkedIssueId = parentMatch[1];
         linkedIssues.push({
@@ -500,8 +501,8 @@ export class GitHubBackend implements ProjectManagementBackend {
       const issues = data.items.filter((item: any) => !item.pull_request);
 
       return issues.map((item: any) => {
-        // Extract owner/repo from repository_url
-        const repoMatch = item.repository_url?.match(/repos\/([^\/]+\/[^\/]+)$/);
+         // Extract owner/repo from repository_url
+         const repoMatch = item.repository_url?.match(/repos\/([^/]+\/[^/]+)$/);
         const repository = repoMatch ? repoMatch[1] : query.repository || '';
 
         return this.parseOctokitIssue(item, repository);

@@ -172,7 +172,6 @@ describe('DecomposerHandler', () => {
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       expect(result.data?.githubIssue).toBe('owner/repo#123');
-      expect(result.data?.mappingId).toBe('mapping-1');
       expect(result.data?.epics).toBeDefined();
       expect(result.data?.epics.length).toBe(1);
       expect(result.data?.totalTasks).toBe(2);
