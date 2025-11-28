@@ -232,12 +232,9 @@ export interface BeadsRepository {
 }
 
 /**
- * Beads configuration
+ * Beads configuration (simplified for single-repo)
  */
 export interface BeadsConfig {
-  /** List of repositories to track */
-  repositories: BeadsRepository[];
-
   /** Default issue type when creating issues */
   defaultIssueType?: BeadsIssueType;
 

@@ -7,7 +7,6 @@
 import type {
   BeadsConfig,
   BeadsIssue,
-  BeadsRepository,
   CreateBeadsIssueParams,
   UpdateBeadsIssueParams,
   EpicStatus,
@@ -22,69 +21,36 @@ import { DependencyTreeBuilder } from '../services/dependency-tree-builder.js';
 import { EpicStatusCalculator } from '../services/epic-status-calculator.js';
 
 /**
- * Beads client for multi-repository issue tracking
+ * Beads client for issue tracking
  */
 export class BeadsClient {
-  private readonly repositories: Map<string, BeadsRepository>;
-  private readonly bdClients: Map<string, BdCli>;
+  private readonly bdCli: BdCli;
   private readonly treeBuilder: DependencyTreeBuilder;
   private readonly statusCalculator: EpicStatusCalculator;
 
   constructor(config: BeadsConfig & { logger?: Logger }) {
-    this.repositories = new Map();
-    this.bdClients = new Map();
-
-    // Initialize repositories
-    for (const repo of config.repositories) {
-      this.repositories.set(repo.name, repo);
-      this.bdClients.set(repo.name, new BdCli({ cwd: repo.path, logger: config.logger }));
-    }
+    // bd searches up for .beads/ automatically, so we just use current directory
+    this.bdCli = new BdCli({ cwd: process.cwd(), logger: config.logger });
 
     this.treeBuilder = new DependencyTreeBuilder(this);
     this.statusCalculator = new EpicStatusCalculator(this, this.treeBuilder);
   }
 
   // ============================================================================
-  // Repository Management
+  // Repository Management (removed - single repo only)
   // ============================================================================
-
-  /**
-   * Get all configured repositories
-   */
-  getRepositories(): BeadsRepository[] {
-    return Array.from(this.repositories.values());
-  }
-
-  /**
-   * Get repository by name
-   */
-  getRepository(name: string): BeadsRepository | undefined {
-    return this.repositories.get(name);
-  }
-
-  /**
-   * Get repository path
-   */
-  getRepositoryPath(name: string): string {
-    const repo = this.repositories.get(name);
-    if (!repo) {
-      throw new NotFoundError(`Repository ${name} not configured`);
-    }
-    return repo.path;
-  }
 
   // ============================================================================
   // Issue Operations
   // ============================================================================
 
   /**
-   * Create an epic in a specific repository
+   * Create an epic
    */
   async createEpic(
-    repository: string,
     params: CreateBeadsIssueParams
   ): Promise<BeadsIssue> {
-    const bd = this.getBdCli(repository);
+    const bd = this.bdCli;
 
     const args = ['create', params.title];
 
@@ -129,41 +95,39 @@ export class BeadsClient {
   }
 
   /**
-   * Create a regular issue (task, bug, etc.) in a specific repository
+   * Create a regular issue (task, bug, etc.)
    */
   async createIssue(
-    repository: string,
     params: CreateBeadsIssueParams
   ): Promise<BeadsIssue> {
-    return this.createEpic(repository, params);
+    return this.createEpic(params);
   }
 
   /**
-   * Get an issue by ID from a specific repository
+   * Get an issue by ID
    */
-  async getIssue(repository: string, issueId: string): Promise<BeadsIssue> {
-    const bd = this.getBdCli(repository);
+  async getIssue(issueId: string): Promise<BeadsIssue> {
+    const bd = this.bdCli;
 
     // Note: bd show doesn't support --json, so we use bd list --id instead
     const result = await bd.execJson<BeadsIssue[]>(['list', '--id', issueId]);
 
     // bd list returns an array
     if (!result || result.length === 0) {
-      throw new NotFoundError(`Issue ${issueId} not found in ${repository}`);
+      throw new NotFoundError(`Issue ${issueId} not found`);
     }
 
     return result[0];
   }
 
   /**
-   * Update an issue in a specific repository
+   * Update an issue
    */
   async updateIssue(
-    repository: string,
     issueId: string,
     updates: UpdateBeadsIssueParams
   ): Promise<BeadsIssue> {
-    const bd = this.getBdCli(repository);
+    const bd = this.bdCli;
 
     const args = ['update', issueId];
 
@@ -206,17 +170,16 @@ export class BeadsClient {
     await bd.exec(args);
 
     // Fetch updated issue
-    return this.getIssue(repository, issueId);
+    return this.getIssue(issueId);
   }
 
   /**
-   * List issues in a repository with optional filters
+   * List issues with optional filters
    */
   async listIssues(
-    repository: string,
     query: BeadsListQuery = {}
   ): Promise<BeadsIssue[]> {
-    const bd = this.getBdCli(repository);
+    const bd = this.bdCli;
 
     const args = ['list'];
 
@@ -253,11 +216,10 @@ export class BeadsClient {
    * Close an issue
    */
   async closeIssue(
-    repository: string,
     issueId: string,
     reason?: string
   ): Promise<void> {
-    const bd = this.getBdCli(repository);
+    const bd = this.bdCli;
 
     const args = ['close', issueId];
 
@@ -276,19 +238,18 @@ export class BeadsClient {
    * Get epic children as full dependency tree
    */
   async getEpicChildrenTree(
-    repository: string,
     epicId: string
   ): Promise<DependencyTreeNode> {
-    const bd = this.getBdCli(repository);
-    return this.treeBuilder.getEpicChildrenTree(repository, epicId, bd);
+    const bd = this.bdCli;
+    return this.treeBuilder.getEpicChildrenTree(epicId, bd);
   }
 
   /**
-   * Calculate epic status across a repository
+   * Calculate epic status
    */
-  async getEpicStatus(repository: string, epicId: string): Promise<EpicStatus> {
-    const bd = this.getBdCli(repository);
-    return this.statusCalculator.getEpicStatus(repository, epicId, bd);
+  async getEpicStatus(epicId: string): Promise<EpicStatus> {
+    const bd = this.bdCli;
+    return this.statusCalculator.getEpicStatus(epicId, bd);
   }
 
   // ============================================================================
@@ -299,12 +260,11 @@ export class BeadsClient {
    * Add a dependency between two issues
    */
   async addDependency(
-    repository: string,
     issueId: string,
     dependsOnId: string,
     depType: BeadsDependencyType = 'blocks'
   ): Promise<void> {
-    const bd = this.getBdCli(repository);
+    const bd = this.bdCli;
 
     await bd.exec(['dep', 'add', issueId, dependsOnId, '--type', depType]);
   }
@@ -313,11 +273,10 @@ export class BeadsClient {
    * Get dependency tree for an issue
    */
   async getDependencyTree(
-    repository: string,
     issueId: string
   ): Promise<DependencyTreeNode> {
-    const issue = await this.getIssue(repository, issueId);
-    return this.treeBuilder.buildDependencyTree(repository, issue, 0);
+    const issue = await this.getIssue(issueId);
+    return this.treeBuilder.buildDependencyTree(issue, 0);
   }
 
   // ============================================================================
@@ -330,10 +289,9 @@ export class BeadsClient {
    * Get all discovered issues since a given date
    */
   async getDiscoveredIssues(
-    repository: string,
     since?: Date
   ): Promise<BeadsIssue[]> {
-    const allIssues = await this.listIssues(repository, { status: 'open' });
+    const allIssues = await this.listIssues({ status: 'open' });
 
     const discovered: BeadsIssue[] = [];
 
@@ -362,110 +320,44 @@ export class BeadsClient {
   }
 
   /**
-   * Get all issues across multiple repositories
+   * Get all issues (removed multi-repo support)
    */
-  async getAllIssues(query: BeadsListQuery = {}): Promise<Map<string, BeadsIssue[]>> {
-    const results = new Map<string, BeadsIssue[]>();
-
-    for (const [repoName] of this.repositories) {
-      try {
-        const issues = await this.listIssues(repoName, query);
-        results.set(repoName, issues);
-      } catch (error) {
-        // Skip repositories that fail
-        results.set(repoName, []);
-      }
-    }
-
-    return results;
+  async getAllIssues(query: BeadsListQuery = {}): Promise<BeadsIssue[]> {
+    return this.listIssues(query);
   }
 
   /**
    * Get epic with all its subtasks
    */
-  async getEpicWithSubtasks(repository: string, epicId: string): Promise<{
+  async getEpicWithSubtasks(epicId: string): Promise<{
     epic: BeadsIssue;
     subtasks: BeadsIssue[];
   }> {
-    const epic = await this.getIssue(repository, epicId);
+    const epic = await this.getIssue(epicId);
 
     // Get all descendant issues (children and grandchildren)
-    const tree = await this.getEpicChildrenTree(repository, epicId);
+    const tree = await this.getEpicChildrenTree(epicId);
     const subtasks = this.statusCalculator.flattenDependencyTree(tree);
 
     return { epic, subtasks };
   }
 
   /**
-   * Get epic status across all repositories for issues with the same external ref
+   * Get epic status by external ref (removed multi-repo support)
    */
-  async getMultiRepoEpicStatus(externalRef: string): Promise<{
-    repositories: Map<string, EpicStatus>;
-    totalStatus: EpicStatus;
-  }> {
-    const repositories = new Map<string, EpicStatus>();
-    let totalCompleted = 0;
-    let totalInProgress = 0;
-    let totalBlocked = 0;
-    let totalNotStarted = 0;
-    let totalCount = 0;
-    const allBlockers: BeadsIssue[] = [];
-    const allDiscovered: BeadsIssue[] = [];
+  async getEpicStatusByExternalRef(externalRef: string): Promise<EpicStatus | null> {
+    // Find epic with this external ref
+    const issues = await this.listIssues({});
+    const epic = issues.find(i => i.external_ref === externalRef && i.issue_type === 'epic');
 
-    for (const [repoName] of this.repositories) {
-      try {
-        // Find epic with this external ref
-        const issues = await this.listIssues(repoName, {});
-        const epic = issues.find(i => i.external_ref === externalRef && i.issue_type === 'epic');
-
-        if (epic) {
-          const status = await this.getEpicStatus(repoName, epic.id);
-          repositories.set(repoName, status);
-
-          // Aggregate totals
-          totalCompleted += status.completed;
-          totalInProgress += status.inProgress;
-          totalBlocked += status.blocked;
-          totalNotStarted += status.notStarted;
-          totalCount += status.total;
-          allBlockers.push(...status.blockers);
-          allDiscovered.push(...status.discovered);
-        }
-      } catch (error) {
-        // Skip repositories that fail
-        continue;
-      }
+    if (!epic) {
+      return null;
     }
 
-    const percentComplete = totalCount > 0 ? Math.round((totalCompleted / totalCount) * 100) : 0;
-
-    return {
-      repositories,
-      totalStatus: {
-        total: totalCount,
-        completed: totalCompleted,
-        inProgress: totalInProgress,
-        blocked: totalBlocked,
-        notStarted: totalNotStarted,
-        percentComplete,
-        blockers: allBlockers,
-        discovered: allDiscovered
-      }
-    };
+    return this.getEpicStatus(epic.id);
   }
 
   // ============================================================================
   // Private Helpers
   // ============================================================================
-
-  /**
-   * Get bd CLI client for repository
-   */
-  private getBdCli(repository: string): BdCli {
-    const bd = this.bdClients.get(repository);
-    if (!bd) {
-      throw new NotFoundError(`Repository ${repository} not configured`);
-    }
-    return bd;
-  }
 }

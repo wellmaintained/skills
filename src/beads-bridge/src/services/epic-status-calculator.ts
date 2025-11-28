@@ -13,12 +13,11 @@ export class EpicStatusCalculator {
    * Calculate epic status across a repository
    */
   async getEpicStatus(
-    repository: string,
     epicId: string,
     bdCli: BdCli
   ): Promise<EpicStatus> {
     // Get all descendant issues (children and grandchildren)
-    const tree = await this.treeBuilder.getEpicChildrenTree(repository, epicId, bdCli);
+    const tree = await this.treeBuilder.getEpicChildrenTree(epicId, bdCli);
     const dependents = this.flattenDependencyTree(tree);
 
     // Count by status
@@ -38,7 +37,7 @@ export class EpicStatusCalculator {
     for (const dep of dependents) {
       // Fetch full issue details if we need to check dependencies
       try {
-        const fullIssue = await this.client.getIssue(repository, dep.id);
+        const fullIssue = await this.client.getIssue(dep.id);
 
         // Check for blocking dependencies (if they exist)
         if (fullIssue.dependencies && Array.isArray(fullIssue.dependencies)) {

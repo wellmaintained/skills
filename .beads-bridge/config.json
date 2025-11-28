@@ -7,7 +7,7 @@
   "repositories": [
     {
       "name": "wellmaintained-skills",
-      "path": "/Users/mrdavidlaing/mo-inator-workspace/wellmaintained-skills",
+      "path": "/home/mrdavidlaing/arch-workspace/wellmaintained-skills",
       "prefix": "wms"
     }
   ],

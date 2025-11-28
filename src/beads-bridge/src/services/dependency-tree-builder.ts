@@ -9,7 +9,6 @@ export class DependencyTreeBuilder {
    * Get epic children as full dependency tree using bd dep tree
    */
   async getEpicChildrenTree(
-    repository: string,
     epicId: string,
     bdCli: BdCli
   ): Promise<DependencyTreeNode> {
@@ -67,7 +66,7 @@ export class DependencyTreeBuilder {
       const rootIssue = issuesMap.get(epicId);
       if (!rootIssue) {
         // Should not happen if epic exists
-        const epic = await this.client.getIssue(repository, epicId);
+        const epic = await this.client.getIssue(epicId);
         return { issue: epic, dependencies: [], depth: 0 };
       }
 
@@ -104,7 +103,7 @@ export class DependencyTreeBuilder {
     } catch (error) {
       console.error('Error building tree:', error);
       // Fallback to simple view
-      const epic = await this.client.getIssue(repository, epicId);
+      const epic = await this.client.getIssue(epicId);
       return { issue: epic, dependencies: [], depth: 0 };
     }
   }
@@ -113,7 +112,6 @@ export class DependencyTreeBuilder {
    * Build dependency tree recursively for a single issue
    */
   async buildDependencyTree(
-    repository: string,
     issue: BeadsIssue,
     depth: number
   ): Promise<DependencyTreeNode> {
@@ -123,8 +121,8 @@ export class DependencyTreeBuilder {
     if (issue.dependencies && Array.isArray(issue.dependencies)) {
       for (const dep of issue.dependencies) {
         try {
-          const depIssue = await this.client.getIssue(repository, dep.id);
-          const depTree = await this.buildDependencyTree(repository, depIssue, depth + 1);
+          const depIssue = await this.client.getIssue(dep.id);
+          const depTree = await this.buildDependencyTree(depIssue, depth + 1);
           depTree.dependencyType = dep.dependency_type;
           dependencies.push(depTree);
         } catch (error) {

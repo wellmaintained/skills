@@ -64,14 +64,8 @@ export class BeadsSkill {
 
     this.logger = new Logger(loggerConfig);
 
-    // Convert RepositoryConfig[] to BeadsRepository[] format
-    const beadsRepos = config.repositories.map(repo => ({
-      name: repo.name,
-      path: repo.path,
-      prefix: repo.prefix || repo.name
-    }));
-
-    this.beads = new BeadsClient({ repositories: beadsRepos });
+    // Initialize BeadsClient (bd auto-detects .beads/ directory)
+    this.beads = new BeadsClient({});
 
     // Initialize backend based on config
     if (config.backend === 'shortcut') {

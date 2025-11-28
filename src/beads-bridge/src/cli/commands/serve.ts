@@ -4,26 +4,10 @@ import { LiveWebBackend } from '../../backends/liveweb.js';
 import { ExpressServer } from '../../server/express-server.js';
 import { PollingService } from '../../server/polling-service.js';
 import { BeadsClient } from '../../clients/beads-client.js';
-import type { DependencyTreeNode, BeadsIssue, BeadsRepository } from '../../types/beads.js';
+import type { DependencyTreeNode, BeadsIssue } from '../../types/beads.js';
 import { execBdCommand } from '../../utils/bd-cli.js';
-import { ConfigManager } from '../../config/config-manager.js';
 import { open } from '../../utils/open-browser.js';
 import { Logger, type LogLevel } from '../../monitoring/logger.js';
-
-// Helper: Find which repository contains an issue by checking the prefix
-function findRepositoryForIssue(issueId: string, repositories: BeadsRepository[]): string | null {
-  // Extract prefix from issue ID (e.g., "pensive-8e2d" -> "pensive")
-  const prefix = issueId.split('-')[0];
-
-  for (const repo of repositories) {
-    // Match by repository prefix field, or fall back to name
-    if (repo.prefix === prefix || repo.name === prefix) {
-      return repo.name;
-    }
-  }
-
-  return null;
-}
 
 async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -103,25 +87,12 @@ export function createServeCommand(): Command {
           process.exit(1);
         }
 
-        // Load config to find repository paths
-        const configManager = await ConfigManager.load(process.env.BEADS_GITHUB_CONFIG || '.beads-bridge/config.json');
-        const repositories = configManager.getRepositories();
+        // Initialize BeadsClient (bd auto-detects .beads/ directory)
+        const beadsClient = new BeadsClient({ logger: baseLogger });
 
-        const beadsClient = new BeadsClient({ repositories: repositories as BeadsRepository[], logger: baseLogger });
-
-        // Find repository path for the issue
-        const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
-        if (!repoName) {
-          throw new Error(`Cannot find repository for issue ${issueId}`);
-        }
-        const repo = repositories.find((r) => r.name === repoName || r.prefix === repoName);
-        if (!repo || !repo.path) {
-          throw new Error(`Repository path not found for ${repoName}`);
-        }
-
-        // Initialize backend and server with repository path
+        // Initialize backend and server (uses current directory)
         const backendLogger = baseLogger.withScope('LiveWebBackend');
-        const backend = new LiveWebBackend(repo.path, undefined, backendLogger);
+        const backend = new LiveWebBackend(process.cwd(), undefined, backendLogger);
         const serverLogger = baseLogger.withScope('ExpressServer');
         const server = new ExpressServer(backend, port, undefined, serverLogger);
 
@@ -130,14 +101,8 @@ export function createServeCommand(): Command {
         const updateState = async () => {
           logger.info(`Updating state for ${issueId}...`);
 
-          // Find which repository contains this issue
-          const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
-          if (!repoName) {
-            throw new Error(`Cannot find repository for issue ${issueId}`);
-          }
-
           // Get all issues in tree using bd dep tree
-          const tree = await beadsClient.getEpicChildrenTree(repoName, issueId);
+          const tree = await beadsClient.getEpicChildrenTree(issueId);
 
           type FlattenedNode = { issue: BeadsIssue; parentId?: string; depth: number };
           const flattenTree = (node: DependencyTreeNode, parentId?: string, depth: number = 0): FlattenedNode[] => {
