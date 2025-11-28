@@ -9,3 +9,5 @@ export {
   isValidExternalRefFormat,
   type ParsedExternalRef,
 } from './external-ref-parser.js';
+export { detectRepository, extractPrefixFromIssues } from './repo-detector.js';
+export type { DetectedRepository } from './repo-detector.js';
