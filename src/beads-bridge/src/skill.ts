@@ -14,7 +14,7 @@ import { MermaidGenerator } from './diagrams/mermaid-generator.js';
 import { DiagramPlacer } from './diagrams/diagram-placer.js';
 import { EpicDecomposer } from './decomposition/epic-decomposer.js';
 import { ExternalRefResolver } from './utils/external-ref-resolver.js';
-import { LegacyMappingWarning } from './utils/legacy-mapping-warning.js';
+
 import { ConfigManager } from './config/config-manager.js';
 import { Logger } from './monitoring/logger.js';
 import { CredentialStore, type Credentials } from './auth/credential-store.js';
@@ -44,8 +44,6 @@ export class BeadsSkill {
   private diagramPlacer: DiagramPlacer;
   private epicDecomposer?: EpicDecomposer;
   private logger: Logger;
-  private legacyWarning: LegacyMappingWarning;
-  private warnableCapabilities: Set<SkillCapability>;
 
   // Handlers
   private statusQueryHandler: StatusQueryHandler;
@@ -64,14 +62,15 @@ export class BeadsSkill {
 
     this.logger = new Logger(loggerConfig);
 
-    // Convert RepositoryConfig[] to BeadsRepository[] format
-    const beadsRepos = config.repositories.map(repo => ({
-      name: repo.name,
-      path: repo.path,
-      prefix: repo.prefix || repo.name
-    }));
-
-    this.beads = new BeadsClient({ repositories: beadsRepos });
+// Get repository path and initialize BeadsClient
+    const repositoryPath = configManager.getRepositoryPath();
+    if (!repositoryPath) {
+      throw new Error('Repository path not configured and could not be auto-detected');
+    }
+    this.beads = new BeadsClient({
+      repositoryPath,
+      prefix: configManager.getPrefix()
+    });
 
     // Initialize backend based on config
     if (config.backend === 'shortcut') {
@@ -88,8 +87,7 @@ export class BeadsSkill {
       });
     }
 
-    this.legacyWarning = new LegacyMappingWarning(config.mappingStoragePath);
-    this.warnableCapabilities = new Set(['query_status', 'sync_progress', 'generate_diagrams', 'decompose']);
+
 
     this.resolver = new ExternalRefResolver(this.beads);
 
@@ -138,7 +136,6 @@ export class BeadsSkill {
     this.logger.info(`Executing ${capability}`, context);
 
     try {
-      await this.warnLegacyMappingsIfNeeded(capability);
       let result: SkillResult;
 
       switch (capability) {
@@ -194,11 +191,7 @@ export class BeadsSkill {
     };
   }
 
-  private async warnLegacyMappingsIfNeeded(capability: SkillCapability): Promise<void> {
-    if (this.warnableCapabilities.has(capability)) {
-      await this.legacyWarning.maybeWarn();
-    }
-  }
+
 }
 
 /**

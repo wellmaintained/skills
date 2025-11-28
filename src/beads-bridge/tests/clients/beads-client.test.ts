@@ -14,7 +14,7 @@ import type {
 import { NotFoundError } from '../../src/types/index.js';
 import { BdCli } from '../../src/utils/bd-cli.js';
 
-// Mock the BdCli module
+// Mock BdCli module
 let mockBdCliInstance: any;
 mock.module('../../src/utils/bd-cli.js', () => ({
   BdCli: mock(() => mockBdCliInstance)
