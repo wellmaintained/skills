@@ -302,9 +302,7 @@ program
         process.exit(1);
       }
 
-      // Get absolute path to current directory
-      const currentDir = path.resolve(process.cwd());
-      const dirName = path.basename(currentDir);
+
 
       // Create minimal config
       const config = {
@@ -313,12 +311,9 @@ program
         [options.backend]: {
           repository: repository
         },
-        repositories: [
-          {
-            name: dirName,
-            path: currentDir
-          }
-        ],
+        repository: {
+          path: '.'
+        },
         logging: {
           level: 'info'
         }
@@ -328,7 +323,7 @@ program
       await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
       console.log(`✅ Created ${configPath}`);
-      console.log(`   Repository: ${dirName} (${currentDir})`);
+      console.log(`   Repository path: . (auto-detected from current directory)`);
       console.log(`\nNext steps:`);
       console.log(`1. Authenticate: beads-bridge auth ${options.backend}`);
       console.log(`2. Test sync:    beads-bridge sync <bead-id>`);
