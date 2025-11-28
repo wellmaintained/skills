@@ -48,9 +48,9 @@ export function parseExternalRef(ref: string): ParsedExternalRef {
   }
 
   // GitHub URL format (issues or pull)
-  const githubUrlMatch = ref.match(
-    /^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/(issues|pull)\/(\d+)/i
-  );
+   const githubUrlMatch = ref.match(
+     /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)/i
+   );
   if (githubUrlMatch) {
     const owner = githubUrlMatch[1];
     const repo = githubUrlMatch[2];
@@ -88,9 +88,9 @@ export function parseExternalRef(ref: string): ParsedExternalRef {
   }
 
   // Shortcut URL format (optional slug)
-  const shortcutUrlMatch = ref.match(
-    /^https?:\/\/app\.shortcut\.com\/[^\/]+\/story\/(\d+)(?:\/[^\/]+)?$/i
-  );
+   const shortcutUrlMatch = ref.match(
+     /^https?:\/\/app\.shortcut\.com\/[^/]+\/story\/(\d+)(?:\/[^/]+)?$/i
+   );
   if (shortcutUrlMatch) {
     const storyId = parseInt(shortcutUrlMatch[1], 10);
 

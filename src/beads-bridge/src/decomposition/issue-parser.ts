@@ -55,8 +55,8 @@ export class IssueParser {
     // Match checkbox markdown: - [ ] or - [x] or - [X]
     const taskRegex = /^[\s-]*\[([xX\s])\]\s+(.+)$/;
 
-    // Match repository prefix: [repo-name] or (repo-name)
-    const repoRegex = /^[\[\(]([a-zA-Z0-9_-]+)[\]\)]\s+(.+)$/;
+     // Match repository prefix: [repo-name] or (repo-name)
+     const repoRegex = /^[[(]([a-zA-Z0-9_-]+)[)\]]\s+(.+)$/;
 
     for (const line of lines) {
       const trimmedLine = line.trim();
