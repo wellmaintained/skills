@@ -4,26 +4,11 @@ import { LiveWebBackend } from '../../backends/liveweb.js';
 import { ExpressServer } from '../../server/express-server.js';
 import { PollingService } from '../../server/polling-service.js';
 import { BeadsClient } from '../../clients/beads-client.js';
-import type { DependencyTreeNode, BeadsIssue, BeadsRepository } from '../../types/beads.js';
+import type { DependencyTreeNode, BeadsIssue } from '../../types/beads.js';
 import { execBdCommand } from '../../utils/bd-cli.js';
 import { ConfigManager } from '../../config/config-manager.js';
 import { open } from '../../utils/open-browser.js';
 import { Logger, type LogLevel } from '../../monitoring/logger.js';
-
-// Helper: Find which repository contains an issue by checking the prefix
-function findRepositoryForIssue(issueId: string, repositories: BeadsRepository[]): string | null {
-  // Extract prefix from issue ID (e.g., "pensive-8e2d" -> "pensive")
-  const prefix = issueId.split('-')[0];
-
-  for (const repo of repositories) {
-    // Match by repository prefix field, or fall back to name
-    if (repo.prefix === prefix || repo.name === prefix) {
-      return repo.name;
-    }
-  }
-
-  return null;
-}
 
 async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -69,7 +54,6 @@ export function createServeCommand(): Command {
     .option('--log-level <level>', 'Log level (DEBUG|INFO|WARN|ERROR)', 'INFO')
     .option('--no-open', 'Do not auto-open browser')
     .action(async (issueId: string, options) => {
-      // Parse and validate log level early so we can use logger in error handler
       let logLevel: LogLevel;
       try {
         logLevel = parseLogLevel(options.logLevel);
@@ -81,7 +65,6 @@ export function createServeCommand(): Command {
       const logger = baseLogger.withScope('ServeCommand');
 
       try {
-
         const requestedPort = options.port ? parseInt(options.port, 10) : undefined;
         const port =
           typeof requestedPort === 'number' && Number.isFinite(requestedPort)
@@ -103,41 +86,32 @@ export function createServeCommand(): Command {
           process.exit(1);
         }
 
-        // Load config to find repository paths
+        // Load config with auto-detection
         const configManager = await ConfigManager.load(process.env.BEADS_GITHUB_CONFIG || '.beads-bridge/config.json');
-        const repositories = configManager.getRepositories();
+        const repositoryPath = configManager.getRepositoryPath();
 
-        const beadsClient = new BeadsClient({ repositories: repositories as BeadsRepository[], logger: baseLogger });
+        if (!repositoryPath) {
+          logger.error('Could not detect beads repository. Run from a directory with .beads/ or configure repository.path in config.json');
+          process.exit(1);
+        }
 
-        // Find repository path for the issue
-        const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
-        if (!repoName) {
-          throw new Error(`Cannot find repository for issue ${issueId}`);
-        }
-        const repo = repositories.find((r) => r.name === repoName || r.prefix === repoName);
-        if (!repo || !repo.path) {
-          throw new Error(`Repository path not found for ${repoName}`);
-        }
+        const beadsClient = new BeadsClient({
+          repositoryPath,
+          prefix: configManager.getPrefix(),
+          logger: baseLogger
+        });
 
         // Initialize backend and server with repository path
         const backendLogger = baseLogger.withScope('LiveWebBackend');
-        const backend = new LiveWebBackend(repo.path, undefined, backendLogger);
+        const backend = new LiveWebBackend(repositoryPath, undefined, backendLogger);
         const serverLogger = baseLogger.withScope('ExpressServer');
         const server = new ExpressServer(backend, port, undefined, serverLogger);
-
-
 
         const updateState = async () => {
           logger.info(`Updating state for ${issueId}...`);
 
-          // Find which repository contains this issue
-          const repoName = findRepositoryForIssue(issueId, repositories as BeadsRepository[]);
-          if (!repoName) {
-            throw new Error(`Cannot find repository for issue ${issueId}`);
-          }
-
           // Get all issues in tree using bd dep tree
-          const tree = await beadsClient.getEpicChildrenTree(repoName, issueId);
+          const tree = await beadsClient.getEpicChildrenTree(issueId);
 
           type FlattenedNode = { issue: BeadsIssue; parentId?: string; depth: number };
           const flattenTree = (node: DependencyTreeNode, parentId?: string, depth: number = 0): FlattenedNode[] => {
@@ -178,7 +152,6 @@ export function createServeCommand(): Command {
             },
           }));
 
-          // Calculate metrics
           const metrics = {
             total: issues.length,
             completed: issues.filter((i) => i.metadata.beadsStatus === 'closed').length,
@@ -204,13 +177,8 @@ export function createServeCommand(): Command {
           });
         };
 
-        const polling = new PollingService(
-          updateState,
-          pollInterval,
-          onError
-        );
+        const polling = new PollingService(updateState, pollInterval, onError);
 
-        // Initialize state before starting server so dashboard can load immediately
         logger.info('Initializing state...');
         try {
           await updateState();
@@ -219,13 +187,9 @@ export function createServeCommand(): Command {
           process.exit(1);
         }
 
-        // Start server
         await server.start();
-
-        // Start polling
         polling.start();
 
-        // Open browser
         if (options.open) {
           const url = `http://localhost:${port}/issue/${issueId}`;
           await open(url);
@@ -234,7 +198,6 @@ export function createServeCommand(): Command {
         logger.info(`Dashboard running at http://localhost:${port}/issue/${issueId}`);
         logger.info('Press Ctrl+C to stop');
 
-        // Graceful shutdown
         process.on('SIGINT', () => {
           logger.info('Shutting down dashboard...');
           polling.stop();
