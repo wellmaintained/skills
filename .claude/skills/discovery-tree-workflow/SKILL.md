@@ -7,9 +7,9 @@ description: Use when planning and tracking work - creates visible, emergent wor
 
 ## Overview
 
-Discovery Trees make work visible through hierarchical task breakdown that emerges just-in-time. Track work with bd (beads), grow the tree as you discover new requirements, maintain focus by capturing distractions.
+Discovery Trees make work visible through hierarchical **outcome** breakdown that emerges just-in-time. Track work with bd (beads), grow the tree as you discover new requirements, coordinate implementing agents through clear, deliverable outcomes.
 
-**Core principle:** Start minimal, plan just-in-time, grow through discovery, make status visible.
+**Core principle:** Start minimal, plan just-in-time, grow through discovery, make status visible, think in outcomes not steps.
 
 **Announce at start:** "I'm using the Discovery Tree workflow to track this work with bd."
 
@@ -19,142 +19,262 @@ Discovery Trees make work visible through hierarchical task breakdown that emerg
 - Starting any non-trivial work (more than a single simple task)
 - Planning features, bugs, or investigations
 - Working with multiple related tasks
+- Coordinating work with implementing agents
 - Need to make progress visible
-- Want to capture emergent work without losing focus
 
 **Instead of:**
 - TodoWrite for tracking progress
 - Upfront detailed planning
 - Hidden mental task lists
-- Linear task lists that don't show relationships
+- Step-by-step task lists
+- Linear work breakdown structures
 
 ## Core Philosophy
 
+### Outcome Thinking (Not Step Thinking)
+
+**Beads describe WHAT will be true, not HOW to make it true:**
+
+❌ **Step thinking:**
+- "Add validation to login form"
+- "Create API endpoint"
+- "Write tests"
+
+✅ **Outcome thinking:**
+- "Invalid login shows clear error message"
+- "User can sign in with valid credentials"
+- "Login fails safely without revealing account existence"
+
+**Why outcomes?**
+- Implementing agents understand the goal, not just the action
+- PRs are reviewable against the outcome
+- Outcomes can be verified (acceptance criteria)
+- Leaves room for agent to choose implementation approach
+
 ### Just-in-Time Planning
-- Start with minimal detail (one task describing user value)
-- Have short conversations (2-10 minutes) to break down next steps
-- Don't plan everything upfront - plan what you need now
+- Start with minimal detail (one bead describing user value)
+- Have short conversations (2-10 minutes) to discover next outcomes
+- Don't plan everything upfront - discover what outcomes are needed as you go
 - Delays planning until the last responsible moment
 
 ### Emergent Work
 - New requirements discovered during work → add to tree
-- Unexpected complexity → break down further
-- Distractions or ideas → capture as tasks, mark low priority
+- Unexpected complexity → break down into smaller outcomes
+- Distractions or ideas → capture as beads, mark low priority
 - Tree grows organically as understanding deepens
+
+### Agent Coordination
+- Beads are the unit of work for implementing agents
+- One bead = one PR = one agent session
+- Agents read bead for context, implement outcome, create PR
+- Status controlled by orchestrator, not implementing agents
 
 ### Visual Status
 - Color by status (open, in_progress, closed, blocked)
 - Progress visible at a glance
 - No context needed to see what's done, active, remaining
-- Bottom-up view shows full context for any task
+- Bottom-up view shows full context for any bead
 
 ## The Discovery Tree Workflow
 
-### 1. Create Root Epic and Task
+### 1. Create Root Epic and Bead
 
-Every Discovery Tree starts with an epic (container) and a root task (actual work):
+Every Discovery Tree starts with an epic (container) and a root bead (actual work):
 
 ```bash
 # Create epic (container for all work)
-bd create "Feature: User Authentication" -t epic -p 1 --json
+bd create "Users can securely access their accounts" -t epic -p 1 --json
 
-# Create root task (describes the user value)
-bd create "User Authentication [root]" -t task -p 1 --json
+# Create root bead (describes the user value)
+bd create "User authentication system [root]" -t task -p 1 --json
 
-# Link root task to epic
-bd dep add <root-task-id> <epic-id> -t parent-child
+# Link root bead to epic
+bd dep add <root-bead-id> <epic-id> -t parent-child
 ```
 
-**Why both epic and root task?**
+**Why both epic and root bead?**
 - Epic: Container that tracks overall completion
-- Root task: Actual work item that can have subtasks
+- Root bead: Actual work item that can have sub-outcomes
+
+**Naming convention:**
+- Epic: User-facing value ("Users can...")
+- Root bead: Technical outcome ("[system] delivers [capability]")
 
 ### 2. Initial Breakdown Conversation
 
-Have a quick conversation (2-10 minutes) to identify first level of work:
+Have a quick conversation (2-10 minutes) to discover first level of **outcomes**:
 
 **Questions to ask:**
-- "What are the main pieces of this?"
-- "What do we need to understand first?"
-- "What can we start with minimal detail?"
+- "What outcomes do users need?"
+- "What should be true when this is done?"
+- "What can we verify independently?"
 
-**Create tasks for what you discover:**
+**NOT:**
+- "What steps do we take?"
+- "What files do we change?"
+- "What functions do we write?"
 
-```bash
-# Create main tasks
-bd create "API endpoint for login" -t task -p 1 --json
-bd create "Password validation logic" -t task -p 1 --json
-bd create "Session management" -t task -p 1 --json
-
-# Link them to root task
-bd dep add <task-id> <root-task-id> -t parent-child
-```
-
-**Don't over-plan:** Stop when you have enough to start. More detail emerges as you work.
-
-### 3. Start Working
-
-Pick a task and claim it:
+**Create beads for discovered outcomes:**
 
 ```bash
-bd update <task-id> --status in_progress
+# Think: What will be true?
+bd create "User can sign in with email and password" -t task -p 1 --json
+bd create "Invalid credentials show clear error message" -t task -p 1 --json
+bd create "Session persists across browser restarts" -t task -p 1 --json
+
+# Link them to root bead
+bd dep add <bead-id> <root-bead-id> -t parent-child
 ```
 
-**As you work:**
-- Discover subtasks needed? Create and link them
-- Find blocking issues? Create with `blocked` status
-- Get distracted by ideas? Create low-priority task to bookmark
+**Add context and acceptance criteria to each bead:**
 
 ```bash
-# Discovered more work
-bd create "Validate email format" -t task -p 1 --json
-bd dep add <subtask-id> <parent-task-id> -t parent-child
+bd update <bead-id> --description "
+OUTCOME: Invalid credentials show clear error message
 
-# Found blocker
-bd create "Database schema needs user table" -t task -p 0 --json
-bd update <current-task-id> --status blocked
+CONTEXT:
+- Part of authentication epic
+- Users currently confused by silent failures
+- Security: don't reveal whether email exists
+
+ACCEPTANCE:
+- Wrong password shows 'Invalid email or password'
+- Wrong email shows same message (no enumeration)
+- Error appears within 500ms
+- No console errors in browser
+"
 ```
 
-### 4. Complete and Continue
+**Don't over-plan:** Stop when you have enough to start. More outcomes emerge as you work.
 
-When task is done:
+### 3. Bead Sizing for Agents
+
+**A well-sized bead is:**
+- ✅ **Agent-completable**: One agent, one session, done
+- ✅ **PR-sized**: Results in one mergeable pull request
+- ✅ **Outcome-focused**: Describes what will be true, not what to do
+- ✅ **Independently verifiable**: Can test/review without other work
+- ✅ **Context-rich**: Contains enough "why" for good decisions
+
+**Too small:**
+- "Add import statement"
+- "Fix typo in error message"
+- One commit, no PR needed
+
+**Just right:**
+- "Invalid login shows clear error message"
+- "API returns user profile in <200ms"
+- "Password reset email arrives within 5 minutes"
+
+**Too large:**
+- "Build authentication system"
+- "Implement all validation"
+- Needs multiple PRs, break down further
+
+**The test:** Can an implementing agent deliver a mergeable PR in one session?
+
+### 4. Coordinating with Implementing Agents
+
+When a bead is ready to implement, spawn an agent (PUSH pattern):
 
 ```bash
-bd close <task-id> --reason "Completed"
+# Review the bead
+bd show wms-123
+
+# Ensure it has:
+# - Clear outcome description
+# - Relevant context (why this matters)
+# - Acceptance criteria (how to verify)
+
+# Spawn implementing agent
+/implement_bead wms-123
 ```
 
-**IMPORTANT: Update parent task with what was accomplished:**
+**The implementing agent:**
+1. Reads bead details (`bd show wms-123`)
+2. Implements the outcome in isolated worktree
+3. Adds progress comments (`bd comment wms-123 --author "agent-name" "message"`)
+4. Creates PR when done
+5. Exits
+
+**You (orchestrator):**
+1. Review PR against bead's outcome
+2. Provide feedback via PR comments
+3. When satisfied, merge PR and close bead
+4. Update parent bead with completed outcome
+
+**Agent communication via comments:**
+```bash
+# Implementing agent adds progress notes
+bd comment wms-123 --author "wt-redis-impl" "Started Redis approach"
+bd comment wms-123 --author "wt-redis-impl" "Found connection timeout issue, adding retry"
+bd comment wms-123 --author "wt-redis-impl" "PR #45 ready for review"
+
+# View all communication
+bd comments wms-123
+```
+
+### 5. Competing Implementations
+
+For complex problems, spawn multiple agents with different approaches:
 
 ```bash
-# View parent task to see current state
-bd show <parent-task-id>
+# Same bead, different approaches
+/implement_bead wms-456 --approach redis
+/implement_bead wms-456 --approach memory
+/implement_bead wms-456 --approach hybrid
 
-# Update parent with accumulated progress
-bd update <parent-task-id> --notes "Completed: <what-you-just-did>. Previously: <what-was-done-before>"
-# OR update the description to reflect ALL completed subtasks
-bd update <parent-task-id> --description "Updated description reflecting all work done so far"
+# Three agents work in parallel, each creates PR
+# Review all three, merge best, close bead
 ```
 
-This keeps the parent task's context accurate as subtasks complete, similar to how jj-change-workflow updates commit messages after squashing.
+Agents coordinate via comments:
+```bash
+bd comment wms-456 --author "wt-redis" "Using Redis, 50ms latency"
+bd comment wms-456 --author "wt-memory" "In-memory LRU, simpler but 100MB limit"
+bd comment wms-456 --author "wt-hybrid" "Redis + local cache, best of both"
+```
 
-Check progress:
+### 6. Complete and Continue
+
+When agent's PR is merged:
+
+```bash
+# Close the bead
+bd close <bead-id> --reason "Merged PR #45 (Redis approach)"
+```
+
+**IMPORTANT: Update parent bead with what outcome was delivered:**
+
+```bash
+# View parent bead to see current state
+bd show <parent-bead-id>
+
+# Add comment documenting completed outcome
+bd comment <parent-bead-id> "Completed: Invalid login shows clear error. Implementation: Redis-backed rate limiting with friendly error messages."
+
+# If parent outcome is now complete, close it too
+bd close <parent-bead-id> --reason "All sub-outcomes delivered"
+```
+
+**Check progress:**
 
 ```bash
 bd epic status --no-daemon
 ```
 
-**If more work remains:** Claim next task, repeat cycle
+**If more work remains:** Discover next outcome, create bead, spawn agent
 
-**If work emerges:** Add to tree, keep going
+**If new outcomes emerge:** Add to tree, keep going
 
-**If blocked:** Mark blocked, work on unblocked tasks
+**If blocked:** Mark blocked, work on unblocked beads
 
-### 5. View Progress
+### 7. View Progress
 
-**Bottom-up view (from any task):**
+**Bottom-up view (from any bead):**
 ```bash
-bd dep tree <task-id>
-# Shows: current task → parent → grandparent → root
+bd dep tree <bead-id>
+# Shows: current bead → parent → grandparent → root
 ```
 
 **Epic completion:**
@@ -163,96 +283,145 @@ bd epic status --no-daemon
 # Shows: progress percentage for each epic
 ```
 
-**See what's ready to work:**
+**See what's ready for agents:**
 ```bash
 bd ready
-# Shows: all unblocked open tasks
+# Shows: all unblocked open beads ready to implement
 ```
 
-## Integration with Skills
+## Outcome Examples
 
-### With TDD
-1. Create task for feature
-2. TDD cycle: RED → GREEN → REFACTOR
-3. If new test reveals complexity → create subtask
-4. Close task when all tests pass
+### Authentication Epic
 
-### With Example-Driven Design
-1. Create task for user story
-2. EXAMPLE phase discovers API shape → might create subtasks
-3. Each phase completion → progress visible in tree
-4. CHECK phase → close task or create next example task
+❌ **Step-focused beads:**
+```bash
+bd create "Add login API endpoint"
+bd create "Hash passwords"
+bd create "Create session table"
+bd create "Write validation tests"
+```
 
-### With Mikado Method
-1. Discover prerequisite → create task with `discovered-from` dependency
-2. Each prerequisite becomes subtask
-3. Work on leaf tasks (no dependencies)
-4. Close prerequisites, return to parent
+✅ **Outcome-focused beads:**
+```bash
+bd create "User can sign in with valid credentials"
+bd create "Invalid credentials show clear, secure error"
+bd create "Session persists for 30 days unless logged out"
+bd create "Brute force attempts are rate-limited"
+```
+
+### API Performance Epic
+
+❌ **Step-focused beads:**
+```bash
+bd create "Add Redis caching"
+bd create "Optimize database queries"
+bd create "Add response compression"
+```
+
+✅ **Outcome-focused beads:**
+```bash
+bd create "API responds in <200ms for cached requests"
+bd create "Database queries use indexes for all lookups"
+bd create "Response payload is <50KB compressed"
+```
+
+**Notice:** Outcomes are testable, verifiable, and leave implementation choices to agents.
 
 ## Quick Reference
 
 | Action | Command |
 |--------|---------|
-| Create epic | `bd create "Epic name" -t epic -p 1 --json` |
-| Create root task | `bd create "Root [root]" -t task -p 1 --json` |
+| Create epic | `bd create "Users can..." -t epic -p 1 --json` |
+| Create root bead | `bd create "System delivers [capability]" -t task -p 1 --json` |
 | Link to parent | `bd dep add <child-id> <parent-id> -t parent-child` |
-| Claim task | `bd update <task-id> --status in_progress` |
-| Complete task | `bd close <task-id> --reason "Done"` |
-| Update parent after subtask | `bd update <parent-id> --notes "Completed: X"` |
-| View tree | `bd dep tree <task-id>` |
+| Add context to bead | `bd update <bead-id> --description "OUTCOME:\n...\n\nCONTEXT:\n...\n\nACCEPTANCE:\n..."` |
+| Spawn agent | `/implement_bead <bead-id>` |
+| Agent adds comment | `bd comment <bead-id> --author "agent-name" "message"` |
+| View comments | `bd comments <bead-id>` |
+| Complete bead | `bd close <bead-id> --reason "Merged PR #X"` |
+| Update parent | `bd comment <parent-id> "Completed: [outcome]"` |
+| View tree | `bd dep tree <bead-id>` |
 | Check progress | `bd epic status --no-daemon` |
 | Find ready work | `bd ready` |
-| Mark blocked | `bd update <task-id> --status blocked` |
+| Mark blocked | `bd update <bead-id> --status blocked` |
 
 ## Common Patterns
 
 ### Capture Distractions
 ```bash
 # Something came up while working
-bd create "Refactor utils.ts for clarity" -t task -p 3 --json
+bd create "Refactor auth utils for clarity" -t task -p 3 --json
 bd dep add <distraction-id> <current-parent-id> -t parent-child
 # Now it's captured, back to current work
 ```
 
-### Break Down Complex Task
+### Break Down Complex Outcome
 ```bash
-# Realized task is bigger than expected
-bd create "Part 1: Schema validation" -t task -p 1 --json
-bd create "Part 2: Error handling" -t task -p 1 --json
-bd dep add <subtask1-id> <complex-task-id> -t parent-child
-bd dep add <subtask2-id> <complex-task-id> -t parent-child
-bd update <complex-task-id> --status open  # Parent stays open until children done
+# Realized outcome needs multiple deliverables
+bd create "Password meets complexity requirements" -t task -p 1 --json
+bd create "Password complexity errors are user-friendly" -t task -p 1 --json
+bd dep add <sub-outcome-1-id> <complex-bead-id> -t parent-child
+bd dep add <sub-outcome-2-id> <complex-bead-id> -t parent-child
+bd update <complex-bead-id> --status open  # Parent stays open until children done
 ```
 
 ### Handle Discovered Prerequisites
 ```bash
-# Found something that must be done first
-bd create "Add user_id column to sessions table" -t task -p 0 --json
-bd dep add <current-task-id> <prerequisite-id> -t blocks
-bd update <current-task-id> --status blocked
+# Found something that must be true first
+bd create "Database has user_sessions table with indexes" -t task -p 0 --json
+bd dep add <current-bead-id> <prerequisite-id> -t blocks
+bd update <current-bead-id> --status blocked
 bd update <prerequisite-id> --status in_progress
+```
+
+### Document Competing Approaches
+```bash
+# Multiple agents tried different solutions
+bd comment wms-789 "Evaluated three approaches:
+- Redis (PR #45): 50ms, scalable, complex setup
+- Memory (PR #46): 5ms, simple, 100MB limit
+- Hybrid (PR #47): 10ms, balanced
+
+Chose hybrid approach (PR #47) - best tradeoff"
+
+bd close wms-789 --reason "Merged PR #47 (hybrid caching)"
 ```
 
 ## Red Flags
 
 **STOP if you catch yourself:**
-- Planning all details upfront before starting work
-- Using TodoWrite instead of bd for multi-step work
-- Keeping task breakdown in your head instead of bd
-- Not capturing emerged work because "it's small"
-- Marking tasks complete without using `bd close`
-- Closing subtasks without updating parent task with what was done
-- Forgetting to check `bd ready` when looking for next work
-- Creating flat task lists instead of hierarchical trees
+- ❌ Planning all details upfront before starting work
+- ❌ Using TodoWrite instead of bd for multi-step work
+- ❌ Creating beads that describe steps ("Add X", "Create Y")
+- ❌ Creating beads without context or acceptance criteria
+- ❌ Making beads too big (requires multiple PRs)
+- ❌ Making beads too small (doesn't need a PR)
+- ❌ Spawning agents without clear outcomes in beads
+- ❌ Agents changing bead status (orchestrator-only)
+- ❌ Closing beads without updating parent
+- ❌ Forgetting to check `bd ready` when looking for next work
+- ❌ Creating flat lists instead of hierarchical trees
 
-**All of these mean: Use Discovery Trees with bd for visible, emergent planning.**
+**All of these mean: Refocus on outcomes, right-sized beads, and emergent planning.**
 
 ## Why This Works
 
+**Outcome thinking:**
+- Agents understand the goal, not just the steps
+- PRs are reviewable against clear criteria
+- Implementation approach is discovered, not prescribed
+- Outcomes are verifiable and measurable
+
 **Just-in-time planning:**
 - Short conversations vs hours of upfront meetings
-- Plan what you need now, defer rest
+- Discover outcomes as you learn, not before
 - Less waste from planning things that change
+
+**Agent coordination:**
+- Clear bead = clear work for agent
+- Comments provide communication channel
+- Status shows what's available to implement
+- PRs connect outcomes to code
 
 **Emergent structure:**
 - Tree grows as understanding deepens
@@ -265,6 +434,35 @@ bd update <prerequisite-id> --status in_progress
 - Epic progress shows completion percentage
 
 **Focus maintenance:**
-- Distractions captured as low-priority tasks
+- Distractions captured as low-priority beads
 - Current work stays visible
 - Easy to return to main path
+
+## Bead Sizing Decision Tree
+
+```
+Is this a user-facing outcome?
+├─ YES: Make it an epic
+│   └─ Break down into technical outcomes (beads)
+│
+└─ NO: Is it agent-completable in one session?
+    ├─ YES: Make it a bead
+    │   └─ Add context + acceptance criteria
+    │
+    └─ NO: Break down into smaller outcomes
+        └─ Each becomes a bead
+```
+
+**Examples:**
+
+- "Users can authenticate" → **Epic**
+  - "User can sign in with email" → **Bead** (agent-completable)
+  - "Invalid login shows error" → **Bead** (agent-completable)
+
+- "API is fast" → **Epic**
+  - "API responds in <200ms" → **Bead** (agent-completable)
+  - "DB queries use indexes" → **Bead** (agent-completable)
+
+- "Fix authentication bugs" → **Too vague**
+  - "Session expires correctly after 30 days" → **Bead** (specific outcome)
+  - "Logout clears all session cookies" → **Bead** (specific outcome)
