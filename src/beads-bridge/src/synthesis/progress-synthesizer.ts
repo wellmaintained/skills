@@ -91,14 +91,15 @@ export class ProgressSynthesizer {
       throw new NotFoundError(`No external_ref found for ${githubRepository}#${githubIssueNumber}`);
     }
 
-    // Get progress for each repository epic
+    // Get progress for each epic
     const epics: EpicProgress[] = [];
     for (const repoEpic of resolution.epics) {
       try {
-        const progress = await this.getEpicProgress(repoEpic.repository, repoEpic.epicId);
+        // repository parameter is no longer used (single-repo mode)
+        const progress = await this.getEpicProgress('', repoEpic.epicId);
         epics.push(progress);
       } catch (error) {
-        console.error(`Failed to get progress for ${repoEpic.repository}/${repoEpic.epicId}:`, error);
+        console.error(`Failed to get progress for ${repoEpic.epicId}:`, error);
         continue;
       }
     }

@@ -42,6 +42,13 @@ const DEFAULT_OPTIONS: Required<MermaidOptions> = {
 };
 
 /**
+ * Average branching factor for dependency trees
+ * Typical beads dependency trees have around 3 children per node
+ * Used to estimate max depth from desired max nodes
+ */
+const AVERAGE_BRANCHING_FACTOR = 3;
+
+/**
  * MermaidGenerator creates visual dependency diagrams using bd CLI
  */
 export class MermaidGenerator {
@@ -67,9 +74,8 @@ export class MermaidGenerator {
 
     // Apply max depth if maxNodes is specified
     if (opts.maxNodes && opts.maxNodes < 50) {
-      // Convert maxNodes to a reasonable depth
-      // Assume average branching factor of 3-5
-      const maxDepth = Math.max(1, Math.floor(Math.log(opts.maxNodes) / Math.log(3)));
+      // Convert maxNodes to a reasonable depth using logarithmic estimate
+      const maxDepth = Math.max(1, Math.floor(Math.log(opts.maxNodes) / Math.log(AVERAGE_BRANCHING_FACTOR)));
       args.push('--max-depth', maxDepth.toString());
     }
 

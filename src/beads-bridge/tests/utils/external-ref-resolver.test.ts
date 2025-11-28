@@ -36,7 +36,7 @@ describe('ExternalRefResolver', () => {
     const result = await resolver.resolve({ repository: 'org/repo', issueNumber: 123 });
 
     expect(result.epics).toEqual([
-      { repository: '', epicId: 'front-e1' }
+      { epicId: 'front-e1' }
     ]);
     expect(result.metrics.total).toBe(10);
     expect(result.metrics.completed).toBe(4);
@@ -68,7 +68,7 @@ describe('ExternalRefResolver', () => {
     const result = await resolver.resolve({ repository: 'shortcut', issueNumber: 901 });
 
     expect(result.epics).toEqual([
-      { repository: '', epicId: 'mobile-e1' }
+      { epicId: 'mobile-e1' }
     ]);
     expect(mockBeads.getEpicStatus).toHaveBeenCalledWith('mobile-e1');
   });

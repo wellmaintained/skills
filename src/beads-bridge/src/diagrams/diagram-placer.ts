@@ -114,10 +114,10 @@ export class DiagramPlacer {
   }
 
   /**
-   * Generate combined diagram from multiple repository epics
+   * Generate combined diagram from multiple epics
    */
   private async generateCombinedDiagram(
-    epics: Array<{ repository: string; epicId: string }>
+    epics: Array<{ epicId: string }>
   ): Promise<{ mermaid: string; nodeCount: number; truncated: boolean }> {
     // For single epic, just generate directly
     if (epics.length === 1) {

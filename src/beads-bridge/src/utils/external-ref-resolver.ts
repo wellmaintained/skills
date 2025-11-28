@@ -8,12 +8,10 @@ export interface ResolveParams {
 }
 
 /**
- * Link to a Beads epic
- * @property repository - Repository name (currently unused in single-repo mode, always empty string)
+ * Link to a Beads epic (single-repo mode)
  * @property epicId - The ID of the epic in the Beads system
  */
 export interface EpicLink {
-  repository: string;  // TODO: Consider removing in future if multi-repo support is never restored
   epicId: string;
 }
 
@@ -76,8 +74,7 @@ export class ExternalRefResolver {
     );
 
     if (epic) {
-      // Single repository only, use empty string as repository name
-      matches.push({ repository: '', epicId: epic.id });
+      matches.push({ epicId: epic.id });
     }
 
     return matches;
