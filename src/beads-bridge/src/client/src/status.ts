@@ -18,6 +18,6 @@ export const STATUS_STYLES: Record<
     bg: 'bg-green-100',
     border: 'border-green-300',
     text: 'text-green-700',
-    cardOpacity: 'opacity-50'
+    cardOpacity: 'opacity-70'
   },
 };
