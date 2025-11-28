@@ -2,11 +2,30 @@ import { build } from "bun";
 import { join, resolve, dirname } from "path";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "fs";
 import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, '..');
 const distDir = join(projectRoot, 'dist');
+
+// Get version: prefer BUILD_VERSION env var (from semantic-release), fallback to git describe
+let buildVersion = process.env.BUILD_VERSION || '';
+if (buildVersion) {
+    console.log(`Build version (from env): ${buildVersion}`);
+} else {
+    try {
+        buildVersion = execSync('git describe --tags --always', { encoding: 'utf-8' }).trim();
+        // Remove leading 'v' if present
+        if (buildVersion.startsWith('v')) {
+            buildVersion = buildVersion.slice(1);
+        }
+        console.log(`Build version (from git): ${buildVersion}`);
+    } catch {
+        buildVersion = 'dev';
+        console.warn('Could not get git version, using "dev"');
+    }
+}
 
 // Ensure dist exists
 if (!existsSync(distDir)) {
@@ -82,11 +101,14 @@ const result = await Bun.build({
     outdir: distDir,
     target: "bun",
     naming: "beads-bridge.bundled.js",
+    define: {
+        'BUILD_VERSION': JSON.stringify(buildVersion),
+    },
     plugins: [
         {
             name: 'alias-asset-manager',
             setup(build) {
-                build.onResolve({ filter: /asset-manager(\.js)?$/ }, args => {
+                build.onResolve({ filter: /asset-manager(\.js)?$/ }, _args => {
                     // Only alias if it's the one in src/server
                     // We check if the importer is in src/server or if the path resolves to it
                     // Simple check: if it ends with asset-manager

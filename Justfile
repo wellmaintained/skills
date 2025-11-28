@@ -108,7 +108,14 @@ install-binary: build-binary
     else
         cp src/beads-bridge/dist/beads-bridge-$PLATFORM-$ARCH ~/.local/bin/beads-bridge
         chmod +x ~/.local/bin/beads-bridge
-        echo "✅ Installed to ~/.local/bin/beads-bridge"
+        # Clear quarantine attributes and re-sign for macOS Gatekeeper
+        if [ "$PLATFORM" = "darwin" ]; then
+            xattr -cr ~/.local/bin/beads-bridge
+            codesign -fs - ~/.local/bin/beads-bridge
+            echo "✅ Installed and signed for macOS: ~/.local/bin/beads-bridge"
+        else
+            echo "✅ Installed to ~/.local/bin/beads-bridge"
+        fi
     fi
 
 # Run TypeScript type checking for beads-bridge

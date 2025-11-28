@@ -76,11 +76,65 @@ jobs:
       - name: Build and test plugin
         run: just test-plugin ${{ matrix.plugin }}
 
+  # Determine version using semantic-release dry-run
+  determine-version:
+    name: Determine Version
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate-structure, test-plugins]
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      should-release: ${{ steps.get-version.outputs.should-release }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Get next version
+        id: get-version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Run semantic-release in dry-run mode and capture output
+          OUTPUT=$(bun x semantic-release --dry-run 2>&1) || true
+          echo "$OUTPUT"
+
+          # Extract version from output (look for "Release X.Y.Z" or similar)
+          VERSION=$(echo "$OUTPUT" | grep -oP "(?<=The next release version is )\d+\.\d+\.\d+" || echo "")
+
+          if [ -n "$VERSION" ]; then
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "should-release=true" >> $GITHUB_OUTPUT
+            echo "Next version will be: $VERSION"
+          else
+            # Fallback to git describe if no release pending
+            VERSION=$(git describe --tags --always | sed 's/^v//')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "should-release=false" >> $GITHUB_OUTPUT
+            echo "No release pending, using git describe: $VERSION"
+          fi
+
   build-binaries:
     name: Build Binaries
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [validate-structure, test-plugins]
+    needs: [determine-version]
     strategy:
       matrix:
         include:
@@ -99,6 +153,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -109,6 +165,8 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Build binary for platform
+        env:
+          BUILD_VERSION: ${{ needs.determine-version.outputs.version }}
         run: just build-binary ${{ matrix.platform }} ${{ matrix.arch }}
 
       - name: Upload binary artifact
@@ -142,8 +200,8 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
-    needs: [build-binaries, update-marketplace]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-binaries, update-marketplace, determine-version]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.determine-version.outputs.should-release == 'true'
     permissions:
       contents: write
       issues: write

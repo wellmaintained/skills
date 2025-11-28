@@ -214,8 +214,19 @@ history/
 - Preserves planning history for archeological research
 - Reduces noise when browsing the project
 
+### JavaScript Tooling
+
+**IMPORTANT**: Use `bun` instead of `npm` for all JavaScript/TypeScript operations:
+```bash
+bun install        # NOT npm install
+bun run build      # NOT npm run build
+bun test           # NOT npm test
+bun run <script>   # NOT npm run <script>
+```
+
 ### Important Rules
 
+- Use `bun` instead of `npm` for all JS/TS operations
 - Use bd for ALL task tracking
 - Always use `--json` flag for programmatic use
 - Link discovered work with `discovered-from` dependencies

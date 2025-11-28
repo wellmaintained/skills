@@ -17,10 +17,14 @@ import { createSyncCommand } from './cli/commands/sync.js';
 
 const program = new Command();
 
+// BUILD_VERSION is injected at build time via define
+declare const BUILD_VERSION: string;
+const version = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : 'dev';
+
 program
   .name('beads-bridge')
   .description('CLI for Beads-GitHub Projects v2 integration')
-  .version('0.1.0');
+  .version(version);
 
 // Configuration option available to all commands
 program.option(
