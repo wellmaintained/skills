@@ -258,7 +258,6 @@ export class ProgressSynthesizer {
           // Generate diagram for the first epic (primary epic)
           const primaryEpic = progress.epics[0];
           diagramMermaid = await this.mermaid.generate(
-            primaryEpic.repository,
             primaryEpic.epicId,
             { maxNodes: 50, includeLegend: false }
           );

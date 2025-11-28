@@ -54,13 +54,12 @@ export class MermaidGenerator {
    * bd dep tree <issue-id> --format mermaid --reverse
    */
   async generate(
-    _repository: string,
     rootIssueId: string,
     options: MermaidOptions = {}
   ): Promise<string> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
-    // Access the bd CLI instance directly (repository param ignored - single repo only)
+    // Access the bd CLI instance directly (single repo only)
     const bdCli = (this.beads as any).bdCli;
 
      // Build command arguments
@@ -135,11 +134,10 @@ export class MermaidGenerator {
    * Redirects to generate()
    */
   async generateFromTree(
-    repository: string,
     rootIssueId: string,
     options: MermaidOptions = {}
   ): Promise<{ mermaid: string; nodeCount: number }> {
-    const mermaid = await this.generate(repository, rootIssueId, options);
+    const mermaid = await this.generate(rootIssueId, options);
 
     // Count nodes by counting lines that define nodes
     const nodeCount = (mermaid.match(/^\s+\w+-\w+\[/gm) || []).length;

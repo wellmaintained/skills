@@ -122,7 +122,6 @@ export class DiagramPlacer {
     // For single epic, just generate directly
     if (epics.length === 1) {
       const { mermaid, nodeCount } = await this.generator.generateFromTree(
-        epics[0].repository,
         epics[0].epicId
       );
       return { mermaid, nodeCount, truncated: false };
@@ -134,7 +133,6 @@ export class DiagramPlacer {
 
     for (const epic of epics) {
       const { mermaid, nodeCount } = await this.generator.generateFromTree(
-        epic.repository,
         epic.epicId
       );
       diagrams.push(`### ${epic.repository}\n\n${mermaid}`);
