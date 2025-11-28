@@ -36,6 +36,7 @@ export interface DashboardEdge {
   id: string;
   source: string;
   target: string;
+  type?: 'parent-child' | 'blocks';
 }
 
 export interface IssueResponse {

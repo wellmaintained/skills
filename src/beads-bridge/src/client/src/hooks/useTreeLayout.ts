@@ -89,6 +89,17 @@ export function useTreeLayout(
       source: edge.source,
       target: edge.target,
       type: 'smoothstep',
+      style: edge.type === 'blocks' ? {
+        strokeDasharray: '5,5',
+        stroke: '#f87171',  // Red color for blocking edges
+        strokeWidth: 2,
+      } : undefined,
+      label: edge.type === 'blocks' ? '🚫 blocks' : undefined,
+      labelStyle: edge.type === 'blocks' ? {
+        fill: '#7f1d1d',
+        fontWeight: 600,
+        fontSize: 12,
+      } : undefined,
     }));
 
     return { nodes: reactFlowNodes, edges: reactFlowEdges, childrenMap };

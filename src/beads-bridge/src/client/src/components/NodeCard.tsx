@@ -142,7 +142,10 @@ const NodeCard = memo(({ data }: NodeProps<IssueNodeComponentData>) => {
           className="cursor-pointer px-4 pb-8 pt-1"
           onClick={() => onSelect(issue.id)}
         >
-          <p className="text-base font-bold text-slate-900">{issue.title}</p>
+          <p className="text-base font-bold text-slate-900">
+            {status === 'blocked' && <span className="mr-1.5">🚫</span>}
+            {issue.title}
+          </p>
         </div>
 
         {/* Bottom Footer Pill - Protruding */}

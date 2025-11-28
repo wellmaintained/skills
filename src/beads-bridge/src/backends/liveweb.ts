@@ -18,6 +18,7 @@ export interface IssueGraphEdge {
   id: string;
   source: string;
   target: string;
+  type?: 'parent-child' | 'blocks';
 }
 
 export interface IssueState {

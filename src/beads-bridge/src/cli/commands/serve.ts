@@ -115,13 +115,35 @@ export function createServeCommand(): Command {
 
           const flattened = flattenTree(tree);
 
-          const edges = flattened
+          // Create parent-child edges
+          const parentChildEdges = flattened
             .filter((entry) => entry.parentId)
             .map((entry) => ({
-              id: `${entry.parentId}-${entry.issue.id}`,
+              id: `parent-${entry.parentId}-${entry.issue.id}`,
               source: entry.parentId as string,
               target: entry.issue.id,
+              type: 'parent-child' as const,
             }));
+
+          // Create blocking edges - for each issue, check if it has blocking dependencies
+          const blockingEdges: Array<{ id: string; source: string; target: string; type: 'blocks' }> = [];
+          for (const entry of flattened) {
+            if (entry.issue.dependencies && Array.isArray(entry.issue.dependencies)) {
+              for (const dep of entry.issue.dependencies) {
+                if (dep.dependency_type === 'blocks') {
+                  blockingEdges.push({
+                    id: `blocks-${entry.issue.id}-${dep.id}`,
+                    source: entry.issue.id,
+                    target: dep.id,
+                    type: 'blocks' as const,
+                  });
+                }
+              }
+            }
+          }
+
+          // Combine all edges
+          const edges = [...parentChildEdges, ...blockingEdges];
 
           // Deduplicate issues by ID (with --show-all-paths, same issue may appear multiple times)
           const issueMap = new Map<string, typeof flattened[0]>();
