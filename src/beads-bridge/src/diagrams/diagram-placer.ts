@@ -135,7 +135,8 @@ export class DiagramPlacer {
       const { mermaid, nodeCount } = await this.generator.generateFromTree(
         epic.epicId
       );
-      diagrams.push(`### ${epic.repository}\n\n${mermaid}`);
+      // Use epic ID as header since repository is no longer meaningful (single-repo mode)
+      diagrams.push(`### ${epic.epicId}\n\n${mermaid}`);
       totalNodes += nodeCount;
     }
 

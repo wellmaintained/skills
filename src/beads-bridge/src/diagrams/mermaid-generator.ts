@@ -59,8 +59,8 @@ export class MermaidGenerator {
   ): Promise<string> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
-    // Access the bd CLI instance directly (single repo only)
-    const bdCli = (this.beads as any).bdCli;
+    // Get the bd CLI instance (single repo only)
+    const bdCli = this.beads.getBdCli();
 
      // Build command arguments
      const args = ['dep', 'tree', rootIssueId, '--format', 'mermaid', '--direction=up', '--show-all-paths'];

@@ -12,20 +12,13 @@ describe('ExternalRefResolver', () => {
   });
 
   it('finds epics by github external ref', async () => {
-    mockBeads.getAllIssues.mockResolvedValueOnce(
-      new Map([
-        [
-          'frontend',
-          [
-            {
-              id: 'front-e1',
-              issue_type: 'epic',
-              external_ref: 'github:org/repo#123'
-            }
-          ]
-        ]
-      ])
-    );
+    mockBeads.getAllIssues.mockResolvedValueOnce([
+      {
+        id: 'front-e1',
+        issue_type: 'epic',
+        external_ref: 'github:org/repo#123'
+      }
+    ]);
 
     mockBeads.getEpicStatus.mockResolvedValueOnce({
       total: 10,
@@ -43,27 +36,21 @@ describe('ExternalRefResolver', () => {
     const result = await resolver.resolve({ repository: 'org/repo', issueNumber: 123 });
 
     expect(result.epics).toEqual([
-      { repository: 'frontend', epicId: 'front-e1' }
+      { repository: '', epicId: 'front-e1' }
     ]);
     expect(result.metrics.total).toBe(10);
     expect(result.metrics.completed).toBe(4);
+    expect(mockBeads.getEpicStatus).toHaveBeenCalledWith('front-e1');
   });
 
   it('handles shortcut external references automatically', async () => {
-    mockBeads.getAllIssues.mockResolvedValueOnce(
-      new Map([
-        [
-          'mobile',
-          [
-            {
-              id: 'mobile-e1',
-              issue_type: 'epic',
-              external_ref: 'shortcut:901'
-            }
-          ]
-        ]
-      ])
-    );
+    mockBeads.getAllIssues.mockResolvedValueOnce([
+      {
+        id: 'mobile-e1',
+        issue_type: 'epic',
+        external_ref: 'shortcut:901'
+      }
+    ]);
 
     mockBeads.getEpicStatus.mockResolvedValueOnce({
       total: 5,
@@ -81,8 +68,8 @@ describe('ExternalRefResolver', () => {
     const result = await resolver.resolve({ repository: 'shortcut', issueNumber: 901 });
 
     expect(result.epics).toEqual([
-      { repository: 'mobile', epicId: 'mobile-e1' }
+      { repository: '', epicId: 'mobile-e1' }
     ]);
-    expect(mockBeads.getEpicStatus).toHaveBeenCalledWith('mobile', 'mobile-e1');
+    expect(mockBeads.getEpicStatus).toHaveBeenCalledWith('mobile-e1');
   });
 });

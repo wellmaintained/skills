@@ -40,6 +40,14 @@ export class BeadsClient {
   // Repository Management (removed - single repo only)
   // ============================================================================
 
+  /**
+   * Get the bd CLI instance for generating diagrams and other operations
+   * @internal Used by MermaidGenerator and other internal utilities
+   */
+  getBdCli(): BdCli {
+    return this.bdCli;
+  }
+
   // ============================================================================
   // Issue Operations
   // ============================================================================
