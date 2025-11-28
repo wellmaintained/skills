@@ -3,12 +3,17 @@
  */
 
 import { Issue } from '../types/core.js';
-import { RepositoryConfig } from '../types/config.js';
 import {
   ParsedIssue,
   ParsedTask,
   RepositoryReference,
 } from '../types/decomposition.js';
+
+interface RepositoryConfig {
+  name: string;
+  path: string;
+  prefix?: string;
+}
 
 /**
  * Parse GitHub issue into structured format for decomposition

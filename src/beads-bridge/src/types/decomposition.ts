@@ -144,6 +144,9 @@ export interface DecompositionOptions {
   /** Whether to add to project */
   addToProject?: boolean;
 
+  /** GitHub Project ID to add issues to */
+  projectId?: number;
+
   /** Default priority for created epics */
   defaultPriority?: number;
 

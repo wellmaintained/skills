@@ -4,7 +4,8 @@ import { dirname } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { BackendType } from '../types/config.js';
+
+type BackendType = 'github' | 'shortcut';
 
 export interface GitHubCredentials {
   token: string;

@@ -39,7 +39,7 @@ describe('DecomposerHandler', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.githubIssue).toBe('owner/repo#123');
-      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith(123, {
+      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith('owner/repo', 123, {
         postComment: true,
         defaultPriority: 2,
       });
@@ -56,7 +56,7 @@ describe('DecomposerHandler', () => {
       const result = await handler.execute(context);
 
       expect(result.success).toBe(true);
-      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith(456, {
+      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith('owner/repo', 456, {
         postComment: true,
         defaultPriority: 3,
       });
@@ -99,7 +99,7 @@ describe('DecomposerHandler', () => {
       const result = await handler.execute(context);
 
       expect(result.success).toBe(true);
-      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith(789, {
+      expect(mockEpicDecomposer.decompose).toHaveBeenCalledWith('test/repo', 789, {
         postComment: true, // default
         defaultPriority: 2, // default
       });

@@ -69,7 +69,7 @@ export class DecomposerHandler implements CapabilityHandler {
       };
     }
 
-    const result = await this.epicDecomposer.decompose(issueNumber, {
+    const result = await this.epicDecomposer.decompose(repository, issueNumber, {
       postComment,
       defaultPriority
     });

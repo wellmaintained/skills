@@ -2,7 +2,6 @@
  * Epic decomposer - orchestrates GitHub issue → Beads epic creation
  */
 
-import { ConfigManager } from '../config/config-manager.js';
 import { GitHubBackend } from '../backends/github.js';
 import { BeadsClient } from '../clients/beads-client.js';
 import { IssueParser } from './issue-parser.js';
@@ -16,42 +15,39 @@ import {
 
 /**
  * EpicDecomposer handles the complete workflow of decomposing a GitHub issue
- * into Beads epics across multiple repositories
+ * into Beads epics
  */
 export class EpicDecomposer {
-  private config: ConfigManager;
   private github: GitHubBackend;
   private beads: BeadsClient;
   private parser: IssueParser;
 
   constructor(
-    config: ConfigManager,
     github: GitHubBackend,
     beads: BeadsClient
   ) {
-    this.config = config;
     this.github = github;
     this.beads = beads;
-    this.parser = new IssueParser([...config.getRepositories()]);
+    this.parser = new IssueParser([]);
   }
 
   /**
    * Decompose a GitHub issue into Beads epics
    */
   async decompose(
+    githubRepo: string,
     issueNumber: number,
     options: DecompositionOptions = {}
   ): Promise<DecompositionResult> {
     try {
       // 1. Fetch GitHub issue
-      const githubRepo = this.config.getGitHub().repository;
       const issue = await this.github.getIssue(`${githubRepo}#${issueNumber}`);
 
-      // 2. Parse issue
+      // 2. Parse issue  
       const parsed = this.parser.parse(
         issue,
         githubRepo,
-        this.config.getGitHub().projectId
+        options.projectId?.toString()
       );
 
       // 3. Create epics in each repository
@@ -86,7 +82,7 @@ export class EpicDecomposer {
       };
     } catch (error) {
       return {
-        githubIssue: `${this.config.getGitHub().repository}#${issueNumber}`,
+        githubIssue: `${githubRepo}#${issueNumber}`,
         epics: [],
         totalTasks: 0,
         confirmationComment: '',
@@ -178,7 +174,7 @@ export class EpicDecomposer {
     request: EpicCreationRequest
   ): Promise<EpicCreationResult> {
     // Create epic
-    const epic = await this.beads.createEpic(request.repository, {
+    const epic = await this.beads.createEpic({
       title: request.title,
       description: request.description,
       priority: request.priority as 0 | 1 | 2 | 3 | 4,
@@ -190,7 +186,7 @@ export class EpicDecomposer {
     const childIssueIds: string[] = [];
 
     for (const task of request.tasks) {
-      const childIssue = await this.beads.createIssue(request.repository, {
+      const childIssue = await this.beads.createIssue({
         title: task,
         description: `Part of epic: ${epic.id}`,
         priority: request.priority as 0 | 1 | 2 | 3 | 4,
@@ -199,7 +195,6 @@ export class EpicDecomposer {
 
       // Link to epic
       await this.beads.addDependency(
-        request.repository,
         childIssue.id,
         epic.id,
         'parent-child'

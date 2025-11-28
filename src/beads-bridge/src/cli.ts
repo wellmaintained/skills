@@ -7,11 +7,8 @@
  */
 
 import { Command } from 'commander';
-import { createSkill } from './skill.js';
-import type { SkillCapability, SkillContext } from './types/skill.js';
 import { CredentialStore } from './auth/credential-store.js';
 import { GitHubOAuth } from './auth/github-oauth.js';
-import { withAuth } from './cli/auth-wrapper.js';
 import { createServeCommand } from './cli/commands/serve.js';
 import { createSyncCommand } from './cli/commands/sync.js';
 
@@ -26,40 +23,7 @@ program
   .description('CLI for Beads-GitHub Projects v2 integration')
   .version(version);
 
-// Configuration option available to all commands
-program.option(
-  '-c, --config <path>',
-  'path to config file',
-  process.env.BEADS_GITHUB_CONFIG || '.beads-bridge/config.json'
-);
 
-/**
- * Execute a capability and output JSON result
- */
-async function executeCapability(
-  capability: SkillCapability,
-  context: SkillContext,
-  options: { config: string },
-  backendOverride?: 'github' | 'shortcut'
-) {
-  try {
-    const skill = await createSkill(options.config, backendOverride);
-    const result = await skill.execute(capability, context);
-
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.success ? 0 : 1);
-  } catch (error) {
-    console.error(JSON.stringify({
-      success: false,
-      error: {
-        code: 'CLI_ERROR',
-        message: (error as Error).message,
-        stack: (error as Error).stack
-      }
-    }, null, 2));
-    process.exit(1);
-  }
-}
 
 // ============================================================================
 // Sync Command
@@ -73,36 +37,60 @@ program.addCommand(createSyncCommand());
 
 program
   .command('decompose')
-  .description('Decompose external issue (GitHub or Shortcut) into Beads epic and tasks')
-  .argument('<ref>', 'External reference (URL or shorthand: https://github.com/owner/repo/issues/123, github:owner/repo#123, shortcut:12345)')
+  .description('Decompose GitHub issue into Beads epic and tasks')
+  .argument('<ref>', 'External reference (URL or shorthand: https://github.com/owner/repo/issues/123, github:owner/repo#123)')
   .option('--no-comment', 'skip posting confirmation comment')
   .option('--priority <number>', 'default priority for created beads', '2')
+  .option('--project-id <id>', 'GitHub Project ID to add issues to')
   .action(async (ref, options) => {
-    const externalRef = ref;
+    const {  parseExternalRef } = await import('./utils/external-ref-parser.js');
+    const { GitHubBackend } = await import('./backends/github.js');
+    const { BeadsClient } = await import('./clients/beads-client.js');
+    const { EpicDecomposer } = await import('./decomposition/epic-decomposer.js');
+    const { CredentialStore } = await import('./auth/credential-store.js');
 
-    // Auto-detect backend from reference
-    const { detectBackendFromRef } = await import('./utils/external-ref-parser.js');
-    const detectedBackend = detectBackendFromRef(externalRef);
-    
-    if (!detectedBackend) {
-      console.error(JSON.stringify({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: `Cannot determine backend from reference: ${externalRef}`
-        }
-      }, null, 2));
+    try {
+      // Parse external ref
+      const parsed = parseExternalRef(ref);
+      
+      if (parsed.backend !== 'github') {
+        console.error('Error: Only GitHub issues are supported for decompose');
+        process.exit(1);
+      }
+
+      if (!parsed.repository || !parsed.issueNumber) {
+        console.error('Error: Invalid GitHub reference');
+        process.exit(1);
+      }
+
+      // Load credentials and create backend
+      const store = new CredentialStore();
+      const creds = await store.load();
+      const github = new GitHubBackend({ credentials: creds });
+      await github.authenticate();
+
+      // Create decomposer
+      const beads = new BeadsClient({});
+      const decomposer = new EpicDecomposer(github, beads);
+
+      // Decompose
+      const result = await decomposer.decompose(parsed.repository, parsed.issueNumber, {
+        postComment: options.comment,
+        defaultPriority: parseInt(options.priority),
+        projectId: options.projectId ? parseInt(options.projectId) : undefined
+      });
+
+      if (result.success) {
+        console.log(`✅ Decomposed ${result.githubIssue}`);
+        console.log(`   Created ${result.epics.length} epic(s) with ${result.totalTasks} total tasks`);
+      } else {
+        console.error(`❌ Decomposition failed: ${result.error}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error:', (error as Error).message);
       process.exit(1);
     }
-
-    await withAuth(detectedBackend, async () => {
-      const context: SkillContext = {
-        externalRef,
-        postComment: options.comment,
-        defaultPriority: parseInt(options.priority)
-      };
-      await executeCapability('decompose', context, program.opts());
-    });
   });
 
 // ============================================================================
@@ -268,78 +256,7 @@ authCommand
 // ============================================================================
 
 program
-  .command('init')
-  .description('Initialize .beads-bridge/config.json in current directory')
-  .option('-r, --repository <owner/repo>', 'GitHub repository (e.g., mrdavidlaing/pensive)')
-  .option('-b, --backend <type>', 'Backend type (github or shortcut)', 'github')
-  .action(async (options) => {
-    const fs = await import('fs/promises');
-    const path = await import('path');
 
-    try {
-      // Create .beads-bridge directory if it doesn't exist
-      await fs.mkdir('.beads-bridge', { recursive: true });
-
-      const configPath = '.beads-bridge/config.json';
-
-      // Check if config already exists
-      try {
-        await fs.access(configPath);
-        console.error(`Error: Configuration file already exists at ${configPath}`);
-        console.error('Use a different directory or remove the existing config first.');
-        process.exit(1);
-      } catch {
-        // Config doesn't exist, we can create it
-      }
-
-      // Prompt for repository if not provided
-      const repository = options.repository;
-      if (!repository) {
-        console.log('\nNo repository specified. Please provide:');
-        console.log('  beads-bridge init -r owner/repo');
-        console.log('\nExample:');
-        console.log('  beads-bridge init -r mrdavidlaing/pensive');
-        process.exit(1);
-      }
-
-      // Get absolute path to current directory
-      const currentDir = path.resolve(process.cwd());
-      const dirName = path.basename(currentDir);
-
-      // Create minimal config
-      const config = {
-        version: '2.0',
-        backend: options.backend,
-        [options.backend]: {
-          repository: repository
-        },
-        repositories: [
-          {
-            name: dirName,
-            path: currentDir
-          }
-        ],
-        logging: {
-          level: 'info'
-        }
-      };
-
-      // Write config file as JSON
-      await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
-      console.log(`✅ Created ${configPath}`);
-      console.log(`   Repository: ${dirName} (${currentDir})`);
-      console.log(`\nNext steps:`);
-      console.log(`1. Authenticate: beads-bridge auth ${options.backend}`);
-      console.log(`2. Test sync:    beads-bridge sync <bead-id>`);
-      console.log(`\nConfig location: ${path.resolve(configPath)}`);
-
-      process.exit(0);
-    } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
-      process.exit(1);
-    }
-  });
 
 // ============================================================================
 // Serve Command - Live Web Dashboard

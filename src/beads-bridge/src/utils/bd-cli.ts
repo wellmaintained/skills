@@ -119,7 +119,7 @@ export class BdCli {
     // Validate that the working directory exists before attempting to execute
     if (!existsSync(this.cwd)) {
       throw new BackendError(
-        `Repository path does not exist: ${this.cwd}. Check your .beads-bridge/config.json`,
+        `Repository path does not exist: ${this.cwd}`,
         'INVALID_REPO_PATH'
       );
     }
@@ -250,7 +250,7 @@ export class BdCli {
         );
       } else if (error.syscall === 'chdir') {
         return new BackendError(
-          `Invalid repository path: ${this.cwd}. Check your .beads-bridge/config.json`,
+          `Invalid repository path: ${this.cwd}`,
           'INVALID_REPO_PATH',
           undefined,
           error
