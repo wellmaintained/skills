@@ -11,7 +11,7 @@ import { createSkill } from './skill.js';
 import type { SkillCapability, SkillContext } from './types/skill.js';
 import { CredentialStore } from './auth/credential-store.js';
 import { GitHubOAuth } from './auth/github-oauth.js';
-import { withAuth, getBackendFromConfig } from './cli/auth-wrapper.js';
+import { withAuth } from './cli/auth-wrapper.js';
 import { createServeCommand } from './cli/commands/serve.js';
 import { createSyncCommand } from './cli/commands/sync.js';
 

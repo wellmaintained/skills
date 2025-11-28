@@ -59,7 +59,7 @@ export class ExpressServer {
     }
 
     // Serve favicon.ico from the frontend directory
-    this.app.get('/favicon.ico', (req: Request, res: Response) => {
+    this.app.get('/favicon.ico', (_req: Request, res: Response) => {
       const asset = this.assetManager.getStaticAsset('favicon.ico');
       if (asset) {
         res.type('image/x-icon');
