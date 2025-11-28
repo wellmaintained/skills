@@ -10,7 +10,7 @@ Before you begin, ensure you have:
 
 - [ ] **Node.js >= 18.0.0** installed ([download](https://nodejs.org/))
 - [ ] **Beads CLI (`bd`) >= v0.21.3** installed ([install guide](https://github.com/steveyegge/beads#installation))
-- [ ] At least one repository with Beads tracking initialized
+- [ ] At least one repository with Beads tracking initialized (`.beads/` directory)
 - [ ] A GitHub or Shortcut account with API access
 
 ---

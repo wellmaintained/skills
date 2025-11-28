@@ -22,7 +22,7 @@ This skill bridges Beads (git-backed multi-repository issue tracker) with projec
 
 **IMPORTANT:**
 - The `beads-bridge` CLI must be installed and available in PATH
-- Always run commands from the project root so the CLI can find `.beads-bridge/config.json`
+- Always run commands from the project root so CLI can find `.beads/` directory
 - If `beads-bridge` command not found, instruct user to install it (see Installation section below)
 
 ### Key Capabilities

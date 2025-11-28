@@ -25,26 +25,40 @@ Bidirectional sync between [Beads](https://github.com/steveyegge/beads) local is
 
 ## Configuration
 
-Beads-bridge v2.0 uses two separate configuration systems:
+Beads-bridge v2.0 uses **no configuration files** - everything is handled via:
 
-1. **Project Config** (`.beads-bridge/config.yaml`) - Project settings
-2. **Credentials** (`~/.config/beads-bridge/credentials.json`) - API tokens
+- **CLI flags** - Command-line options for each command
+- **Environment variables** - Optional overrides for common settings
+- **External references** - Backend and repository determined from issue `external_ref`
 
 ### Quick Start
 
 ```bash
-# Initialize project config
-beads-bridge init
+# Sync a bead (backend determined from external_ref)
+beads-bridge sync bd-123
 
-# Authenticate
-beads-bridge auth github    # For GitHub
-beads-bridge auth shortcut  # For Shortcut
+# Decompose a GitHub issue (repository parsed from external_ref)
+beads-bridge decompose https://github.com/owner/repo/issues/456
 
-# Verify setup
+# Authenticate with GitHub
+beads-bridge auth github
+
+# Check authentication status
 beads-bridge auth status
 ```
 
-See [Configuration Guide](./docs/CONFIGURATION.md) for complete documentation.
+### Environment Variables
+
+- `BEADS_LOG_LEVEL` - Override default log level (info, debug, warn, error)
+
+### No More Config Files
+
+The `.beads-bridge/config.json` file has been **removed**. All configuration is now handled through:
+- Command-line flags
+- Environment variables  
+- Auto-detection from `external_ref` fields
+
+This makes the tool much simpler to use and eliminates configuration management overhead.
 
 ### No CLI Dependencies
 
